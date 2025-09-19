@@ -3,7 +3,6 @@
 ## Team 
 
 | Name | CCID | Email |
-|---------|-------------|---------|
 | Advi Islam    | | sahi2@ualberta.ca |
 | Alex Ho    | | amho@ualberta.ca |
 | Excel Ojeifo | | eojeifo@ualberta.ca | 
