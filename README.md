@@ -1,2 +1,1 @@
-# f25project-DeptofComputingScience
-# f25project-DeptofComputingScience
+# Fall 2025 DeptofComputingScience
