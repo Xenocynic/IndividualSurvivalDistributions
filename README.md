@@ -25,3 +25,9 @@ Dept. of Computing Science
 |-|-|
 | Amir Salimi | asalimi@ualberta.ca |
 
+## Instructions
+
+### Documentation Edits
+
+1. NEVER TOUCH the gh-deploy branch
+2. Edit the md files to edit the documentation, commit changes to git, then run `mkdocs gh-deploy` 
