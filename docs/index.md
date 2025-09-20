@@ -1,17 +1,22 @@
-# Welcome to MkDocs
+# Welcome to EZ Survival Project Documentation!
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+## TA
 
-## Commands
+* Amir Salimi 
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+## Team
 
-## Project layout
+1. Advi Islam 
+2. Alex Ho
+3. Excel Ojeifo
+4. Hoang Nguyen
+5. Selena Chainani
+6. Shahmeer Rahman
+7. Yaatheshini Ashok Kumar
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+## Clients
+
+Dept. of Computing Science
+
+1. Russ Greiner
+2. Nasimeh Asgarian
