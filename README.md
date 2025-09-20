@@ -30,4 +30,5 @@ Dept. of Computing Science
 ### Documentation Edits
 
 1. NEVER TOUCH the gh-deploy branch
-2. Edit the md files to edit the documentation, commit changes to git, then run `mkdocs gh-deploy` 
+2. Edit the md files to edit the documentation, commit changes to git, then run `mkdocs gh-deploy`
+3. Check `https://ualberta-cmput401.github.io/f25project-DeptofComputingScience/`
