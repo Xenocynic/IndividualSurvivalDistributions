@@ -18,5 +18,5 @@
 
 Dept. of Computing Science
 
-1. Russ Greiner
-2. Nasimeh Asgarian
+* Russ Greiner
+* Nasimeh Asgarian

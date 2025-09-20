@@ -1,67 +1,35 @@
-# Gurgite tamen pluma
+# Software Design
 
-## Ambiguo Eurotas et laeter
+The software design document should be consistent with the requirements document, it should document and explain how the design will actually deliver the required features.
 
-Lorem markdownum caput, dixit vicem. Saucius *Taenarides* et vigili tergumque
-rursus. Candens Musa quae extremis agitabitur dabuntur terreat monstri Actaeona:
-natisque.
+There is no one "right" way to create this document. Use your best judgement to choose the notations and tools. In any case, make sure that this document is meaningful with respect to your system. Be selective in what you portray about the architecture -- don’t go into too much detail but don’t make it overly superficial either. Suppose a new developer comes to the project: describe what is not obvious and definitely important to know. As for practical guidelines, each diagram should be described and motivated; you should use a consistent naming convention, and key elements should be annotated with further comments to explain their roles.
 
-    nat = daemon_affiliate_ipv.publishing.basicShareware(pharmingGnu(
-            pda_virus_scroll(sata), unfriendSymbolicWimax(4, 4), olapRaw),
-            uriCommerceOnly);
-    if (excel(5 + 2, hashtag(gpsTerabyteBlob)) < read.telecommunications(
-            hackerLan, 1, text_blob_goodput) + keywords) {
-        bar_search += point + 5;
-        mca_page += smtpThyristor.midiPackWeb.disk(1, text, nui(rightScan,
-                text_fifo, bitrateCookie));
-    }
-    var transistor = engineMalwareRead;
-    var directIosWord = pebibyteTechnologyCompiler * refresh;
+Before getting started, refresh your understanding of UML, this book is recommended (chapters 1, 3, 4): https://learning.oreilly.com/library/view/uml-distilled-a/0321193687/.
 
-Nunc carinae inrumpere equi plus satis posita usurus, quinos ingrati postes.
-Sinus init primum esse, congerit quadriiugi, tibi reus bella committitur dixit,
-mihi, cum quod. Ad fratres sparsus cognovit os talia sequar idem; qui eunt
-crudelis Aethalion dum vidi. Hi vestri nefas subit victor, percussamque ictus
-suisque, ut omnibus claris. Suos procorum Haemoniae impetus nulla terque
-inposuere sacerdotes et flammas spissa, concita,
-[gravidae](#ambiguo-eurotas-et-laeter).
+## High-level Architecture
 
-    var youtube_utf_debug = upsPop;
-    var surge_type_webmaster = hypermedia_heuristic;
-    if (personal_tunneling_upnp) {
-        ntfs_core_tiff += only_push;
-        multiprocessing_station_cd(acl_thyristor_search, log, filenameCompiler);
-    } else {
-        hyper.heat_apple = chipsetCybersquatter(5, bmp_scsi) -
-                externalTag.record_telnet_camera(scalable);
-    }
+Most likely, you will not use any UML notation for the architecture diagram. You are free to invent your own style of architecture diagram. Include a useful legend. Refer to the examples discussed in class for guidance.
 
-## Nomen sensit madidis prima
+What’s the right scope of the architecture diagram? “One that’s big enough to be meaningful, small enough to be comprehensible, and cohesive enough to make sense.” Study this chapter to feel the gist of creating good software architecture diagrams: Make sure that your diagram includes all layers.
 
-In suos, este pugnae Athenae Philomela admovet! Igne *et aede* recepit istas
-septemplicis domos quoque Attis validosque aquas, in? **Claris crepitante
-sceptri** manet vosque, et serva receptus sumit; Idas rapta orba per **ait
-obambulat** medendi et. Ingentia igitur, mille funda. Opus in undae, age victa
-terga docebat euntis biformis quiete: in.
+You can have more than one diagram if your project’s complexity requires it.
 
-- Signum natas Bacche quamquam est
-- Non tubas quod
-- Ades quas duro capto annis supplex
+## UML Class Diagram
 
-Iniquae imo sua, ambage *plura umbras* induruit lacubus munera Ixione mediique
-manus, declivibus mecum. **Haud servat** trepidare Chaonis, es capiunt audit
-moveri dicere est ausus procul artus nec in quem tenebrae. Spelunca visus te
-`cdnPseudocodeSoap` inde inplacataeque udis. Sua `htmlAd` praemia aestuat
-vicimus [iterum](#gurgite-tamen-pluma) quo placare animi me erigitur easdem.
-Deficiunt carpit matris!
+Major data elements -> If you adopt an object-oriented style for your system, you can present the data as a UML Class diagram.
 
-Phineus saepe aliquid dumque, ope ictu lacertos factos Scyrum; dat vultus
-Aphareus. Stetit cui **miracula transferre** et inficit neque praereptae
-tendens! Et cur conubia turgida [gemini](#gurgite-tamen-pluma): licet veri
-*auras vidi lacrimisque* anxia *sorte pignora amplius*. Sinunt in nunc aquae
-enixa *quod* respiramen crimen fruges excedit.
+If your system is not naturally object-oriented, you can create an Entity Relationship diagram (ERD).
 
-Mea Procne suam tendi, illo cuius mihi artesque nocet domui. Debellata fera viro
-oranti sui fluctibus expalluit. In pater qua: rapto fuit, Polydorus datur dixit,
-nec imago ipse tollere laqueoque cessere? Inque aurea. Volucrum modo erit
-tamquam?
+## Sequence Diagrams
+
+Interaction scenarios -> To document the dynamic behaviour of the system, for each interesting feature, you should develop a UML Sequence diagram, with components as “objects” and calls between them. Think, which features of your system should be described as sequence diagrams.
+
+## Low-fidelity Wireframes
+
+Finally, you should develop low-fidelity sketches/wireframes of a few key screens. At this stage, it’s important to show the overall look and feel of your app, as well as the high-level user-interaction design. Low-fidelity wireframes are usually black and white.
+
+Looking at the wireframes, anyone should be able to get an idea of what will be developed. Test your wireframes with your client, encourage them to give feedback.
+
+## Tech Stack 
+
+List the possible tech stack you will be using. Include links and descriptions of any libraries, frameworks, and tools you will be using.
