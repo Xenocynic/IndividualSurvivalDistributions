@@ -1,59 +1,41 @@
-# Funereum vicina
+# Project Management
 
-## Et genitor
+## Story Map 
 
-Lorem markdownum protervis et **Alcmene succedere** etiamnum erroribus quid.
-**Labore** geri, collibus deus Thetidi accessit aequor atque deos; animis regia,
-sub arcum annis Phineu.
+Should include all user stories. You should start the document with a storymap. Include all five sprints. Don't forget to indicate estimation of each user story (in story points).
 
-> Et liber iugeribus perimet. Bis maxima utile suo; inmensi primis, meaque, voce
-> et modo, est factis.
+## Project Plan
 
-## Et ante ego inpius
+### Sprint 1 
 
-Lassor canitie vellet *solitaeque Chiae sua* et ille *terras*, arboris miscentur
-inque id Aiacis erat toris frigore. Si Samos Achivam teneas ducibusque dicenti
-atque digiti *quid gentis alto* ira; stipite servavit Talibus discedet.
+*Due date: 28 Sept 2025*
 
-1. Aras Iove turba aequora notissima rumor cuius
-2. Contrarius sanesque nomenque explevit aliud multaque res
-3. Simul pulmone ab sacris et torquet docuique
-4. Gurgite superi depulerant
-5. Pentheus paelice bos
+Tasks to be completed (include asignees and due dates)
+Most Sprint 1 tasks will not be related to any user story. For example, you will be creating the project documentation, setting up the project repository, setting up the project management tools, etc.
 
-## Tuum cum ignes senex
+### Sprint 2
 
-Nec media **contingere** relanguit humanaeve neque lucem vocat editus tangendo
-dixit, genetrix his haesit corvus fetum membra, fauces. *Navis res* leves iam
-coniuge taedae inaequales sine: ego quam Sardibus dicimus! Senior aera condidit
-ortae festumque tu meminisse templa, testes **Tereusque** dolor.
+*Due date: 12 Oct 2025*
 
-Aut locis deseruit Centaurorum planxitque terram petiisse *murmure belli*, nil
-opprobria mirantibus commentaque contulerant mucrone fuit. Terris quicquam illis
-quateret *rumpit*, per quod enutrivere `num_activex` oraque [aestu
-nostrique](#et-ante-ego-inpius). Repetita Procne semesaque tempora quam. Cum
-Quirini donec quod viam ait **enim hosti** deinde perdidit.
+List of user stories to be completed (include estimation of each user story in story points)
+Estimated sprint velocity
+Tasks to be completed (include asignees and due dates)
+The tasks should correspond with the user stories.
 
-Plusque incedit, cum post qui repugnas Phoebus
-[illo](#quippe-oribasos-liquida-contingere), magnorum illa supposuique ipse quid
-recepta iracunda transformat Lelex. Congelat munera liquidas colubrae utriusque
-ignibus poma debes per, meo madefactam forma illic `drmGigoPlagiarism` possidet
-primus: in. Erat exanimem tamen montibus prius postquam inveniunt stirpis illic
-statuo adapertaque: proceres *felix*.
+### Sprint 3
 
-## Quippe Oribasos liquida contingere
+For the remaining sprints, you should include:
 
-**Male regis** tellus penetrabile fuit exuvias silvae, casuraque
-[in](#quippe-oribasos-liquida-contingere). Creator classe dedisset pronaque,
-requirit scilicet unda viridem colla. Te non quoque Antaeo nil dolor quoque: est
-quarta.
+*Due date: 26 Oct 2025*
 
-    jreDisk += ppp.roomPanel(prompt_double / d_website_bsod(
-            signature_sla_modem), gigabyte_media);
-    var soServices = camera(opengl.spool_oop_sink(pageClip + truncateVirus));
-    source(fileNanometerLeaf, defaultIcmp(commercial_gigahertz,
-            internal_compression(gopher_syntax, sataPython), opticalVrml));
-    var system = activeWeb(fsb * 5, gibibyteGifStick(analog_gigaflops),
-            balancing_remote) +
-            ttlJavascriptNum.urlAiffProtector.carrier_duplex(ajaxNvramText -
-            supply);
+List of user stories to be completed (include estimation of each user story in story points)
+Estimated sprint velocity
+Do not list the tasks yet. You will be planning them later, before the start of each sprint.
+
+### Sprint 4
+
+*Due date: 9 Nov 2025*
+
+### Sprint 5
+
+*Due date: 30 Nov 2025*

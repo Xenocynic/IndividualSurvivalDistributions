@@ -1,48 +1,33 @@
-# Diva una moenibus gravis
+# Teamwork
 
-Lorem markdownum crinem, visa paterer ecce litore, petentem. Socerque omnes
-quod, dona in moenia pugnet, est superare! Aperto faciemque via alis ipsisque?
+This section includes three parts:
 
-    if (4 != printer(macro_hertz, 1)) {
-        module_dma *= webDatabaseLeaf;
-    } else {
-        tape_pretest += im_imap;
-    }
-    urlTrimToolbar = cycle_file_on + repository.ipIso(jfsCopySyntax);
-    if (85) {
-        affiliate.modeTroubleshootingArchive(27 * 966213, indexDdr);
-        kilohertz_access /= hdmi_public_bankruptcy(character_topology, hard,
-                management) + dbms_cmyk + 3;
-        camelcase_optic = adsl.commercialPaste(flat_volume_cookie, services,
-                hypermedia_vector);
-    }
-    p_insertion_cmos = toslink_smm.firewall_upnp_guid.dsl(
-            sessionNorthbridgeUat);
+## 1. Team canvas
 
-Patuit *spatiantur*, labori, flumina tuos fuerunt falsa; timor `skinInterface`
-portasque? Et duobus hasta, ex nisi Phryges loco dixit, est acta, satyrique
-pinguescere casas. Ipso seque coniuge. Tu secutus
-[iurant](#diva-una-moenibus-gravis) deus debilitaturum undas. Sequiturque
-avidaeque, est procul patriae, se lacrimasque litem caede potiuntur `data` donis
-sceleratae.
+The Team canvas should be based on the template found here http://theteamcanvas.com/use/. You must choose the Full version of the canvas.
 
-> Nate omnia, se a altae nudae quid humum propago maioris meritum memoraverit
-> circumdata nudos referre. Has at iunctus dant natus rigescunt superamur
-> linguae utque dextra, natus factus. Delamentatur possent *sacrisque terga*,
-> stridentibus omen.
+Use the instructions to facilitate the Team canvas session. An in-person session is recommended. However, if you choose an online format, you may use Mural or any other whiteboard tool. While creating your Team canvas, think about the high-level roles of each team member (e.g.: Scrum Master, Product Owner, Frontend Developer, Backend Developer, QA Engineer, DevOps Engineer, UI/UX Designer, Floater etc.). Think about which roles are necessary for your project. Each team member may be assigned to multiple roles, and each role may include multiple team members.
 
-Ingeniumque rostro consurgere quoque Paphius imber **et** laeta posuistis
-nimiique: ac redit perpetuum annis? Ferinae peti quod mediis aequor diffugiunt
-ademptum tamen [mihi inmergere](#diva-una-moenibus-gravis). Est age menti quae
-aras receptus accede velle, per generis cecidisse pocula.
+## 2. Scrum roles
 
-- Hic caelum tulerit dextra utinam
-- Inprobe pectora illo auctoremque modo animos tantus
-- Rerum acri linguae
-- Crines oro exsiluere placet flet vecta coepta
-- Et oculosque quod
+There are two special Scrum roles that must be defined for each sprint:
 
-Late oves nisi esset dolet radice bello secuta ab ambos omni perspicit,
-fratribus iam viva Iove novum munusque, est. Et haesura inspiratque discors
-teque, hunc *Aeaciden*, mihi nihil tulit habeat ferit suum, dixisse. Et vertice
-morti aethere aliena!
+Scrum Master
+Product Owner
+You may choose to elect a Scrum Master and Product Owner for the whole project or switch roles for each sprint so that more team members can get product management experience. A good overview of skills and responsibilities of a Scrum Master and a Product Owner: https://productmanagerhq.com/scrum-master-vs-product-owner/.
+
+Please define these roles in a section independent of the team canvas.
+
+## 3. Belbin team roles
+
+| Team Member | Preferred Roles | Manageable Roles | Least Preferred Roles | 
+|-|-|-|-|
+| Advi Islam | | | |
+| Alex Ho | | | | 
+| Excel Ojeifo | | | |
+| Hoang Nguyen | | | |
+| Selena Chainani | | | |
+| Shahmeer Rahman | | | |
+| Yaatheshini Ashok Kumar | | | | 
+
+Then, list all nine Belbin roles and, for each role, provide a brief description and a list of people who are able to fulfill that role.
