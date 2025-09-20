@@ -1,4 +1,4 @@
-# Fall 2025 DeptofComputingScience
+# Fall 2025 EZ Survival Project
 
 ## Team 
 
@@ -11,3 +11,17 @@
 | Selena Chainani | | chainani@ualberta.ca |
 | Shahmeer Rahman | | syedsha2@ualberta.ca |
 | Yaatheshini Ashok Kumar | | yaathesh@ualberta.ca | 
+
+## Clients
+Dept. of Computing Science
+
+| Name | Email |
+|-|-|
+| Russ Greiner | rgreiner@ualberta.ca |
+| Nasimeh Asgarian | asgarian@ualberta.ca |
+
+## TA
+| Name | Email |
+|-|-|
+| Amir Salimi | asalimi@ualberta.ca |
+
