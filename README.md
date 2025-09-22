@@ -4,7 +4,7 @@
 
 | Name | CCID | Email |
 |-|-|-|
-| Advi Islam | sahi 2| sahi2@ualberta.ca |
+| Advi Islam | sahi2 | sahi2@ualberta.ca |
 | Alex Ho | amho | amho@ualberta.ca |
 | Excel Ojeifo | eojeifo | eojeifo@ualberta.ca | 
 | Hoang Nguyen | hhn1 | hhn1@ualberta.ca |
