@@ -31,6 +31,9 @@ Product Owner
 | Yaatheshini Ashok Kumar | | | | 
 
 ### Belbin Roles Assigned + Order
+
+| Team Member | Belbim Roles |
+|-|-|
 | Advi Islam | SH, TW, CF, IMP, RI, CO, ME, PL, SP |
 | Alex Ho | SP, SH, CF, PL, IMP, CO, TW, ME, RI |
 | Excel Ojeifo | PL, CF, IMP, SP, ME, RI, CO, TW, SH |
