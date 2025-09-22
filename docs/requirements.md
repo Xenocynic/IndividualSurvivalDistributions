@@ -5,9 +5,9 @@
 EZ Survival Prediction is a brownfield project based on the existing PSSP survival prediction site. The current website is 7–8 years old, slow, and difficult to navigate, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. Our product will let machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters using various learning tools, evaluate the models using various metrics and run predictions on new unlabeled instances, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also provide secure storage, search, and evaluation of datasets and models. 
 
 Users will be able to:
-⦁ Upload a survival dataset (spreadsheet format) and train a survival model with adjustable parameters.
-⦁ View cross-validation and other evaluation metrics for the learned model.
-⦁ Run the trained model on new, unlabeled instances to obtain ISD predictions (time-probability distributions).
+* Upload a survival dataset (spreadsheet format) and train a survival model with adjustable parameters.
+* View cross-validation and other evaluation metrics for the learned model.
+* Run the trained model on new, unlabeled instances to obtain ISD predictions (time-probability distributions).
 
 Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.
 The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on

@@ -11,12 +11,12 @@ Should include all user stories. You should start the document with a storymap. 
 
 *Due date: 28 Sept 2025*
 
-#### Initial Setup (Charvi)
+##### Initial Setup (Charvi)
 
-#### Project Requirements Document (Charvi, Selena)
+##### Project Requirements Document (Charvi, Selena)
 		Mostly done. Selena Chainani to update a few sections.
 
-#### Software Design Document
+##### Software Design Document
     - High-level Architecture (Excel, Advi)
         Due: Wednesday, Sept 24
 
@@ -32,7 +32,7 @@ Should include all user stories. You should start the document with a storymap. 
     - Tech Stack
                 Discuss further with TA on Wednesday
 
-#### Project Management Document (Charvi, Selena)
+##### Project Management Document (Charvi, Selena)
     - Storymap
             Charvi will set up user issues on GitHub
             Discuss storymap structure and trajectory on Wednesday
@@ -40,12 +40,12 @@ Should include all user stories. You should start the document with a storymap. 
     - Project Plan 
             Selena will update this by Monday, Sept 22.
 
-#### Teamwork Document (Charvi, Selena)
+##### Teamwork Document (Charvi, Selena)
 		Everyone has been asked to send in their Belbin roles + preferences on the #teamwork-doc channel on Discord.
 		Discuss other specifics on Wednesday, Sept 24
 
-#### First Draft of All Deliverables Due: Thursday, Sept 25
-#### Confirm Submission: Friday, Sept 26
+##### First Draft of All Deliverables Due: Thursday, Sept 25
+##### Confirm Submission: Friday, Sept 26
 
 
 ### Sprint 2
