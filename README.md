@@ -4,13 +4,13 @@
 
 | Name | CCID | Email |
 |-|-|-|
-| Advi Islam    | | sahi2@ualberta.ca |
-| Alex Ho    | | amho@ualberta.ca |
-| Excel Ojeifo | | eojeifo@ualberta.ca | 
-| Hoang Nguyen | | hhn1@ualberta.ca |
-| Selena Chainani | | chainani@ualberta.ca |
-| Shahmeer Rahman | | syedsha2@ualberta.ca |
-| Yaatheshini Ashok Kumar | | yaathesh@ualberta.ca | 
+| Advi Islam | sahi 2| sahi2@ualberta.ca |
+| Alex Ho | amho | amho@ualberta.ca |
+| Excel Ojeifo | eojeifo | eojeifo@ualberta.ca | 
+| Hoang Nguyen | hhn1 | hhn1@ualberta.ca |
+| Selena Chainani | chainani | chainani@ualberta.ca |
+| Shahmeer Rahman | syedsha2 | syedsha2@ualberta.ca |
+| Yaatheshini Ashok Kumar | yaathesh | yaathesh@ualberta.ca | 
 
 ## Clients
 Dept. of Computing Science
