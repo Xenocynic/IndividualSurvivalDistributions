@@ -16,7 +16,7 @@
 
 ## Clients
 
-Dept. of Computing Science
+Department of Computing Science
 
 * Russ Greiner
 * Nasimeh Asgarian

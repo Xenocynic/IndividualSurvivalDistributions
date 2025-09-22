@@ -2,13 +2,33 @@
 
 ## Executive Summary
 
-This project's aim is to design and implement a website from the ground up that allows users to easily learn, evaluate and use Individual Survival Distributions (ISD). The current website has access issues, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. The new website is intended for researchers and will provide functionality to upload a survival dataset, train models with adjustable parameters, evaluate the models using various metrics and run predictions on new unlabeled instances. 
+EZ Survival Prediction is a brownfield project based on the existing PSSP survival prediction site. The current website is 7–8 years old, slow, and difficult to navigate, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. Our product will let machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters using various learning tools, evaluate the models using various metrics and run predictions on new unlabeled instances, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also provide secure storage, search, and evaluation of datasets and models. 
+
+Users will be able to:
+⦁ Upload a survival dataset (spreadsheet format) and train a survival model with adjustable parameters.
+⦁ View cross-validation and other evaluation metrics for the learned model.
+⦁ Run the trained model on new, unlabeled instances to obtain ISD predictions (time-probability distributions).
+
+Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.
+The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on
+
 
 ## Project Glossary
 
 * **ISD** - Individual Survival Distributions 
 
-* **LIU** - Logged-in user
+* **User** - A non-logged-in user. Can view public datasets.
+
+* **LIU** - Logged-in user. Can view all public datasets, and any private datasets they have been granted access to. Can train models and add new datasets.
+
+* **Superuser** - User with permission to view high-level statistics across all datasets/models (public and private). An admin, effectively.
+
+* **Uncensored data** - Complete data - a survival time that perfectly span's the patient's lifespan.
+
+* **Censored data** - The lower bound of survival time - that is, incomplete data regarding a patient. Prevalent across datasets and an issue addressed by the client's research.
+
+* **KM Curve (Kaplan-Meier)** - A standard survival function estimate used for comparisons.
+
 
 ## User Stories
 
@@ -269,20 +289,32 @@ User stories must be prioritized using the MoSCoW method.
 > * Visualizes images, video, 3D in an interactive UI
 > * Used for inpiration to clean the dataset before conducting predictions
 
+3. Other survival analysis libraries (R survival, Python lifelines) – for algorithm inspiration.
+
+4. Kaplan–Meier online calculators (various web tools).
+
+
 ## Open-source products
 
-Shi-ang Qi’s github that Prof. Greiner will share soon. 
+- Client’s colleagues’ (Shi-ang Qi) GitHub repository with existing learning tools (will be provided soon).
+- Public datasets from the “predictors” tab of old site (use as test data).
+
 
 ## Technical resources
+- PSSP User Guide (provided by client)
+- Cancer research NIPS paper dataset 
+- Client-provided slides and papers on the research being supported by the project
+- Ruby on Rails + every other aspect of the tech stack's documentation 
+
 
 ### Backend: 
 
-TBD
+potentially building off the older deployment - Ruby on Rails + C++ / R
 
 ### Frontend: 
 
-TBD
+React / Vite + TypeScript + Tailwind CSS + Zustand + React Router
 
 ### Deployment:
 
-TBD
+Not CoLab - still TBD
