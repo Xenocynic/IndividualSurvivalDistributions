@@ -32,7 +32,7 @@ Product Owner
 
 ### Belbin Roles Assigned + Order
 
-| Team Member | Belbim Roles |
+| Team Member | Belbin Roles |
 |-|-|
 | Advi Islam | SH, TW, CF, IMP, RI, CO, ME, PL, SP |
 | Alex Ho | SP, SH, CF, PL, IMP, CO, TW, ME, RI |
