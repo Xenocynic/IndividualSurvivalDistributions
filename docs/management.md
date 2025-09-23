@@ -31,7 +31,7 @@ Should include all user stories. You should start the document with a storymap. 
     - Tech Stack
         Discuss further with TA on Wednesday
 
-##### Project Management Document (Selena: Sept 21, Yaathehsini: Sept 22)
+##### Project Management Document (Selena: Sept 21, Yaatheshini: Sept 22)
     - User Issues Added on GitHub (Yaatheshini: Sept 22)
 
     - Storymap
@@ -39,9 +39,9 @@ Should include all user stories. You should start the document with a storymap. 
 
     - Project Plan (Selena: Sept 21)
 
-##### Teamwork Document (Charvi, Selena) Pending
+##### Teamwork Document (Yaatheshini, Selena) Pending
     - Team Canvas
-    
+
     - Belbin Roles
 		Everyone has been asked to send in their Belbin roles + preferences on the #teamwork-doc channel on Discord.
 		Discuss other specifics on Wednesday, Sept 24. Pending discussion with TA.
