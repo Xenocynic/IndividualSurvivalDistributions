@@ -116,12 +116,26 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#moscow">MoSCoW</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#must-have">Must Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#should-have">Should Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#could-have">Could Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#would-like-but-wont-get">Would Like But Won't Get</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#similar-products">Similar products</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#open-source-products">Open-source products</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#technical-resources">Technical resources</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#brownfield-documentation">Brownfield Documentation</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#backend">Backend:</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#frontend">Frontend:</a>
@@ -184,7 +198,7 @@
 </li>
 </ul>
 <p>Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.</p>
-<p>The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on</p>
+<p>The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on.</p>
 <h2 id="project-glossary">Project Glossary</h2>
 <ul>
 <li>
@@ -194,23 +208,22 @@
 <p><strong>User</strong> - A non-logged-in user. Can view public datasets.</p>
 </li>
 <li>
-<p><strong>LIU</strong> - Logged-in user. Can view all public datasets, and any private datasets they have been granted access to. Can train models and add new datasets.</p>
+<p><strong>LIU</strong> - A logged-in user. Can view all public datasets, and any private datasets they are permitted to view. Can also upload new datasets and train models.</p>
 </li>
 <li>
-<p><strong>Superuser</strong> - User with permission to view high-level statistics across all datasets/models (public and private). An admin, effectively.</p>
+<p><strong>Superuser</strong> - Admin with permission to view high-level statistics across all datasets/models (public and private). </p>
 </li>
 <li>
-<p><strong>Uncensored data</strong> - Complete data - a survival time that perfectly span's the patient's lifespan.</p>
+<p><strong>Uncensored Data</strong> - Survival time that fully captures the patient’s entire lifespan (i.e., complete data).</p>
 </li>
 <li>
-<p><strong>Censored data</strong> - The lower bound of survival time - that is, incomplete data regarding a patient. Prevalent across datasets and an issue addressed by the client's research.</p>
+<p><strong>Censored Data</strong> - Incomplete survival time information, representing only a lower bound of a patient’s lifespan. Prevalent across datasets and an issue addressed by the client's research.</p>
 </li>
 <li>
 <p><strong>KM Curve (Kaplan-Meier)</strong> - A standard survival function estimate used for comparisons.</p>
 </li>
 </ul>
 <h2 id="user-stories">User Stories</h2>
-<p>For each user story, you must formulate detailed acceptance tests.</p>
 <p>User stories must be prioritized using the MoSCoW method.</p>
 <h3 id="1-user-access">1. User Access</h3>
 <h4 id="us-11">US 1.1</h4>
@@ -379,7 +392,7 @@
 <p><br> </p>
 <h4 id="us-35">US 3.5</h4>
 <blockquote>
-<p>As a Superuser/Admin, I want to be able to analyze others' datasets, so that I can understand general usage. </p>
+<p>As a Superuser/Admin, I want to be able to view and analyze others' datasets, so that I can understand general usage. </p>
 </blockquote>
 <details>
 <summary>Acceptance Tests</summary><br> 
@@ -456,6 +469,11 @@
 
 </details>
 <p><br> </p>
+<h2 id="moscow">MoSCoW</h2>
+<h3 id="must-have">Must Have</h3>
+<h3 id="should-have">Should Have</h3>
+<h3 id="could-have">Could Have</h3>
+<h3 id="would-like-but-wont-get">Would Like But Won't Get</h3>
 <h2 id="similar-products">Similar products</h2>
 <ol>
 <li>
@@ -479,10 +497,10 @@
 </blockquote>
 </li>
 <li>
-<p>Other survival analysis libraries (R survival, Python lifelines) – for algorithm inspiration.</p>
+<p>Other survival analysis libraries (R survival, Python lifelines) for algorithm inspiration.</p>
 </li>
 <li>
-<p>Kaplan–Meier online calculators (various web tools).</p>
+<p>Kaplan–Meier online calculators (various web tools) for practical implementation techniques.</p>
 </li>
 </ol>
 <h2 id="open-source-products">Open-source products</h2>
@@ -491,18 +509,20 @@
 <li>Public datasets from the “predictors” tab of old site (use as test data).</li>
 </ul>
 <h2 id="technical-resources">Technical resources</h2>
+<h3 id="brownfield-documentation">Brownfield Documentation</h3>
+<blockquote>
 <ul>
-<li>PSSP User Guide (provided by client)</li>
-<li>Cancer research NIPS paper dataset </li>
-<li>Client-provided slides and papers on the research being supported by the project</li>
-<li>Ruby on Rails + every other aspect of the tech stack's documentation </li>
+<li><a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) </li>
+<li><a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a></li>
+<li>Presentations and papers on the research being supported by the project. (provided by client)</li>
 </ul>
+</blockquote>
 <h3 id="backend">Backend:</h3>
-<p>potentially building off the older deployment - Ruby on Rails + C++ / R</p>
+<p>Ruby on Rails + C++ / R</p>
 <h3 id="frontend">Frontend:</h3>
 <p>React / Vite + TypeScript + Tailwind CSS + Zustand + React Router</p>
 <h3 id="deployment">Deployment:</h3>
-<p>Not CoLab - still TBD</p>
+<p>TBD</p>
               
             </div>
           </div><footer>
