@@ -288,7 +288,7 @@ User stories must be prioritized using the MoSCoW method.
 
 ### Could Have
 
-### Would Like But Won't Get
+### Would Like But Won't Get<br>
 
 
 ## Similar products
@@ -305,13 +305,13 @@ User stories must be prioritized using the MoSCoW method.
 
 3. Other survival analysis libraries (R survival, Python lifelines) for algorithm inspiration.
 
-4. Kaplan–Meier online calculators (various web tools) for practical implementation techniques.
+4. Kaplan–Meier online calculators (various web tools) for practical implementation techniques.<br>
 
 
 ## Open-source products
 
 - Client’s colleagues’ (Shi-ang Qi) GitHub repository with existing learning tools (will be provided soon).
-- Public datasets from the “predictors” tab of old site (use as test data).
+- Public datasets from the “predictors” tab of old site (use as test data).<br>
 
 
 ## Technical resources
