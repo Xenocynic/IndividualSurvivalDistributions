@@ -11,16 +11,15 @@ Should include all user stories. You should start the document with a storymap. 
 
 *Due date: 28 Sept 2025*
 
-##### Initial Setup (Charvi)
+##### Initial MkDocs Setup and Sections Drafted (Yaatheshini: Sept 19)
 
-##### Project Requirements Document (Charvi, Selena)
-		Mostly done. Selena Chainani to update a few sections.
+##### Project Requirements Document Updation (Selena: Sept 21, Yaatheshini: Sept 22)
 
 ##### Software Design Document
     - High-level Architecture (Excel, Advi)
         Due: Wednesday, Sept 24
 
-    - UML Class Diagram (Charvi, Alex, Shahmeer)
+    - UML Class Diagram (Yaatheshini, Alex, Shahmeer)
         Due: Wednesday, Sept 24
 
     - Sequence Diagrams
@@ -30,19 +29,22 @@ Should include all user stories. You should start the document with a storymap. 
         Due: Wednesday, Sept 24
 
     - Tech Stack
-                Discuss further with TA on Wednesday
+        Discuss further with TA on Wednesday
 
-##### Project Management Document (Charvi, Selena)
+##### Project Management Document (Selena: Sept 21, Yaathehsini: Sept 22)
+    - User Issues Added on GitHub (Yaatheshini: Sept 22)
+
     - Storymap
-            Charvi will set up user issues on GitHub
-            Discuss storymap structure and trajectory on Wednesday
+        Discuss storymap structure and trajectory on Wednesday
 
-    - Project Plan 
-            Selena will update this by Monday, Sept 22.
+    - Project Plan (Selena: Sept 21)
 
-##### Teamwork Document (Charvi, Selena)
+##### Teamwork Document (Charvi, Selena) Pending
+    - Team Canvas
+    
+    - Belbin Roles
 		Everyone has been asked to send in their Belbin roles + preferences on the #teamwork-doc channel on Discord.
-		Discuss other specifics on Wednesday, Sept 24
+		Discuss other specifics on Wednesday, Sept 24. Pending discussion with TA.
 
 ##### First Draft of All Deliverables Due: Thursday, Sept 25
 ##### Confirm Submission: Friday, Sept 26
