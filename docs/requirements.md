@@ -311,7 +311,7 @@ User stories must be prioritized using the MoSCoW method.
 ## Open-source products
 
 - Client’s colleagues’ (Shi-ang Qi) GitHub repository with existing learning tools (will be provided soon).
-- Public datasets from the “predictors” tab of old site (use as test data).aaaaaaaaaa<br>
+- Public datasets from the “predictors” tab of old site (use as test data).<br>
 
 
 ## Technical resources
