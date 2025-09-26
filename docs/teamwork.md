@@ -8,13 +8,8 @@ This section includes three parts:
 
 ## 2. Scrum Roles
 
-There are two special Scrum roles that must be defined for each sprint:
-
-Scrum Master
-Product Owner
-
-(Currently electing Selena and Charvi as either of the roles - will decide whether we want to change this / alternate it as the Sprints progress.)
-
+- Scrum Master: Yaatheshini Ashok
+- Product Owner: Selena Chainani
 
 ## 3. Belbin Team Roles
 
