@@ -25,7 +25,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. User can click the button "Sign In With Google Account"
+
+> 2. User is prompted with a pop-up to choose their Google Account
+
+> 3. User can not sign up without a Google Account
 
 </details><br> 
 
@@ -36,7 +40,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. User is given the option to sign in using their UAlberta credentials Google Account
+
+> 2. User is validated in the database to be a Superuser/Admin
+
+> 3. User is given access to a separate Superuser/Admin tab
+
+> 4. With this tab, the Superuser/Admin can view all datasets and select them to view predictions
 
 </details><br> 
 
@@ -47,7 +57,15 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. User can navigate to an "upload dataset" button
+
+> 2. User can upload their dataset using a file upload for .csv files
+
+> 3. Tests to ensure all columns / rows are formatted in accordance to the machine learning model's requirements
+
+> 4. User is prompted with the detected errors, if there are any
+
+> 5. User is allowed to continue if no errors are detected
 
 </details><br> 
 
@@ -58,7 +76,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. When uploading or viewing their datasets, user can select privacy
+
+> 2. User can select other Google Accounts to share datasets when private
+
+> 3. User can share the link of the dataset to other users when public
 
 </details><br> 
 
@@ -69,7 +91,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. User can search for datasets using the search tab
+
+> 2. User can filter datasets by Owned, Shared, and Public
+
+> 3. Website searches and filters datasets based on user's filters
+
+> 4. User can select and view queried datasets
 
 </details><br> 
 
@@ -80,7 +108,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+> 1. User can search through all datasets
+
+> 2. When searching, Superuser/Admin can add a filter to search for all datasets
+
+> 3. Statistics are automatically collected by the website
 
 </details><br> 
 
