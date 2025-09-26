@@ -25,7 +25,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can click the button "Sign In With Google Account"<br>
+
+2. User is prompted with a pop-up to choose their Google Account<br>
+
+3. User can not sign up without a Google Account<br>
 
 </details><br> 
 
@@ -36,7 +40,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User is given the option to sign in using their UAlberta credentials Google Account<br>
+
+2. User is validated in the database to be a Superuser/Admin<br>
+
+3. User is given access to a separate Superuser/Admin tab<br>
+
+4. With this tab, the Superuser/Admin can view all datasets and select them to view predictions<br>
 
 </details><br> 
 
@@ -47,7 +57,15 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can navigate to an "upload dataset" button<br>
+
+2. User can upload their dataset using a file upload for .csv files<br>
+
+3. Tests to ensure all columns / rows are formatted in accordance to the machine learning model's requirements<br>
+
+4. User is prompted with the detected errors, if there are any<br>
+
+5. User is allowed to continue if no errors are detected<br>
 
 </details><br> 
 
@@ -58,7 +76,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. When uploading or viewing their datasets, user can select privacy<br>
+
+2. User can select other Google Accounts to share datasets when private<br>
+
+3. User can share the link of the dataset to other users when public<br>
 
 </details><br> 
 
@@ -69,7 +91,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can search for datasets using the search tab<br>
+
+2. User can filter datasets by Owned, Shared, and Public<br>
+
+3. Website searches and filters datasets based on user's filters<br>
+
+4. User can select and view queried datasets<br>
 
 </details><br> 
 
@@ -80,7 +108,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can search through all datasets<br>
+
+2. When searching, Superuser/Admin can add a filter to search for all datasets<br>
+
+3. Statistics are automatically collected by the<br>
 
 </details><br> 
 
@@ -93,7 +125,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can see available learning tools on a dataset's information page<br>
+
+2. Interface displays information about which learning tool was used for each dataset<br>
 
 </details><br> 
 
@@ -104,7 +138,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can select learners for different datasets<br>
+
+2. System automatically saves trained models in "versions"<br>
+
+3. User can access different versions of learners on the dataset's page<br>
 
 </details><br> 
 
@@ -115,7 +153,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can select betwen different learning tools on dataset information page<br>
+
+2. Website displays all learning tools with their own required parameters<br>
 
 </details><br> 
 
@@ -126,7 +166,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can see cross-validation evaluation for learned models on a dataset information page<br>
+
+2. User can view a variety of metrics of the model's cross-validation<br>
 
 </details><br> 
 
@@ -139,7 +181,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can upload .csv files using an "upload dataset" button<br>
+
+2. Website will validate and ensure the file is formatted properly<br>
 
 </details><br> 
 
@@ -150,7 +194,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can run learned survival models on unlabeled instances using the database information page<br>
 
 </details><br> 
 
@@ -161,7 +205,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can view ISD predictions on the prediction information page<br>
+
+2. User can view generated graphs and tweak graph settings<br>
+
+3. User can easily download and store graphs<br>
 
 </details><br> 
 
@@ -172,7 +220,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can view all metrics of learned models on the prediction information page<br>
 
 </details><br> 
 
@@ -183,7 +231,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can view others' dataset usage on an admin panel<br>
+
+2. User can view all dataset usage statistics<br>
 
 </details><br> 
 
@@ -194,7 +244,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can view all feature, instance, and censor rate for each dataset on the dataset information page<br>
+
+2. User can download information and statistics using this page<br>
 
 </details><br> 
 
@@ -207,18 +259,24 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User will be able to watch a guided video on the "help" page of the website<br>
+
+2. User will also be able to read more detailed instructions on this help page<br>
 
 </details><br> 
 
 #### US 4.2 
 
-> As a user, I want a guided tour, so that I can get familair using the different features and models on the website. 
+> As a user, I want a guided tour, so that I can get familiar using the different features and models on the website. 
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User will be prompted to start a guided tour when visiting the website for the first time on their google account<br>
+
+2. Various buttons and sections of the website will be highlighted<br>
+
+3. Text will describe what each section is for and how to use it<br>
 
 </details><br> 
 
@@ -231,7 +289,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User will be able to download results/graphs/statistics on the prediction information page<br>
 
 </details><br> 
 
@@ -242,7 +300,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User can change specific settings regarding "de-censoring"<br>
+
+2. User can generate more precise predictions by specifying censoring information<br>
 
 </details><br> 
 
@@ -253,7 +313,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-...
+1. User will be able to download an excel/SPSS add-on from their respective tooling services
+
+2. The add-on will assist in displaying information to the user
 
 </details><br> 
 
@@ -271,7 +333,11 @@ User stories must be prioritized using the MoSCoW method.
 
 ## Open-source products
 
-Shi-ang Qi’s github that Prof. Greiner will share soon. 
+1. <a href="https://github.com/shi-ang/SurvivalEVAL" target="_blank">MAE-PO (SurvivalEVAL)</a>
+
+2. <a href="https://github.com/shi-ang/MakeSurvivalCalibratedAgain" target="_blank">CSD/CiPOT (MakeSurvivalCalibratedAgain)</a>
+
+3. <a href="https://github.com/shi-ang/BNN-ISD" target="_blank">BNN-ISD</a>
 
 ## Technical resources
 
