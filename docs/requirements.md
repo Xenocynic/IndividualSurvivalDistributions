@@ -2,17 +2,39 @@
 
 ## Executive Summary
 
-This project's aim is to design and implement a website from the ground up that allows users to easily learn, evaluate and use Individual Survival Distributions (ISD). The current website has access issues, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. The new website is intended for researchers and will provide functionality to upload a survival dataset, train models with adjustable parameters, evaluate the models using various metrics and run predictions on new unlabeled instances. 
+EZ Survival Prediction is a brownfield project based on the existing PSSP survival prediction site. The current website is 7–8 years old, slow, and difficult to navigate, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. Our product will let machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters using various learning tools, evaluate the models using various metrics and run predictions on new unlabeled instances, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also allow the secure storage, search, and evaluation of datasets and models. 
+
+Users will be able to:
+
+* Upload a survival dataset (spreadsheet format) and train a survival model with adjustable parameters.
+
+* View cross-validation and other evaluation metrics for the learned model.
+
+* Run the trained model on new, unlabeled instances to obtain ISD predictions (time-probability distributions).
+
+Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.
+
+The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on.
+
 
 ## Project Glossary
 
 * **ISD** - Individual Survival Distributions 
 
-* **LIU** - Logged-in user
+* **User** - A non-logged-in user. Can view public datasets.
+
+* **LIU** - A logged-in user. Can view all public datasets, and any private datasets they are permitted to view. Can also upload new datasets and train models.
+
+* **Superuser** - Admin with permission to view high-level statistics across all datasets/models (public and private). 
+
+* **Uncensored Data** - Survival time that fully captures the patient’s entire lifespan (i.e., complete data).
+
+* **Censored Data** - Incomplete survival time information, representing only a lower bound of a patient’s lifespan. Prevalent across datasets and an issue addressed by the client's research.
+
+* **KM Curve (Kaplan-Meier)** - A standard survival function estimate used for comparisons.
+
 
 ## User Stories
-
-For each user story, you must formulate detailed acceptance tests.
 
 User stories must be prioritized using the MoSCoW method.
 
@@ -226,7 +248,7 @@ User stories must be prioritized using the MoSCoW method.
 
 #### US 3.5 
 
-> As a Superuser/Admin, I want to be able to analyze others' datasets, so that I can understand general usage. 
+> As a Superuser/Admin, I want to be able to view and analyze others' datasets, so that I can understand general usage. 
 
 <details>
 <summary>Acceptance Tests</summary><br> 
@@ -319,6 +341,18 @@ User stories must be prioritized using the MoSCoW method.
 
 </details><br> 
 
+
+## MoSCoW
+
+### Must Have
+
+### Should Have
+
+### Could Have
+
+### Would Like But Won't Get<br>
+
+
 ## Similar products
 
 1. <a href="https://mlconsole.com/" target="_blank">ML Console</a>
@@ -331,6 +365,11 @@ User stories must be prioritized using the MoSCoW method.
 > * Visualizes images, video, 3D in an interactive UI
 > * Used for inpiration to clean the dataset before conducting predictions
 
+3. Other survival analysis libraries (R survival, Python lifelines) for algorithm inspiration.
+
+4. Kaplan–Meier online calculators (various web tools) for practical implementation techniques.<br>
+
+
 ## Open-source products
 
 1. <a href="https://github.com/shi-ang/SurvivalEVAL" target="_blank">MAE-PO (SurvivalEVAL)</a>
@@ -341,13 +380,18 @@ User stories must be prioritized using the MoSCoW method.
 
 ## Technical resources
 
+### Brownfield Documentation
+>- <a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) 
+>- <a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a>
+>- Presentations and papers on the research being supported by the project. (provided by client)
+
 ### Backend: 
 
-TBD
+Ruby on Rails + C++ / R
 
 ### Frontend: 
 
-TBD
+React / Vite + TypeScript + Tailwind CSS + Zustand + React Router
 
 ### Deployment:
 
