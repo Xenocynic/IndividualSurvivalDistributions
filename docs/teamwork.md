@@ -8,8 +8,8 @@ This section includes three parts:
 
 ## 2. Scrum Roles
 
-- Scrum Master: Yaatheshini Ashok
-- Product Owner: Selena Chainani
+- Scrum Master  : Yaatheshini Ashok
+- Product Owner : Selena Chainani
 
 ## 3. Belbin Team Roles
 
