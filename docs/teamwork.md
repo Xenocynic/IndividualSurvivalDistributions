@@ -16,7 +16,7 @@ This section includes three parts:
 | Team Member | Preferred Roles | Manageable Roles | Least Preferred Roles | 
 |-|-|-|-|
 | Advi Islam | SH, TW, IMP | CF, RI , CO | ME, PL, SP |
-| Alex Ho | RI, SP, IMP, CF, TW | ME, SH, CO | SH | 
+| Alex Ho | RI, SP, IMP, CF, TW | ME, PL, CO | SH | 
 | Excel Ojeifo | PL, CF, IMP | SP, ME, RI | CO, TW, SH |
 | Hoang Nguyen | PL, IMP, SP, SH, CF | TW, ME | RI, CO |
 | Selena Chainani | PL, CO, CF, IMP | TW, ME, SH, SP | RI |
@@ -30,13 +30,31 @@ This section includes three parts:
 
 > *Tends to be highly creative and good at solving problems in unconventional ways.* 
 
+>>1. Excel Ojeifo (Preferred)
+>>2. Hoang Nguyen (Preferred)
+>>3. Selena Chainani (Preferred)
+>>4. Shahmeer Rahman (Manageable)
+>>5. Yaatheshini Ashok Kumar (Manageable)
+
 #### ME (Monitor Evaluator)
 
 > *Provides a logical eye, making impartial judgements where required and weighs up the team's options in a dispassionate way.* 
 
+>>1. Shahmeer Rahman (Preferred)
+>>2. Alex Ho (Manageable)
+>>3. Excel Ojeifo (Manageable)
+>>4. Hoang Nguyen (Manageable)
+>>5. Selena Chainani (Manageable)
+>>6. Yaatheshini Ashok Kumar (Manageable)
+
 #### SP (Specialist)
 
 > *Brings in-depth knowledge of a key area to the team.* 
+
+>>1. Alex Ho (Preferred)
+>>2. Hoang Nguyen (Preferred)
+>>3. Excel Ojeifo (Manageable)
+>>4. Selena Chainani (Manageable)
 
 
 ### Action Roles
@@ -45,13 +63,34 @@ This section includes three parts:
 
 > *Provides the necessary drive to ensure that the team keeps moving and does not lose focus or momentum.* 
 
+>>1. Advi Islam (Preferred)
+>>2. Hoang Nguyen (Preferred)
+>>3. Yaatheshini Ashok Kumar (Preferred)
+>>4. Selena Chainani (Manageable)
+
 #### IMP (Implementer)
 
 > *Needed to plan a workable strategy and carry it out as efficiently as possible.* 
 
+>>1. Advi Islam (Preferred)
+>>2. Alex Ho (Preferred)
+>>3. Excel Ojeifo (Preferred)
+>>4. Hoang Nguyen (Preferred)
+>>5. Selena Chainani (Preferred)
+>>6. Shahmeer Rahman (Manageable)
+>>7. Yaatheshini Ashok Kumar (Manageable)
+
 #### CF (Completer Finisher)
 
 > *Most effectively used at the end of tasks to polish and scrutinise the work for errors, subjecting it to the highest standards of quality control.* 
+
+>>1. Alex Ho (Preferred)
+>>2. Excel Ojeifo (Preferred)
+>>3. Hoang Nguyen (Preferred)
+>>4. Selena Chainani (Preferred)
+>>5. Shahmeer Rahman (Preferred)
+>>6. Yaatheshini Ashok Kumar (Preferred)
+>>7. Advi Islam (Manageable)
 
 
 ### People Roles
@@ -60,10 +99,27 @@ This section includes three parts:
 
 > *Uses their inquisitive nature to find ideas to bring back to the team.* 
 
+>>1. Alex Ho (Preferred)
+>>2. Advi Islam (Manageable)
+>>3. Excel Ojeifo (Manageable)
+
 #### TW (Teamworker)
 
 > *Helps the team to gel, using their versatility to identify the work required and complete it on behalf of the team.* 
 
+>>1. Advi Islam (Preferred)
+>>2. Alex Ho (Preferred)
+>>3. Shahmeer Rahman (Preferred)
+>>4. Yaatheshini Ashok Kumar (Preferred)
+>>5. Hoang Nguyen (Manageable)
+>>6. Selena Chainani (Manageable)
+
 #### CO (Co-ordinator)
 
 > *Needed to focus on the team's objectives, draw out team members and delegate work appropriately.* 
+
+>>1. Selena Chainani (Preferred)
+>>2. Yaatheshini Ashok Kumar (Preferred)
+>>3. Advi Islam (Manageable)
+>>4. Alex Ho (Manageable)
+>>5. Shahmeer Rahman (Manageable)
