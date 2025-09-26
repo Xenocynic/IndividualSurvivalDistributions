@@ -2,13 +2,11 @@
 
 This section includes three parts:
 
-## 1. Team canvas
+## 1. Team Canvas
 
-The Team canvas should be based on the template found here http://theteamcanvas.com/use/. You must choose the Full version of the canvas.
+![Team Canvas](canvas.jpg)
 
-Use the instructions to facilitate the Team canvas session. An in-person session is recommended. However, if you choose an online format, you may use Mural or any other whiteboard tool. While creating your Team canvas, think about the high-level roles of each team member (e.g.: Scrum Master, Product Owner, Frontend Developer, Backend Developer, QA Engineer, DevOps Engineer, UI/UX Designer, Floater etc.). Think about which roles are necessary for your project. Each team member may be assigned to multiple roles, and each role may include multiple team members.
-
-## 2. Scrum roles
+## 2. Scrum Roles
 
 There are two special Scrum roles that must be defined for each sprint:
 
