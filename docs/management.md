@@ -6,12 +6,49 @@ Should include all user stories. You should start the document with a storymap. 
 
 ## Project Plan
 
+
 ### Sprint 1 
 
 *Due date: 28 Sept 2025*
 
-Tasks to be completed (include asignees and due dates)
-Most Sprint 1 tasks will not be related to any user story. For example, you will be creating the project documentation, setting up the project repository, setting up the project management tools, etc.
+##### Initial MkDocs Setup and Sections Drafted (Yaatheshini: Sept 19)
+
+##### Project Requirements Document Updation (Selena: Sept 21, Yaatheshini: Sept 22)
+
+##### Software Design Document
+    - High-level Architecture (Excel, Advi)
+        Due: Wednesday, Sept 24
+
+    - UML Class Diagram (Yaatheshini, Alex, Shahmeer)
+        Due: Wednesday, Sept 24
+
+    - Sequence Diagrams
+        Dependent on UML Class Diagram - will revisit Wednesday 
+
+    - Low-fidelity Wireframes (Selena, Hoang)
+        Due: Wednesday, Sept 24
+
+    - Tech Stack
+        Discuss further with TA on Wednesday
+
+##### Project Management Document (Selena: Sept 21, Yaatheshini: Sept 22)
+    - User Issues Added on GitHub (Yaatheshini: Sept 22)
+
+    - Storymap
+        Discuss storymap structure and trajectory on Wednesday
+
+    - Project Plan (Selena: Sept 21)
+
+##### Teamwork Document (Yaatheshini, Selena) Pending
+    - Team Canvas
+
+    - Belbin Roles
+		Everyone has been asked to send in their Belbin roles + preferences on the #teamwork-doc channel on Discord.
+		Discuss other specifics on Wednesday, Sept 24. Pending discussion with TA.
+
+##### First Draft of All Deliverables Due: Thursday, Sept 25
+##### Confirm Submission: Friday, Sept 26
+
 
 ### Sprint 2
 

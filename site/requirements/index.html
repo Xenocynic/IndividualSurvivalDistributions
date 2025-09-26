@@ -116,12 +116,26 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#moscow">MoSCoW</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#must-have">Must Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#should-have">Should Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#could-have">Could Have</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#would-like-but-wont-get">Would Like But Won't Get</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#similar-products">Similar products</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#open-source-products">Open-source products</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#technical-resources">Technical resources</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#brownfield-documentation">Brownfield Documentation</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#backend">Backend:</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#frontend">Frontend:</a>
@@ -170,18 +184,46 @@
               
                 <h1 id="project-requirements">Project Requirements</h1>
 <h2 id="executive-summary">Executive Summary</h2>
-<p>This project's aim is to design and implement a website from the ground up that allows users to easily learn, evaluate and use Individual Survival Distributions (ISD). The current website has access issues, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. The new website is intended for researchers and will provide functionality to upload a survival dataset, train models with adjustable parameters, evaluate the models using various metrics and run predictions on new unlabeled instances. </p>
+<p>EZ Survival Prediction is a brownfield project based on the existing PSSP survival prediction site. The current website is 7–8 years old, slow, and difficult to navigate, and the existing tools for learning and evaluating ISD models are slow, cumbersome and lack extensive features. Our product will let machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters using various learning tools, evaluate the models using various metrics and run predictions on new unlabeled instances, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also allow the secure storage, search, and evaluation of datasets and models. </p>
+<p>Users will be able to:</p>
+<ul>
+<li>
+<p>Upload a survival dataset (spreadsheet format) and train a survival model with adjustable parameters.</p>
+</li>
+<li>
+<p>View cross-validation and other evaluation metrics for the learned model.</p>
+</li>
+<li>
+<p>Run the trained model on new, unlabeled instances to obtain ISD predictions (time-probability distributions).</p>
+</li>
+</ul>
+<p>Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.</p>
+<p>The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on.</p>
 <h2 id="project-glossary">Project Glossary</h2>
 <ul>
 <li>
 <p><strong>ISD</strong> - Individual Survival Distributions </p>
 </li>
 <li>
-<p><strong>LIU</strong> - Logged-in user</p>
+<p><strong>User</strong> - A non-logged-in user. Can view public datasets.</p>
+</li>
+<li>
+<p><strong>LIU</strong> - A logged-in user. Can view all public datasets, and any private datasets they are permitted to view. Can also upload new datasets and train models.</p>
+</li>
+<li>
+<p><strong>Superuser</strong> - Admin with permission to view high-level statistics across all datasets/models (public and private). </p>
+</li>
+<li>
+<p><strong>Uncensored Data</strong> - Survival time that fully captures the patient’s entire lifespan (i.e., complete data).</p>
+</li>
+<li>
+<p><strong>Censored Data</strong> - Incomplete survival time information, representing only a lower bound of a patient’s lifespan. Prevalent across datasets and an issue addressed by the client's research.</p>
+</li>
+<li>
+<p><strong>KM Curve (Kaplan-Meier)</strong> - A standard survival function estimate used for comparisons.</p>
 </li>
 </ul>
 <h2 id="user-stories">User Stories</h2>
-<p>For each user story, you must formulate detailed acceptance tests.</p>
 <p>User stories must be prioritized using the MoSCoW method.</p>
 <h3 id="1-user-access">1. User Access</h3>
 <h4 id="us-11">US 1.1</h4>
@@ -350,7 +392,7 @@
 <p><br> </p>
 <h4 id="us-35">US 3.5</h4>
 <blockquote>
-<p>As a Superuser/Admin, I want to be able to analyze others' datasets, so that I can understand general usage. </p>
+<p>As a Superuser/Admin, I want to be able to view and analyze others' datasets, so that I can understand general usage. </p>
 </blockquote>
 <details>
 <summary>Acceptance Tests</summary><br> 
@@ -427,6 +469,11 @@
 
 </details>
 <p><br> </p>
+<h2 id="moscow">MoSCoW</h2>
+<h3 id="must-have">Must Have</h3>
+<h3 id="should-have">Should Have</h3>
+<h3 id="could-have">Could Have</h3>
+<h3 id="would-like-but-wont-get">Would Like But Won't Get<br></h3>
 <h2 id="similar-products">Similar products</h2>
 <ol>
 <li>
@@ -449,14 +496,31 @@
 </ul>
 </blockquote>
 </li>
+<li>
+<p>Other survival analysis libraries (R survival, Python lifelines) for algorithm inspiration.</p>
+</li>
+<li>
+<p>Kaplan–Meier online calculators (various web tools) for practical implementation techniques.<br></p>
+</li>
 </ol>
 <h2 id="open-source-products">Open-source products</h2>
-<p>Shi-ang Qi’s github that Prof. Greiner will share soon. </p>
+<ul>
+<li>Client’s colleagues’ (Shi-ang Qi) GitHub repository with existing learning tools (will be provided soon).</li>
+<li>Public datasets from the “predictors” tab of old site (use as test data).<br></li>
+</ul>
 <h2 id="technical-resources">Technical resources</h2>
+<h3 id="brownfield-documentation">Brownfield Documentation</h3>
+<blockquote>
+<ul>
+<li><a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) </li>
+<li><a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a></li>
+<li>Presentations and papers on the research being supported by the project. (provided by client)</li>
+</ul>
+</blockquote>
 <h3 id="backend">Backend:</h3>
-<p>TBD</p>
+<p>Ruby on Rails + C++ / R</p>
 <h3 id="frontend">Frontend:</h3>
-<p>TBD</p>
+<p>React / Vite + TypeScript + Tailwind CSS + Zustand + React Router</p>
 <h3 id="deployment">Deployment:</h3>
 <p>TBD</p>
               
