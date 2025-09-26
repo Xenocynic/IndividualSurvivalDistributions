@@ -13,15 +13,15 @@ This section includes three parts:
 
 ## 3. Belbin Team Roles
 
-| Team Member | Belbin Roles | Preferred Roles | Manageable Roles | Least Preferred Roles | 
-|-|-|-|-|-|
-| Advi Islam | SH, TW, CF, IMP, RI, CO, ME, PL, SP | SH, TW, IMP | CF, RI , CO | ME, PL, SP |
-| Alex Ho | SP, SH, CF, PL, IMP, CO, TW, ME, RI | RI, SP, IMP, CF, TW | ME, SH, CO | SH | 
-| Excel Ojeifo | PL, CF, IMP, SP, ME, RI, CO, TW, SH | PL, CF, IMP | SP, ME, RI | CO, TW, SH |
-| Hoang Nguyen | PL, CO, ME, IMP, RI, SP, SH, TW, CF | PL, IMP, SP, SH, CF | TW, ME | RI, CO |
-| Selena Chainani | CF, CO, PL, RI, SH, IMP, ME, TW, SP | PL, CO, CF, IMP | TW, ME, SH, SP | RI |
-| Shahmeer Rahman | | | |
-| Yaatheshini Ashok Kumar | CF, CO, SH, IMP, ME, PL, TW, SP, RI | CF, CO, SH, TW | IMP, ME, PL | SP, RI | 
+| Team Member | Preferred Roles | Manageable Roles | Least Preferred Roles | 
+|-|-|-|-|
+| Advi Islam | SH, TW, IMP | CF, RI , CO | ME, PL, SP |
+| Alex Ho | RI, SP, IMP, CF, TW | ME, SH, CO | SH | 
+| Excel Ojeifo | PL, CF, IMP | SP, ME, RI | CO, TW, SH |
+| Hoang Nguyen | PL, IMP, SP, SH, CF | TW, ME | RI, CO |
+| Selena Chainani | PL, CO, CF, IMP | TW, ME, SH, SP | RI |
+| Shahmeer Rahman | ME, CF, TW | PL, IMP, CO | SP, SH, RI |
+| Yaatheshini Ashok Kumar | CF, CO, SH, TW | IMP, ME, PL | SP, RI | 
 
 
 ### Thinking Roles
