@@ -1,30 +1,26 @@
 # Software Design
 
-The software design document should be consistent with the requirements document, it should document and explain how the design will actually deliver the required features.
+This page includes a short description of the overall architecture style of the system, its high-level system components, and their logical (what data they exchange) and control (how they invoke each other) dependencies.
 
-There is no one "right" way to create this document. Use your best judgement to choose the notations and tools. In any case, make sure that this document is meaningful with respect to your system. Be selective in what you portray about the architecture -- don’t go into too much detail but don’t make it overly superficial either. Suppose a new developer comes to the project: describe what is not obvious and definitely important to know. As for practical guidelines, each diagram should be described and motivated; you should use a consistent naming convention, and key elements should be annotated with further comments to explain their roles.
+## High-level Architecture 
 
-Before getting started, refresh your understanding of UML, this book is recommended (chapters 1, 3, 4): https://learning.oreilly.com/library/view/uml-distilled-a/0321193687/.
+*This is a short description of the architecture.*
 
-## High-level Architecture (Excel, Advi)
+[![Software Design](design.jpg)](design.jpg){target=_blank}
 
-Most likely, you will not use any UML notation for the architecture diagram. You are free to invent your own style of architecture diagram. Include a useful legend. Refer to the examples discussed in class for guidance.
+## UML Class Diagram
 
-What’s the right scope of the architecture diagram? “One that’s big enough to be meaningful, small enough to be comprehensible, and cohesive enough to make sense.” Study this chapter to feel the gist of creating good software architecture diagrams: Make sure that your diagram includes all layers.
+*This is a short description of logical entities of the domain in a UML diagram.*
 
-You can have more than one diagram if your project’s complexity requires it.
+[![UML Class Diagram](uml.jpg)](uml.jpg){target=_blank}
 
-## UML Class Diagram (Charvi, Alex, Shahmeer)
+## Sequence Diagram
 
-Major data elements -> If you adopt an object-oriented style for your system, you can present the data as a UML Class diagram.
+*Multiple sequence diagrams depicting the most important scenarios.*
 
-If your system is not naturally object-oriented, you can create an Entity Relationship diagram (ERD).
+[![Sequence Diagram](sequence.jpg)](sequence.jpg){target=_blank}
 
-## Sequence Diagrams (TBD / Everyone)
-
-Interaction scenarios -> To document the dynamic behaviour of the system, for each interesting feature, you should develop a UML Sequence diagram, with components as “objects” and calls between them. Think, which features of your system should be described as sequence diagrams.
-
-## Low-fidelity Wireframes (Selena, Hoang)
+## Low-fidelity Wireframes
 
 Finally, you should develop low-fidelity sketches/wireframes of a few key screens. At this stage, it’s important to show the overall look and feel of your app, as well as the high-level user-interaction design. Low-fidelity wireframes are usually black and white.
 

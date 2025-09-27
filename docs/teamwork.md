@@ -4,7 +4,7 @@ This section includes three parts:
 
 ## 1. Team Canvas
 
-![Team Canvas](canvas.jpg)
+[![Team Canvas](canvas.jpg)](canvas.jpg){target=_blank}
 
 ## 2. Scrum Roles
 
