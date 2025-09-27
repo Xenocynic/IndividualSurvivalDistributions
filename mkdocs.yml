@@ -8,3 +8,6 @@ nav:
   - Teamwork: teamwork.md
 
 theme: readthedocs
+
+markdown_extensions:
+  - attr_list
