@@ -43,6 +43,7 @@ User stories must be prioritized using the MoSCoW method.
 ### 1. User Access 
 
 #### US 1.1 - User Logging in / Out
+> SP: 3
 
 > As a user, I want to log in and log out using my Google account, so that I can save my datasets and predictions. 
 
@@ -60,6 +61,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.1.1 - Change Password
+>> SP: 1
 
 >>> As a user, I want to be able to change my password, so that I can keep my account secure.
 
@@ -77,6 +79,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.2 - Superuser / Admin Logging In / Out
+> SP: 1
 
 > As a Superuser/Admin, I want to log in and log out using my UAlberta credentials, so that I can view others' datasets and predictions. 
 
@@ -94,6 +97,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.3 - Logged-In User Dashboard
+> SP: 3
 
 > As a user, I want to be able to see all of my created predictors and folders, so that I can edit or use them.
 
@@ -113,6 +117,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.1 - Upload a Dataset
+>> SP: 3
 
 >>> As a user, I want to upload a dataset and verify it is formatted correctly, so that I can avoid errors in model training. 
 
@@ -132,6 +137,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.2 - Upload Formatted Datasets
+>> SP: 3
 
 >>> As a user, I want to upload input data as spreadsheets and .csv files, so that it's easier to upload and use. 
 
@@ -145,6 +151,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.3 - Predictor Privacy
+>>> SP: 2
 
 >>> As a user, I want to be able to make a dataset / predictor private or public, so that I can control its access. 
 
@@ -160,6 +167,19 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >>> #### US 1.3.3.1 - Share Private Predictors
+>>>> SP: 5
+
+>>>> As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.
+
+<details>
+<summary>Acceptance Tests</summary><br> 
+
+1. User can add accounts to share datasets / predictors with while creating or editing them<br>
+
+</details><br> 
+
+>>> #### US 1.3.3.2 - (Optional) - Manage User Permissions on Private Predictor
+>>>> SP: 5
 
 >>>> As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.
 
@@ -171,6 +191,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.4 - Create a Predictor
+>>> SP: 3
 
 >>> As a user, I want to be able to create a predictor using a dataset i.e. train a model on my dataset, so that I can save it and view its predictions.
 
@@ -188,6 +209,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.5 - Edit a Predictor
+>>> SP: 3
 
 >>> As a user, I want to be able to edit the details of my predictor (such as the notes, the dataset, and other settings), so that I can make it better.
 
@@ -205,6 +227,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.6 - Delete a Predictor
+>>> SP: 1
 
 >>> As a user, I want to be able to delete a predictor I have made, so that I can get rid of bad or unwanted models.
 
@@ -224,6 +247,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.3.7 - Pin Predictors
+>>> SP: 2
 
 >>> As a user, I want to be able to pin predictors, so I can easily access them without needing to search them up.
 
@@ -245,6 +269,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### 1.3.8 (Optional) - Save My Draft Predictors
+>>> SP: 3
 
 >>> As a user, I want to be able to save my progress when I work on creating new predictors - essentially, I can create drafts - so that I can work on them incrementally and save my progress in case of a crash / Wi-Fi cut.
 
@@ -264,6 +289,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.4.1 - Display Predictors
+> SP: 2
 
 > As a user, I want to be able to see all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
 
@@ -275,6 +301,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.4.2 - Search for a Dataset / Predictor
+>>> SP: 3
 
 >>> As a user, I want to search for a stored dataset/predictor that I have created or been granted access to, so that I can use it for my own predictions. 
 
@@ -288,6 +315,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.4.3 - Filter Predictors By Public / Private
+>>> SP: 1
 
 >>> As a user, I can filter predictors by whether they are public or private, so that it is easier to view or work with.
 
@@ -305,6 +333,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.5 
+> SP: 8
 
 > As a Superuser/Admin, I want to be able to view all of the public/private datasets/models, so that I can collect general statistics regarding model training and usage. 
 
@@ -320,6 +349,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.6.1
+> SP: 2
 
 > As a user, I want to be able to create folders, so that I can organize my predictors (and datasets) better.
 
@@ -335,6 +365,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.6.2 - Delete Folders
+>>> SP: 1
 
 >>> As a user, I want to be able to delete folders I have created, so that I can organize my predictors (and datasets) better.
 
@@ -350,6 +381,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 1.6.3 - Toggle Folder Visibility
+>>> SP: 5
 
 >>> As a user, I want to be able to set folders to public and private, so that I can control who sees my predictors.
 
@@ -362,11 +394,12 @@ User stories must be prioritized using the MoSCoW method.
 
 3. If a folder is marked private and its contents are public, they are all private on the Predictors page, but the predictors still show up on the Predictors page<br>
 
-4. If a folder is marked public and most of its contents are private, only the public predictors are shown in the folder on teh Predictors page<br>
+4. If a folder is marked public and most of its contents are private, only the public predictors are shown in the folder on the Predictors page<br>
 
 </details><br> 
 
 >> #### US 1.6.4 - Move Predictors Between Folders
+>>> SP: 5
 
 >>> As a user, I want to be able to drag and drop predictors into folders, so that it's easy to organize everything.
 
@@ -382,6 +415,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.7 - Landing Page
+> SP: 2
 
 > As a user, I want to be able to access the landing page the moment I open the website, so I can quickly navigate anywhere.
 
@@ -393,6 +427,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 1.8 - About Page
+> SP: 2
 
 > As a user, I want to be able to read about the PSSP website, the research behind the tools available, and those who worked on it, so I can better understand what the purpose of the website is.
 
@@ -408,6 +443,7 @@ User stories must be prioritized using the MoSCoW method.
 ### 2. Interface
 
 #### US 2.1.1 (Optional) - Recommendation System
+> SP: 8
 
 > As a user, I want an interface that allows me to identify an accessible dataset, a specific learning tool, and a specification of that learner’s hyperparameter, so that I can save time in choosing manually. 
 
@@ -421,6 +457,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 2.1.2 
+>>> SP: 3
 
 >>> As a user, I want to run this specific learner on that dataset, and save the resulting trained model securely, so that I can save my runs. 
 
@@ -436,6 +473,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 2.1.3 - Re-Train Predictors
+>>> SP: 2
 
 >>> As a user, I want to be able to retrain predictors on subsets of features, so I can improve its predictions.
 
@@ -449,6 +487,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >>> #### US 2.1.3.1 - Search for Features
+>>>> SP: 2
 
 >>>> As a user, I want to be able to search for features in a list of them, so that I can select and deselect them as needed without needing to scroll through hundreds of them.
 
@@ -462,6 +501,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >>> #### US 2.1.3.2 - Select and Deselect All Features
+>>>> SP: 2
 
 >>>> As a user, I want to be able to deselect and select all features at a button's click, so I don't have to do this manually.
 
@@ -477,6 +517,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >>> #### US 2.1.3.3 - Paginate Features
+>>>> SP: 2
 
 >>>> As a user, I want to be able to decide how many feature entries exist on one page and navigate through the pages, so that I don't have to view hundreds of them at once.
 
@@ -492,6 +533,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 2.2 - Implement Learning Tools
+> SP: 5-8
 
 > As a user, I want the website to include several learning tools, each with its own set of parameters, so I can save time generating separate predictions for each metric. 
 
@@ -505,6 +547,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 2.3 
+> SP: 8
 
 > As a user, I want the interface to show the show the (cross-validation) evaluation of the quality of this learned model, in terms of several metrics, so that I can cross-validate. 
 
@@ -520,6 +563,7 @@ User stories must be prioritized using the MoSCoW method.
 ### 3. Running
 
 #### US 3.1 - Run Predictors on Unlabeled Data
+> SP: 2
 
 > As a user, I want to run an accessible learned survival model on one or more unlabeled instances, so that I can generate predictions using my trained models. 
 
@@ -531,6 +575,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.2 - Prediction Display Formats
+> SP: 5
 
 > As a user, I want to receive predictions as ISD, like perhaps a graph of [time, probability] pairs, so that I can store them easily. 
 
@@ -546,6 +591,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.3 - Quality Evaluation of Predictors
+> SP: 3
 
 > As a user, I want facilities for showing the quality of an accessible learned model, on a held-out (labelled) dataset, in terms of several metrics, so that I can understand outputted predictions easily. 
 
@@ -557,6 +603,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.4 - Dataset Metrics / Analysis
+> SP: 3
 
 > As a user, I want #features, #instances and censor rate for each dataset, so that I can evaluate my uploaded dataset more easily. 
 
@@ -568,6 +615,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.5 - Print Results
+> SP: 2
 
 > As a user, I want to be able to print diagrams or predictions, so that I can store them or use them.
 
@@ -581,6 +629,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.6 - Download Results
+> SP: 2
 
 > As a user, I want to be able to download my results, so that I can save them on my local device.
 
@@ -594,6 +643,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 3.7 - Superuser-Specific Analysis Tools
+> SP: 5
 
 > As a Superuser/Admin, I want to be able to view and analyze others' datasets, so that I can understand general usage. 
 
@@ -609,6 +659,7 @@ User stories must be prioritized using the MoSCoW method.
 ### 4. Documentation 
 
 #### US 4.1.1 - Instructions Page
+> SP: 1
 
 > As a user, I want instructions and a tutorial on how to use the website, so that I can easily navigate the website. 
 
@@ -622,6 +673,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 >> #### US 4.1.2 - Hover Over Buttons / Tabs for Info
+>>> SP: 2
 
 >>> As a user, I want to be able to see what a button does or page shows by hovering over it, so I can navigate the website and use its tools more effectively.
 
@@ -635,6 +687,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 4.2 - Guided Tour / Demo Implementation
+>>> SP: 3
 
 > As a user, I want a guided tour, so that I can get familiar using the different features and models on the website. 
 
@@ -652,6 +705,7 @@ User stories must be prioritized using the MoSCoW method.
 ### 5. Confirmed Optional Features
 
 #### US 5.1 - PSSP Package Download
+> SP: 8
 
 > As a user, I want the website to also be an add-on package for excel, SPSS, so that I may use it directly from my spreadsheets. 
 
@@ -665,6 +719,7 @@ User stories must be prioritized using the MoSCoW method.
 </details><br> 
 
 #### US 5.2 - Handle Censored Data
+> SP: 8
 
 > As a user, I want to an active budgeted learning for “de-censoring”, and dealing with left and interval-censoring, so that I may generate more precise predictions. 
 
@@ -812,10 +867,11 @@ US 5.2 - Handle Censored Data<br>
 >- <a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) 
 >- <a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a>
 >- Presentations and papers on the research being supported by the project. (provided by client)
+>- 
 
 ### Backend: 
 
-Ruby on Rails + C++ / R
+Ruby on Rails + C++ / R; MySQL
 
 ### Frontend: 
 

@@ -8,10 +8,14 @@ This section includes three parts:
 
 ## 2. Scrum Roles
 
+We discussed this, as well as what the roles entailed, and decided that the best approach was to start with the two most forthcoming members, and test it out. If any members feel inclined to lead, we will adjust accordingly (and shift to a cyclical strcture for the scrum roles). For the foreseeable future, however, we have:
+
 - Scrum Master  : Yaatheshini Ashok
 - Product Owner : Selena Chainani
 
 ## 3. Belbin Team Roles
+
+The Belbim Team Roles appear to be quite crucial - largely because they helped us clarify what each of us are good at, comfortable with, and willing to do. It opened up a larger conversation regarding what we all truly do beyond the class, as well as our goals, and this was imperative in deciding the progression of the project and our relations with each other. We found that the Belbin roles were somewhat applicable - more generally, they served as guidelines fthat we could utilize to communicate, if that makes sense.
 
 | Team Member | Preferred Roles | Manageable Roles | Least Preferred Roles | 
 |-|-|-|-|
