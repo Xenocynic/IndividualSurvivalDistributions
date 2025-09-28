@@ -22,9 +22,11 @@ This page includes a short description of the overall architecture style of the 
 
 ## Low-fidelity Wireframes
 
-Finally, you should develop low-fidelity sketches/wireframes of a few key screens. At this stage, it’s important to show the overall look and feel of your app, as well as the high-level user-interaction design. Low-fidelity wireframes are usually black and white.
+*Looking at the wireframes, anyone should be able to get an idea of what will be developed. Test your wireframes with your client, encourage them to give feedback.*
 
-Looking at the wireframes, anyone should be able to get an idea of what will be developed. Test your wireframes with your client, encourage them to give feedback.
+[![Wireframes](wireframes.png)(wireframes.png{target=_blank})]
+
+For a clearer look, go to https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tpLJT6JhqGsAFkg/view?utm_content=DAG0JPaxo_k&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h867f811d61
 
 ## Tech Stack (Everyone)
 
