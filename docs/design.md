@@ -31,3 +31,8 @@ For a clearer look, go [here](https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tp
 ## Tech Stack (Everyone)
 
 List the possible tech stack you will be using. Include links and descriptions of any libraries, frameworks, and tools you will be using.
+
+# Backend
+* > [Ruby On Rails](https://guides.rubyonrails.org/)
+* > [MySQL](https://dev.mysql.com/doc/)
+* > 
