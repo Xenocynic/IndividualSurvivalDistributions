@@ -6,6 +6,8 @@ Should include all user stories. You should start the document with a storymap. 
 
 ## Project Plan
 
+Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1SvNpHSekmJAgwimwr7Q_biq6nQU/edit?usp=sharing)
+
 
 ### Sprint 1 
 
