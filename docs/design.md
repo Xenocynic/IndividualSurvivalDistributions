@@ -20,13 +20,13 @@ This page includes a short description of the overall architecture style of the 
 
 [![Sequence Diagram](sequence.jpg)](sequence.jpg){target=_blank}
 
-## Low-fidelity Wireframes
+## Wireframes
 
 *Looking at the wireframes, anyone should be able to get an idea of what will be developed. Test your wireframes with your client, encourage them to give feedback.*
 
-[![Wireframes](wireframes.png)(wireframes.png{target=_blank})]
+[![Wireframes](wireframes.png)](wireframes.png){target=_blank}
 
-For a clearer look, go to https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tpLJT6JhqGsAFkg/view?utm_content=DAG0JPaxo_k&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h867f811d61
+For a clearer look, go [here](https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tpLJT6JhqGsAFkg/view?utm_content=DAG0JPaxo_k&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h867f811d61).
 
 ## Tech Stack (Everyone)
 
