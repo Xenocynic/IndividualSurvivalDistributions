@@ -32,7 +32,10 @@ For a clearer look, go [here](https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tp
 
 List the possible tech stack you will be using. Include links and descriptions of any libraries, frameworks, and tools you will be using.
 
-# Backend
+### Backend
 * > [Ruby On Rails](https://guides.rubyonrails.org/)
 * > [MySQL](https://dev.mysql.com/doc/)
+* > Look up C++ / R as applicable (not quite writing the code but may have to parse it as we are working with models.)
+
+### Frontend
 * > 
