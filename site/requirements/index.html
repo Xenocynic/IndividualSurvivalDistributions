@@ -70,6 +70,8 @@
     </li>
     <li class="toctree-l4"><a class="reference internal" href="#us-1331-share-private-predictors">US 1.3.3.1 - Share Private Predictors</a>
     </li>
+    <li class="toctree-l4"><a class="reference internal" href="#us-1332-optional-manage-user-permissions-on-private-predictor">US 1.3.3.2 - (Optional) - Manage User Permissions on Private Predictor</a>
+    </li>
     <li class="toctree-l4"><a class="reference internal" href="#us-134-create-a-predictor">US 1.3.4 - Create a Predictor</a>
     </li>
     <li class="toctree-l4"><a class="reference internal" href="#us-135-edit-a-predictor">US 1.3.5 - Edit a Predictor</a>
@@ -273,6 +275,7 @@
 <h3 id="1-user-access">1. User Access</h3>
 <h4 id="us-11-user-logging-in-out">US 1.1 - User Logging in / Out</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to log in and log out using my Google account, so that I can save my datasets and predictions. </p>
 </blockquote>
 <details>
@@ -291,6 +294,7 @@
 <blockquote>
 <blockquote>
 <h4 id="us-111-change-password">US 1.1.1 - Change Password</h4>
+<p>SP: 1</p>
 <blockquote>
 <p>As a user, I want to be able to change my password, so that I can keep my account secure.</p>
 </blockquote>
@@ -311,6 +315,7 @@
 <p><br> </p>
 <h4 id="us-12-superuser-admin-logging-in-out">US 1.2 - Superuser / Admin Logging In / Out</h4>
 <blockquote>
+<p>SP: 1</p>
 <p>As a Superuser/Admin, I want to log in and log out using my UAlberta credentials, so that I can view others' datasets and predictions. </p>
 </blockquote>
 <details>
@@ -328,6 +333,7 @@
 <p><br> </p>
 <h4 id="us-13-logged-in-user-dashboard">US 1.3 - Logged-In User Dashboard</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to be able to see all of my created predictors and folders, so that I can edit or use them.</p>
 </blockquote>
 <details>
@@ -348,6 +354,7 @@
 <blockquote>
 <blockquote>
 <h4 id="us-131-upload-a-dataset">US 1.3.1 - Upload a Dataset</h4>
+<p>SP: 3</p>
 <blockquote>
 <p>As a user, I want to upload a dataset and verify it is formatted correctly, so that I can avoid errors in model training. </p>
 </blockquote>
@@ -371,6 +378,7 @@
 <blockquote>
 <blockquote>
 <h4 id="us-132-upload-formatted-datasets">US 1.3.2 - Upload Formatted Datasets</h4>
+<p>SP: 3</p>
 <blockquote>
 <p>As a user, I want to upload input data as spreadsheets and .csv files, so that it's easier to upload and use. </p>
 </blockquote>
@@ -389,6 +397,7 @@
 <blockquote>
 <h4 id="us-133-predictor-privacy">US 1.3.3 - Predictor Privacy</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to make a dataset / predictor private or public, so that I can control its access. </p>
 </blockquote>
 </blockquote>
@@ -409,6 +418,25 @@
 <blockquote>
 <h4 id="us-1331-share-private-predictors">US 1.3.3.1 - Share Private Predictors</h4>
 <blockquote>
+<p>SP: 5</p>
+<p>As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</blockquote>
+<details>
+<summary>Acceptance Tests</summary><br> 
+
+1. User can add accounts to share datasets / predictors with while creating or editing them<br>
+
+</details>
+<p><br> </p>
+<blockquote>
+<blockquote>
+<blockquote>
+<h4 id="us-1332-optional-manage-user-permissions-on-private-predictor">US 1.3.3.2 - (Optional) - Manage User Permissions on Private Predictor</h4>
+<blockquote>
+<p>SP: 5</p>
 <p>As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.</p>
 </blockquote>
 </blockquote>
@@ -425,6 +453,7 @@
 <blockquote>
 <h4 id="us-134-create-a-predictor">US 1.3.4 - Create a Predictor</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to be able to create a predictor using a dataset i.e. train a model on my dataset, so that I can save it and view its predictions.</p>
 </blockquote>
 </blockquote>
@@ -446,6 +475,7 @@
 <blockquote>
 <h4 id="us-135-edit-a-predictor">US 1.3.5 - Edit a Predictor</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to be able to edit the details of my predictor (such as the notes, the dataset, and other settings), so that I can make it better.</p>
 </blockquote>
 </blockquote>
@@ -467,6 +497,7 @@
 <blockquote>
 <h4 id="us-136-delete-a-predictor">US 1.3.6 - Delete a Predictor</h4>
 <blockquote>
+<p>SP: 1</p>
 <p>As a user, I want to be able to delete a predictor I have made, so that I can get rid of bad or unwanted models.</p>
 </blockquote>
 </blockquote>
@@ -490,6 +521,7 @@
 <blockquote>
 <h4 id="us-137-pin-predictors">US 1.3.7 - Pin Predictors</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to pin predictors, so I can easily access them without needing to search them up.</p>
 </blockquote>
 </blockquote>
@@ -515,6 +547,7 @@
 <blockquote>
 <h4 id="138-optional-save-my-draft-predictors">1.3.8 (Optional) - Save My Draft Predictors</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to be able to save my progress when I work on creating new predictors - essentially, I can create drafts - so that I can work on them incrementally and save my progress in case of a crash / Wi-Fi cut.</p>
 </blockquote>
 </blockquote>
@@ -536,6 +569,7 @@
 <p><br> </p>
 <h4 id="us-141-display-predictors">US 1.4.1 - Display Predictors</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to see all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.</p>
 </blockquote>
 <details>
@@ -549,6 +583,7 @@
 <blockquote>
 <h4 id="us-142-search-for-a-dataset-predictor">US 1.4.2 - Search for a Dataset / Predictor</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to search for a stored dataset/predictor that I have created or been granted access to, so that I can use it for my own predictions. </p>
 </blockquote>
 </blockquote>
@@ -566,6 +601,7 @@
 <blockquote>
 <h4 id="us-143-filter-predictors-by-public-private">US 1.4.3 - Filter Predictors By Public / Private</h4>
 <blockquote>
+<p>SP: 1</p>
 <p>As a user, I can filter predictors by whether they are public or private, so that it is easier to view or work with.</p>
 </blockquote>
 </blockquote>
@@ -585,6 +621,7 @@
 <p><br> </p>
 <h4 id="us-15">US 1.5</h4>
 <blockquote>
+<p>SP: 8</p>
 <p>As a Superuser/Admin, I want to be able to view all of the public/private datasets/models, so that I can collect general statistics regarding model training and usage. </p>
 </blockquote>
 <details>
@@ -600,6 +637,7 @@
 <p><br> </p>
 <h4 id="us-161">US 1.6.1</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to create folders, so that I can organize my predictors (and datasets) better.</p>
 </blockquote>
 <details>
@@ -617,6 +655,7 @@
 <blockquote>
 <h4 id="us-162-delete-folders">US 1.6.2 - Delete Folders</h4>
 <blockquote>
+<p>SP: 1</p>
 <p>As a user, I want to be able to delete folders I have created, so that I can organize my predictors (and datasets) better.</p>
 </blockquote>
 </blockquote>
@@ -636,6 +675,7 @@
 <blockquote>
 <h4 id="us-163-toggle-folder-visibility">US 1.6.3 - Toggle Folder Visibility</h4>
 <blockquote>
+<p>SP: 5</p>
 <p>As a user, I want to be able to set folders to public and private, so that I can control who sees my predictors.</p>
 </blockquote>
 </blockquote>
@@ -649,7 +689,7 @@
 
 3. If a folder is marked private and its contents are public, they are all private on the Predictors page, but the predictors still show up on the Predictors page<br>
 
-4. If a folder is marked public and most of its contents are private, only the public predictors are shown in the folder on teh Predictors page<br>
+4. If a folder is marked public and most of its contents are private, only the public predictors are shown in the folder on the Predictors page<br>
 
 </details>
 <p><br> </p>
@@ -657,6 +697,7 @@
 <blockquote>
 <h4 id="us-164-move-predictors-between-folders">US 1.6.4 - Move Predictors Between Folders</h4>
 <blockquote>
+<p>SP: 5</p>
 <p>As a user, I want to be able to drag and drop predictors into folders, so that it's easy to organize everything.</p>
 </blockquote>
 </blockquote>
@@ -674,6 +715,7 @@
 <p><br> </p>
 <h4 id="us-17-landing-page">US 1.7 - Landing Page</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to access the landing page the moment I open the website, so I can quickly navigate anywhere.</p>
 </blockquote>
 <details>
@@ -685,6 +727,7 @@
 <p><br> </p>
 <h4 id="us-18-about-page">US 1.8 - About Page</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to read about the PSSP website, the research behind the tools available, and those who worked on it, so I can better understand what the purpose of the website is.</p>
 </blockquote>
 <details>
@@ -699,6 +742,7 @@
 <h3 id="2-interface">2. Interface</h3>
 <h4 id="us-211-optional-recommendation-system">US 2.1.1 (Optional) - Recommendation System</h4>
 <blockquote>
+<p>SP: 8</p>
 <p>As a user, I want an interface that allows me to identify an accessible dataset, a specific learning tool, and a specification of that learner’s hyperparameter, so that I can save time in choosing manually. </p>
 </blockquote>
 <details>
@@ -714,6 +758,7 @@
 <blockquote>
 <h4 id="us-212">US 2.1.2</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want to run this specific learner on that dataset, and save the resulting trained model securely, so that I can save my runs. </p>
 </blockquote>
 </blockquote>
@@ -733,6 +778,7 @@
 <blockquote>
 <h4 id="us-213-re-train-predictors">US 2.1.3 - Re-Train Predictors</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to retrain predictors on subsets of features, so I can improve its predictions.</p>
 </blockquote>
 </blockquote>
@@ -751,6 +797,7 @@
 <blockquote>
 <h4 id="us-2131-search-for-features">US 2.1.3.1 - Search for Features</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to search for features in a list of them, so that I can select and deselect them as needed without needing to scroll through hundreds of them.</p>
 </blockquote>
 </blockquote>
@@ -770,6 +817,7 @@
 <blockquote>
 <h4 id="us-2132-select-and-deselect-all-features">US 2.1.3.2 - Select and Deselect All Features</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to deselect and select all features at a button's click, so I don't have to do this manually.</p>
 </blockquote>
 </blockquote>
@@ -791,6 +839,7 @@
 <blockquote>
 <h4 id="us-2133-paginate-features">US 2.1.3.3 - Paginate Features</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to decide how many feature entries exist on one page and navigate through the pages, so that I don't have to view hundreds of them at once.</p>
 </blockquote>
 </blockquote>
@@ -809,6 +858,7 @@
 <p><br> </p>
 <h4 id="us-22-implement-learning-tools">US 2.2 - Implement Learning Tools</h4>
 <blockquote>
+<p>SP: 5-8</p>
 <p>As a user, I want the website to include several learning tools, each with its own set of parameters, so I can save time generating separate predictions for each metric. </p>
 </blockquote>
 <details>
@@ -822,6 +872,7 @@
 <p><br> </p>
 <h4 id="us-23">US 2.3</h4>
 <blockquote>
+<p>SP: 8</p>
 <p>As a user, I want the interface to show the show the (cross-validation) evaluation of the quality of this learned model, in terms of several metrics, so that I can cross-validate. </p>
 </blockquote>
 <details>
@@ -836,6 +887,7 @@
 <h3 id="3-running">3. Running</h3>
 <h4 id="us-31-run-predictors-on-unlabeled-data">US 3.1 - Run Predictors on Unlabeled Data</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to run an accessible learned survival model on one or more unlabeled instances, so that I can generate predictions using my trained models. </p>
 </blockquote>
 <details>
@@ -847,6 +899,7 @@
 <p><br> </p>
 <h4 id="us-32-prediction-display-formats">US 3.2 - Prediction Display Formats</h4>
 <blockquote>
+<p>SP: 5</p>
 <p>As a user, I want to receive predictions as ISD, like perhaps a graph of [time, probability] pairs, so that I can store them easily. </p>
 </blockquote>
 <details>
@@ -862,6 +915,7 @@
 <p><br> </p>
 <h4 id="us-33-quality-evaluation-of-predictors">US 3.3 - Quality Evaluation of Predictors</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want facilities for showing the quality of an accessible learned model, on a held-out (labelled) dataset, in terms of several metrics, so that I can understand outputted predictions easily. </p>
 </blockquote>
 <details>
@@ -873,6 +927,7 @@
 <p><br> </p>
 <h4 id="us-34-dataset-metrics-analysis">US 3.4 - Dataset Metrics / Analysis</h4>
 <blockquote>
+<p>SP: 3</p>
 <p>As a user, I want #features, #instances and censor rate for each dataset, so that I can evaluate my uploaded dataset more easily. </p>
 </blockquote>
 <details>
@@ -884,6 +939,7 @@
 <p><br> </p>
 <h4 id="us-35-print-results">US 3.5 - Print Results</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to print diagrams or predictions, so that I can store them or use them.</p>
 </blockquote>
 <details>
@@ -897,6 +953,7 @@
 <p><br> </p>
 <h4 id="us-36-download-results">US 3.6 - Download Results</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to download my results, so that I can save them on my local device.</p>
 </blockquote>
 <details>
@@ -910,6 +967,7 @@
 <p><br> </p>
 <h4 id="us-37-superuser-specific-analysis-tools">US 3.7 - Superuser-Specific Analysis Tools</h4>
 <blockquote>
+<p>SP: 5</p>
 <p>As a Superuser/Admin, I want to be able to view and analyze others' datasets, so that I can understand general usage. </p>
 </blockquote>
 <details>
@@ -924,6 +982,7 @@
 <h3 id="4-documentation">4. Documentation</h3>
 <h4 id="us-411-instructions-page">US 4.1.1 - Instructions Page</h4>
 <blockquote>
+<p>SP: 1</p>
 <p>As a user, I want instructions and a tutorial on how to use the website, so that I can easily navigate the website. </p>
 </blockquote>
 <details>
@@ -939,6 +998,7 @@
 <blockquote>
 <h4 id="us-412-hover-over-buttons-tabs-for-info">US 4.1.2 - Hover Over Buttons / Tabs for Info</h4>
 <blockquote>
+<p>SP: 2</p>
 <p>As a user, I want to be able to see what a button does or page shows by hovering over it, so I can navigate the website and use its tools more effectively.</p>
 </blockquote>
 </blockquote>
@@ -954,6 +1014,11 @@
 <p><br> </p>
 <h4 id="us-42-guided-tour-demo-implementation">US 4.2 - Guided Tour / Demo Implementation</h4>
 <blockquote>
+<blockquote>
+<blockquote>
+<p>SP: 3</p>
+</blockquote>
+</blockquote>
 <p>As a user, I want a guided tour, so that I can get familiar using the different features and models on the website. </p>
 </blockquote>
 <details>
@@ -970,6 +1035,7 @@
 <h3 id="5-confirmed-optional-features">5. Confirmed Optional Features</h3>
 <h4 id="us-51-pssp-package-download">US 5.1 - PSSP Package Download</h4>
 <blockquote>
+<p>SP: 8</p>
 <p>As a user, I want the website to also be an add-on package for excel, SPSS, so that I may use it directly from my spreadsheets. </p>
 </blockquote>
 <details>
@@ -983,6 +1049,7 @@
 <p><br> </p>
 <h4 id="us-52-handle-censored-data">US 5.2 - Handle Censored Data</h4>
 <blockquote>
+<p>SP: 8</p>
 <p>As a user, I want to an active budgeted learning for “de-censoring”, and dealing with left and interval-censoring, so that I may generate more precise predictions. </p>
 </blockquote>
 <details>
@@ -1102,10 +1169,11 @@
 <li><a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) </li>
 <li><a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a></li>
 <li>Presentations and papers on the research being supported by the project. (provided by client)</li>
+<li></li>
 </ul>
 </blockquote>
 <h3 id="backend">Backend:</h3>
-<p>Ruby on Rails + C++ / R</p>
+<p>Ruby on Rails + C++ / R; MySQL</p>
 <h3 id="frontend">Frontend:</h3>
 <p>React / Vite + TypeScript + Tailwind CSS + Zustand + React Router</p>
 <h3 id="deployment">Deployment:</h3>
