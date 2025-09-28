@@ -682,46 +682,83 @@ User stories must be prioritized using the MoSCoW method.
 
 ### Must Have
 US 1.1 - User Logging in / Out
+
 US 1.2 - Superuser / Admin Logging In / Out
+
 US 1.3 - Logged-In User Dashboard
+
 US 1.3.1 - Upload a Dataset
+
 US 1.3.3 - Predictor Privacy
+
 US 1.3.3.1 - Share Private Predictors
+
 US 1.3.4 - Create a Predictor
+
 US 1.3.5 - Edit a Predictor
+
 US 1.3.6 - Delete a Predictor
+
 US 1.4.1 - Display Predictors
+
 US 1.4.2 - Search for a Dataset / Predictor
+
 US 1.5 - Superuser / Admin Access (Panel Set-Up)
+
 US 1.8 - About Page
+
 US 2.1.2 - Save Predictors After Runs
+
 US 2.1.3 - Re-Train Predictors
+
 US 2.1.3.1 - Search for Features
+
 US 2.1.3.2 - Select and Deselect All Features
+
 US 2.2 - Implement Learning Tools
+
 US 2.3 - Cross-Validation Evaluation of Predictor
+
 US 3.1 - Run Predictors on Unlabeled Data
+
 US 3.2 - Prediction Display Formats
+
 US 3.3 - Quality Evaluation of Predictors
+
 US 3.4 - Dataset Metrics / Analysis
+
 US 3.7 - Superuser-Specific Analysis Tools
+
 US 4.1.1 - Instructions Page
+
 US 4.1.2 - Hover Over Buttons / Tabs for Info
 
 
 ### Should Have
 US 1.1.1 - Change Password
+
 US 1.3.2 - Upload Formatted Datasets
+
 US 1.3.7 - Pin Predictors
+
 US 1.4.3 - Filter Predictors By Public / Private
+
 US 1.6.1 - Create Folders
+
 US 1.6.2 - Delete Folders 
+
 US 1.6.3 - Toggle Folder Visibility
+
 US 1.6.4 - Move Predictors Between Folders
+
 US 1.7 - Landing Page
+
 US 2.1.3.3 - Paginate Features
+
 US 3.5 - Print Results
+
 US 3.6 - Download Results
+
 US 4.2 - Guided Tour / Demo Implementation
 
 
@@ -731,8 +768,12 @@ US 1.3.8 - Save My Draft Predictors
 
 ### Would Like But Won't Get
 US 2.1.1 - Recommendation System
+
 US 5.1 - PSSP Package Download
+
 US 5.2 - Handle Censored Data<br>
+
+
 
 
 
