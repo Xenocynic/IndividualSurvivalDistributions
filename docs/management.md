@@ -53,6 +53,9 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
         Discuss storymap structure and trajectory on Wednesday
         - Planned it out (Hoang)
           **Completed**
+<img width="4794" height="5177" alt="storymap" src="https://github.com/user-attachments/assets/f74ac0ce-2e7e-46b0-92ba-024a3bd441fc" />
+View more details in [here](https://www.canva.com/design/DAG0T0_u72A/NvHJ91Rbdcr9bjI9JHdpyw/edit).
+
 
     - Project Plan (Selena: Sept 21)
       **Completed**
