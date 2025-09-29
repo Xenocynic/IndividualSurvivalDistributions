@@ -101,6 +101,7 @@ View more details in [here](https://www.canva.com/design/DAG0T0_u72A/NvHJ91Rbdcr
 | US 4.1.2 | Hover Over Button / Tab for Info | 2 | Selena | 
 | US 6.1 | Tests for Sprint 2 | 3 | Shahmeer, Alex | 
 
+
 **Estimated sprint velocity**: 43
 
 * > Initial Check-In - **October 5th**
@@ -118,28 +119,34 @@ For the remaining sprints, you should include:
 
 **List of user stories to be completed**
 
-| User Story Number | Description | Story Points | 
+| User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
-| US 1.1 | User Logging In / Out | 3 | TBD |
-| US 1.1.1 | Change Password | 1 | TBD | 
-| US 1.2 | Superuser / Admin Logging In / Out | 1 | TBD |
-| US 1.3 | Logged-In User Dashboard | 3 | TBD | 
-| US 1.3.1 | Upload a Dataset | 3 | TBD | 
-| US 1.3.3 | Predictor Privacy | 2 | TBD | 
-| US 1.3.4 | Create a Predictor | 3 | TBD | 
-| US 1.3.5 | Edit a Predictor | 3 | TBD |  
-| US 1.3.6 | Delete a Predictor | 1 | TBD | 
-| US 1.3.7 | Pin Predictors | 3 | TBD | 
-| US 1.4.1 | Display Predictors | 2 | TBD | 
-| US 1.5 | Superuser / Admin Access (Panel Set-Up) | 8 | TBD | 
-| US 1.7 | Landing Page | 2 | TBD | 
-| US 1.8 | About Page | 2 | TBD | 
-| US 4.1.1 | Instructions Page | 1 | TBD | 
-| US 4.1.2 | Hover Over Button / Tab for Info | 2 | TBD | 
-| US 6.1 | Tests for Sprint 2 | 3 | TBD | 
+| US 1.3.2 | Upload Formatted Datasets | 3 | **TBD** |
+| US 1.3.3.1 | Share Private Predictors | 5 | **TBD** | 
+| US 1.4.2 | Search for a Dataset / Predictor | 3 | **TBD** |
+| US 1.4.3 | Filter Predictors By Public / Private Access | 1 | **TBD** | 
+| US 1.6.1 | Create Folders | 2 | **TBD** | 
+| US 1.6.2 | Delete Folders | 1 | **TBD** | 
+| US 1.6.3 | Toggle Folder Visibility | 5 | **TBD** | 
+| US 1.6.4 | Move Predictors Between Folders | 5 | **TBD** |  
+| US 2.1 | Identify an accessible dataset, a specific learning tool, and a specification of that learner's hyperparameter | 8 | **TBD** | 
+| US 2.1.2 | Save Predictors After Runs | 3 | **TBD** | 
+| US 2.1.3 | Re-Train Predictors | 2 | **TBD** | 
+| US 2.1.3.1 | Search for Features | 2 | **TBD** | 
+| US 2.1.3.2 |  Select and Deselect All Features | 2 | **TBD** | 
+| US 2.1.3.3 | Paginate Features | 2 | **TBD** | 
+| US 2.2 |  Implement Learning Tools | 5 | **TBD** | 
+| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | **TBD** | 
+| US 4.2 | Guided Tour / Demo Implementation | 3 | **TBD** | 
 
-Estimated sprint velocity
-Do not list the tasks yet. You will be planning them later, before the start of each sprint.
+**Estimated sprint velocity**: 60
+
+* > Initial Check-In - **October 20th**
+
+* > Due (for Review) - (tentative) **October 24th**
+
+* > Due - (tentative) **October 26th**
+
 
 ### Sprint 4
 
