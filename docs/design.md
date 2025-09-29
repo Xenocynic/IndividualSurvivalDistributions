@@ -38,4 +38,12 @@ List the possible tech stack you will be using. Include links and descriptions o
 * > Look up C++ / R as applicable (not quite writing the code but may have to parse it as we are working with models.)
 
 ### Frontend
-* > 
+* > [React + Typescript](https://react.dev/learn/typescript)
+* > [Vite](https://vite.dev/guide/)
+* > [React Router](https://reactrouter.com/start/modes#framework)
+* > [Tailwind CSS](https://tailwindcss.com/docs/installation/framework-guides/react-router)
+* > [Zustand](https://zustand.docs.pmnd.rs/getting-started/introduction)
+
+
+
+
