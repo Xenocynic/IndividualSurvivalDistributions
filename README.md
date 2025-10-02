@@ -1,5 +1,7 @@
 # Fall 2025 EZ Survival Project
 
+This branch is for editing any and all documentation related to the project. 
+
 ## Team 
 
 | Name | CCID | Email |
