@@ -1,5 +1,7 @@
 # Fall 2025 EZ Survival Project
 
+DO NOT use this branch. Only meant for merging through PRs.
+
 ## Team 
 
 | Name | CCID | Email |
