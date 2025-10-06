@@ -3,6 +3,10 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 
 class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for registering new user.
+    Handles validation for email uniqueness, password confirmation, amd password strength.
+    """
     email = serializers.EmailField(required=True) 
     password = serializers.CharField(write_only=True, required=True)
     password2 = serializers.CharField(write_only=True, required=True)
@@ -12,6 +16,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('username', 'email', 'password', 'password2')
 
     def validate_email(self, value):
+        # Check that the email is unique across users
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already registered.")
         return value
@@ -26,6 +31,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        validated_data.pop('password2')
+        validated_data.pop('password2')  # Remove the extra confirmation field
         user = User.objects.create_user(**validated_data)
         return user
