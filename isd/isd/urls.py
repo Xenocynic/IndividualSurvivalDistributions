@@ -21,8 +21,17 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),  # ← /api/ base routes
+
+    # Base API routes
+    path('api/', include('core.urls')),
+
+    # Authentication (JWT register/login/logout)
     path('api/auth/', include('authapp.urls')),
+
+    # Profile and user management
+    path('api/accounts/', include('accounts.urls')),
+
+    # Main application modules
     path('api/dataset/', include('dataset.urls')),
     path('api/predictor/', include('predictors.urls')),
     
