@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, LogoutView
+from .views import RegisterView, LogoutView, UserViewSet
+
+router = DefaultRouter()
+router.register("users", UserViewSet, basename="user")
 
 urlpatterns = [
     # Register a new user
@@ -14,4 +18,7 @@ urlpatterns = [
 
     # Blacklist refresh token (logout)
     path('logout/', LogoutView.as_view(), name='logout'),
+    
+    # Include router URLs for User CRUD operations
+    path('', include(router.urls)),
 ]
