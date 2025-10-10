@@ -51,9 +51,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on the Login page, when they enter their correct credentials and click "Log In," then they are successfully authenticated and redirected to their main dashboard.<br>
-
+<br>
 2. Given a user is on the account creation page, when they enter a password that does not meet the security requirements (e.g., too short), then an error message outlining the requirements is displayed.<br>
-
+<br>
 3. Given a user is logged in, when they click the "Logout" button in their profile menu, then they are successfully logged out and redirected to the landing page.<br>
 
 
@@ -69,11 +69,11 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a logged-in user navigates to their "Profile Settings" page, when they click on the "Change Password" option, then they are presented with fields for "Current Password," "New Password," and "Confirm New Password."<br>
-
+<br>
 2. Given the user enters their correct current password and a valid new password in both fields, when they click "Save Changes," then they receive a "Password successfully changed" confirmation message.<br>
-
+<br>
 3. Given the user enters a new password that is identical to their old one, when they try to save, then an error message "New password cannot be the same as the old password" is displayed.<br>
-
+<br>
 4. Given the user enters a new password that does not meet the security requirements (e.g., too short, no number), when they try to save, then a specific error message is displayed (e.g., "Password must be at least 8 characters and contain one number").<br>
 
 </details><br> 
@@ -87,11 +87,11 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user with Superuser privileges is on the login page, when they sign in with their authorized UAlberta Google Account, then the system validates their Admin status in the database.<br>
-
+<br>
 2. Given the user's Admin status is validated, when they are redirected to the dashboard, then a permanent "Admin Panel" link is visible in the main navigation bar.<br>
-
+<br>
 3. Given a non-Admin user logs in, then the "Admin Panel" link is not visible.<br>
-
+<br>
 4. Given an Admin is on the "Admin Panel," when they click on a user's name, then they can view a list of all datasets and predictors owned by that user.<br>
 
 </details><br> 
@@ -105,11 +105,11 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user successfully logs in, then they are automatically navigated to their Dashboard page.<br>
-
+<br>
 2. Given a user who is not logged in attempts to access the dashboard URL directly, then they are redirected to the Login page.<br>
-
+<br>
 3. Given a user is on their Dashboard, then they can see a clear, organized list of all the predictors and folders they have created.<br>
-
+<br>
 4. Given the user is on their Dashboard, when they click the "Create New Predictor" button, then they are navigated to the predictor creation page.<br>
 
 </details><br> 
@@ -123,42 +123,52 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a logged-in user is on the "Create New Predictor" page, when they click the "Upload Dataset" button, then a file selection dialog appears.<br>
-
+<br>
 2. Given the user selects a correctly formatted .csv file, when they submit the file, then they receive a "Validation Successful" message and the dataset name appears in the form.<br>
-
+<br>
 3. Given the user selects a file that is not a .csv file (e.g., .txt, .xlsx), when they attempt to upload it, then the system displays an error message stating "Invalid file type. Please upload a .csv file."<br>
-
+<br>
 4. Given the user selects a .csv file with incorrect formatting (e.g., missing required columns), when they submit the file, then the system displays a specific error message detailing the issues found (e.g., "Error in row 15: Column 'Time' contains non-numeric data.").<br>
 
 </details><br> 
 
->> #### US 1.3.3 - Predictor Privacy & Sharing
+>> #### US 1.3.3 - Predictor Privacy
 >>> SP: 2
 
->>> As a user, I want to be able to make a dataset / predictor private or public and share it, so that I can control its access.
+>>> As a user, I want to be able to make a dataset / predictor private or public, so that I can control its access.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is creating or editing a predictor, then they can see a privacy option (e.g., a toggle for "Public" or "Private").<br>
-
+<br>
 2. Given a user is not logged in, when they visit the "Predictors" page, then they can only see predictors that have been set to "Public".<br>
-
+<br>
 3. Given a logged-in user visits the "Predictors" page, then they see all public predictors and any private predictors they have been granted access to.<br>
 
-4. Given a user is editing a private predictor, when they enter another user's valid email into the "Share with" field and click "Add," then that user is added to the list of authorized viewers.<br>
+</details><br> 
+
+>> #### US 1.3.3.1 - Share Private Predictors
+>>> SP: 2
+
+>>> As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.
+
+<details>
+<summary>Acceptance Tests</summary><br> 
+
+1. Given a user is editing a private predictor, when they enter another user's valid email into the "Share with" field and click "Add," then that user is added to the list of authorized viewers.<br>
 
 </details><br> 
 
 >>> #### US 1.3.3.2 - (Optional) - Manage User Permissions on Private Predictor
 >>>> SP: 5
 
->>>> As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.
+>>>> As a user, I want to be able to decide what permission users I have shared my predictor with have (either Viewer or Owner), so that I can better control who gets to work with it.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can add accounts to share datasets / predictors with while creating or editing them<br>
+1. Given a user is uploading or editing a dataset / predictor, then they can add accounts to be viewers or owners of the dataset / predictor.<br>
 
 </details><br> 
 
@@ -171,9 +181,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user has successfully uploaded a valid dataset, when they fill in the required fields (Name, Description) and click "Create Predictor," then the predictor is created, and they are redirected to the predictor's main page.<br>
-
+<br>
 2. Given the user tries to create a predictor without filling in the "Name" field, when they click the create button, then an error message "Predictor Name is required" is displayed, and creation fails.<br>
-
+<br>
 3. Given the user enters a name that is identical to another predictor they already own, when they click the create button, then an error message "A predictor with this name already exists" is displayed.<br>
 
 </details><br> 
@@ -187,9 +197,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on their Dashboard, when they click the "Edit" button for a predictor they own, then they are navigated to the predictor's settings page.<br>
-
+<br>
 2. Given a user is on another user's public predictor page, then the "Edit" button is not visible or is disabled.<br>
-
+<br>
 3. Given the user is on the edit page and removes the predictor's name, when they click "Save," then a save failure error is shown with the message "Predictor Name is required".<br>
 
 </details><br> 
@@ -203,9 +213,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on their Dashboard, when they click the "Delete" icon for a predictor they own, then a confirmation pop-up appears with the message "Are you sure you want to delete this predictor?".<br>
-
+<br>
 2. Given the confirmation pop-up is visible, when the user clicks "Confirm," then the predictor is permanently removed and no longer appears on the dashboard.<br>
-
+<br>
 3. Given the confirmation pop-up is visible, when the user clicks "Cancel," then the pop-up disappears, and no change is made.<br>
 
 </details><br> 
@@ -219,9 +229,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is viewing any predictor, when they click the "Pin" icon, then that predictor is added to a "Pinned Predictors" panel on their Dashboard and sidebar.<br>
-
+<br>
 2. Given a predictor is already pinned, when the user clicks the "Unpin" icon, then it is removed from the "Pinned Predictors" panel.<br>
-
+<br>
 3. Given any user is on the site, then a set of three "universally pinned" predictors is always visible at the top of the main Predictors page and cannot be unpinned or deleted.<br>
 
 </details><br> 
@@ -235,28 +245,38 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user has filled in the "Name" field on the creation page, when they click "Save Draft," then the predictor is saved as a private draft.<br>
-
+<br>
 2. Given a predictor is saved as a draft, then it is only visible on the creator's Dashboard and not on the public "Predictors" page.<br>
-
+<br>
 3. Given a draft has not been updated for a set period (e.g., 30 days), then it is automatically deleted from the system.<br>
-
+<br>
 4. Given a user is viewing their drafts on the Dashboard, then they have options to edit or delete each draft.<br>
 
 </details><br> 
 
-#### US 1.4.1 - Display and Search for a Predictor
+#### US 1.4.1 - Display Predictors
 > SP: 2
 
-> As a user, I want to be able to see and search for all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
+> As a user, I want to be able to see all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user navigates to the "Predictors" page, then a list of all viewable predictors is displayed.<br>
 
-2. Given a user is on the "Predictors" page, when they type a query into the search bar and press Enter, then the list is filtered to show only predictors matching the query.<br>
+</details><br> 
 
-3. Given a list of search results, when the user clicks on a predictor, then they are navigated to that predictor's page.<br>
+#### US 1.4.2 - Search for a Dataset / Predictor
+> SP: 2
+
+> As a user, I want to be able to see all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
+
+<details>
+<summary>Acceptance Tests</summary><br> 
+
+1. Given a user is on the "Predictors" page, when they type a query into the search bar and press Enter, then the list is filtered to show only predictors matching the query.<br>
+<br>
+2. Given a list of search results, when the user clicks on a predictor, then they are navigated to that predictor's page.<br>
 
 </details><br> 
 
@@ -269,11 +289,11 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on the "Predictors" page, then they can see filter options for "Public" and "Private".<br>
-
+<br>
 2. Given the user checks the "Private" filter, when the page updates, then only private predictors they have access to are shown.<br>
-
+<br>
 3. Given the user checks only the "Public" filter, when the page updates, then only public predictors are shown.<br>
-
+<br>
 4. Given the user checks both "Public" and "Private" filters, then all predictors they have access to are shown.<br>
 
 </details><br> 
@@ -287,9 +307,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given an Admin is on the "Admin Panel", then they can use a search bar to find any dataset or predictor in the system.<br>
-
+<br>
 2. Given an Admin is on the "Admin Panel", then they can view a dashboard with aggregate statistics (e.g., total users, total predictors).<br>
-
+<br>
 3. Given an Admin has located a specific dataset or predictor, then they have options to view, modify, or delete it.<br>
 
 </details><br> 
@@ -303,11 +323,11 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on their Dashboard, when they click "Create Folder," enter a name, and confirm, then a new, empty folder appears in their folder list.<br>
-
+<br>
 2. Given a user is on their Dashboard, when they click the "Delete" icon next to a folder they created, then a confirmation modal appears.<br>
-
+<br>
 3. Given the user confirms the deletion, then the folder is removed, and any predictors that were inside it now appear outside the folder in the main list.<br>
-
+<br>
 4. Given a user is viewing a folder not created by them, then the "Delete" icon is not visible.<br>
 
 </details><br> 
@@ -321,9 +341,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is editing a folder they own, then they can see a toggle for "Public" and "Private" visibility.<br>
-
+<br>
 2. Given a folder is marked "Private" and contains a "Public" predictor, when another user views the "Predictors" page, then they can see the predictor listed individually but not within the private folder.<br>
-
+<br>
 3. Given a folder is marked "Public" and contains a "Private" predictor, when another user views the public folder, then the private predictor is not visible inside it.<br>
 
 </details><br> 
@@ -337,9 +357,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on their Dashboard, when they click and drag a predictor onto a folder, then the predictor is moved into that folder.<br>
-
+<br>
 2. Given a predictor has been moved to a new folder, then the change is immediately visible on the Dashboard and persists after a page refresh.<br>
-
+<br>
 3. Given a drag-and-drop operation fails (e.g., due to a network error), when the user releases the mouse button, then an error notification is displayed, and the predictor returns to its original location.<br>
 
 </details><br> 
@@ -352,7 +372,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can navigate to the Landing Page<br>
+1. Given a user opens the website's URL in their browser, then the Landing Page is displayed by default.<br>
+<br>
+2. Given a user is on any other page of the website, when they click on the site logo in the main navigation bar, then they are navigated back to the Landing Page.<br>
 
 </details><br> 
 
@@ -364,9 +386,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can navigate to the About Page<br>
-
-2. User can navigate to the hyperlinked pages from the About page and view graphics<br>
+1. Given a user is on any page of the website, when they click the "About" link in the navigation bar or footer, then they are successfully navigated to the About Page.<br>
+<br>
+2. Given a user is on the About Page, when they click on a hyperlink within the text (e.g., a link to a research paper or an external site), then the linked page correctly opens in a new browser tab.<br>
+<br>
+3. Given a user is on the About Page, then all embedded graphics and images are visible and correctly rendered.<br>
 
 </details><br> 
 
@@ -380,9 +404,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can see available learning tools on a dataset's information page<br>
-
-2. Interface displays information about which learning tool was used for each dataset<br>
+1. Given a user is on a predictor's information page, when they navigate to the "Train New Model" section, then a dropdown menu or list of available learning tools is visible.<br>
+<br>
+2. Given the user is on the "Train New Model" page, when they select a specific learning tool from the dropdown, then the interface updates to display a form with the unique set of hyperparameters for that selected tool.<br>
+<br>
+3. Given a predictor has previously trained model versions, when the user views the "Model History" list, then each version in the list clearly displays the name of the learning tool that was used to create it.<br>
 
 </details><br> 
 
@@ -395,9 +421,9 @@ User stories must be prioritized using the MoSCoW method.
 <summary>Acceptance Tests</summary><br> 
 
 1. Given a user is on a predictor's page, when they navigate to the "Train Model" tab, then they can select a learning tool from a dropdown menu.<br>
-
+<br>
 2. Given a model training process completes successfully, then a new, versioned entry is added to the "Model History" list for that predictor.<br>
-
+<br>
 3. Given a predictor has multiple model versions, when the user clicks on a specific version, then they are shown the results and metrics for that version.<br>
 
 
@@ -412,9 +438,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can retrain predictors<br>
-
-2. Interface updates with a visual confirmation of training, and the success / failure<br>
+1. Given a user is on a predictor's page, when they navigate to the "Retrain Model" tab, then they see a list of all features from the original dataset, each with a checkbox.<br>
+<br>
+2. Given the user deselects several features and clicks "Retrain," then a loading indicator appears with the text "Training new version...".<br>
+<br>
+3. Given the retraining is successful, then a "Training complete" message is displayed, and a new entry appears in the "Model Versions" list.<br>
+<br>
+4. Given the retraining fails for any reason, then an error message is displayed, and no new model version is saved.<br>
 
 </details><br> 
 
@@ -426,9 +456,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can click on the search bar and search for specific features based on name<br>
-
-2. If the substring matches, results are pulled up - the table size reduces to accomodate queried results<br>
+1. Given a user is on the "Retrain Model" page, when they type a feature name into the feature search bar, then the list of features is filtered to show only matching results.<br>
 
 </details><br> 
 
@@ -440,11 +468,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can click on the Select All button to select all features onscreen and beyond<br>
-
-2. User can click on the Deelect All button to deselect all features onscreen and beyond<br>
-
-2. If there are none onscreen due to searches, this will fail with an error message<br>
+1. Given a list of features is displayed, when the user clicks the "Select All" button, then all checkboxes for the currently visible features are checked.<br>
+<br>
+2. Given a list of features is displayed, when the user clicks the "Deselect All" button, then all checkboxes for the currently visible features are unchecked.<br>
+<br>
+3. Given the feature list is empty due to a search, then the "Select All" and "Deselect All" buttons are disabled.<br>
 
 </details><br> 
 
@@ -456,11 +484,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can click on the Entries Per Page box and enter / increase or decrease the number per page [using the arrows]<br>
-
-2. User can navigate pages using arrow buttons, and see what page they are at<br>
-
-2. Arrows do not exist to go beyond the last page of results or befor ethe first.<br>
+1. Given a list of features is paginated, when the user selects a different number from the "Entries Per Page" dropdown, then the list reloads to show the new number of features per page.<br>
+<br>
+2. Given the feature list has multiple pages, when the user clicks the "Next Page" arrow, then the next set of features is displayed.<br>
+<br>
+3. Given the user is on the first page, then the "Previous Page" arrow is disabled.<br>
 
 </details><br> 
 
@@ -472,9 +500,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can select betwen different learning tools on dataset information page<br>
-
-2. Website displays all learning tools with their own required parameters<br>
+1. Given a user is on the "Train Model" page for a predictor, when they select a learning tool from the dropdown, then the interface dynamically updates to show a form with the specific hyperparameters for that selected tool.<br>
+<br>
+2. Given the user selects 'Tool A', then they see input fields for 'Parameter X' and 'Parameter Y'.<br>
+<br>
+3. Given the user selects 'Tool B', then the interface changes to show input fields for 'Parameter Z' and 'Alpha'.<br>
 
 </details><br> 
 
@@ -486,9 +516,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can see cross-validation evaluation for learned models on a dataset information page<br>
-
-2. User can view a variety of metrics of the model's cross-validation<br>
+1. Given a user has a successfully trained model, when they navigate to its results page, then a "Cross-Validation Metrics" section is displayed.<br>
+<br>
+2. Given the user is viewing the "Cross-Validation Metrics" section, then they can see a table or a set of cards displaying key metrics (e.g., Concordance Index, Brier Score, MAE).<br>
 
 </details><br> 
 
@@ -502,7 +532,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can run learned survival models on unlabeled instances using the database information page<br>
+1. Given a user is viewing a trained model's result page, when they click "Predict on New Data", then they are presented with an interface to upload an unlabeled .csv file.<br>
+<br>
+2. Given the user uploads a valid unlabeled file and clicks "Generate Predictions," then a results page with the new predictions is displayed.<br>
 
 </details><br> 
 
@@ -514,11 +546,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can view ISD predictions on the prediction information page<br>
-
-2. User can view generated graphs and tweak graph settings<br>
-
-3. User can easily download and store graphs<br>
+1. Given a prediction has been generated, then the results page displays an interactive ISD graph.<br>
+<br>
+2. Given the user is viewing the prediction graph, when they use a control (e.g., zoom, pan), then the graph view updates.<br>
+<br>
+3. Given a user is viewing the prediction graph, when they click "Download Graph," then a .png image of the graph is saved to their device.<br>
 
 </details><br> 
 
@@ -530,7 +562,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can view all metrics of learned models on the prediction information page<br>
+1. Given a user runs an evaluation on a held-out labeled dataset, when the evaluation is complete, then a "Performance Metrics" section is displayed showing key metrics (e.g., Concordance Index, Brier Score).<br>
 
 </details><br> 
 
@@ -542,7 +574,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can view the features, instancse, and censor rates for each dataset on the dataset information page<br>
+1. Given a user is viewing any predictor's main page, then a "Dataset Statistics" summary is visible, displaying the number of features, number of instances, and the censor rate.<br>
 
 </details><br> 
 
@@ -554,9 +586,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can print diagrams or statistics using the print option<br>
-
-2. User can toggle diagrams or statistics for printing using toggles - they will be formatted nicely in the print screen view<br>
+1. Given a user is on a results or metrics page, when they click the "Print" button, then the browser's print dialog is opened with a print-formatted view of the content.<br>
 
 </details><br> 
 
@@ -568,9 +598,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can download diagrams or statistics using the dowload option<br>
-
-2. User can find downloaded materials in their Downloads directory on their local device.<br>
+1. Given a user is on a results or metrics page, when they click the "Download" button, then a .csv file containing the relevant data (e.g., predictions, metrics) is downloaded to their device.<br>
 
 </details><br> 
 
@@ -582,9 +610,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can view others' dataset usage on an admin panel<br>
-
-2. User can view all dataset usage statistics<br>
+1. Given an Admin is on the "Admin Panel", then they can view a dashboard with aggregate usage statistics for all datasets.<br>
 
 </details><br> 
 
@@ -598,9 +624,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User will be able to watch a guided video on the "help" page of the website<br>
-
-2. User will also be able to read more detailed instructions on this help page<br>
+1. Given a user navigates to the "Help" page, then an embedded tutorial video is visible and playable.<br>
+<br>
+2. Given a user is on the "Help" page, then a searchable, written guide is available.<br>
 
 </details><br> 
 
@@ -612,9 +638,7 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User will be able to hover over buttons<br>
-
-2. User will also be able to read the text on the popup that appears which will explain what the button or page does<br>
+1. Given a user hovers their mouse over a button with a tooltip, then a small pop-up appears explaining the button's function.<br>
 
 </details><br> 
 
@@ -626,11 +650,9 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User will be prompted to start a guided tour when visiting the website for the first time on their google account<br>
-
-2. Various buttons and sections of the website will be highlighted<br>
-
-3. Text will describe what each section is for and how to use it<br>
+1. Given a user logs in for the first time, when the dashboard loads, then a modal appears asking, "Start guided tour?".<br>
+<br>
+2. Given the user starts the tour, when they click "Next," then the UI highlights the next feature in sequence with an explanatory text box.<br>
 
 </details><br> 
 
@@ -644,9 +666,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User will be able to download an excel/SPSS add-on from their respective tooling services
-
-2. The add-on will assist in displaying information to the user
+1. Given a user navigates to the "Downloads" or "Integrations" page on the website, when they click the "Download for Excel" button, then the appropriate add-on installation file begins to download.<br>
+<br>
+2. Given the user has successfully installed the add-on in Excel, when they open it for the first time, then an interface appears prompting them to log in with their EZ Survival Prediction account credentials.<br>
+<br>
+3. Given a logged-in user selects a dataset within their spreadsheet, when they use the add-on to run a saved predictor, then the prediction results are displayed within a new sheet or a dedicated panel in Excel.<br>
 
 </details><br> 
 
@@ -658,9 +682,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can change specific settings regarding "de-censoring"<br>
-
-2. User can generate more precise predictions by specifying censoring information<br>
+1. Given a user is on the "Train Model" page for a predictor, when they expand the "Advanced Settings" section, then they see specific options for handling censored data (e.g., a dropdown for "Censoring Type" with options like 'Left', 'Interval').<br>
+<br>
+2. Given the user selects a specific de-censoring method, when the interface updates, then a new set of input fields appears for the parameters required by that method.<br>
+<br>
+3. Given a user has configured and trained a model with de-censoring settings, when they view the model's results, then the summary of the model indicates which de-censoring techniques were applied during training.<br>
 
 </details><br> 
 
