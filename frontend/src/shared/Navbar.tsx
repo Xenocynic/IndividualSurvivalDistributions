@@ -29,13 +29,15 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-black/20 bg-black">
       <div className="container mx-auto max-w-6xl h-14 md:h-16 px-3 md:px-4 flex items-center justify-between">
         <div className="flex items-center">
+            {/* LEFT - Website name */}
             <Link
                 to="/"
-                className="text-white font-semibold tracking-tight mr-6 md:mr-8"  // ← add margin-right
+                className="text-white font-semibold tracking-tight mr-6 md:mr-8"  // add margin-right
             >
                 ISD | Individual Survival Distributions
             </Link>
 
+            {/* LEFT - Buttons */}
             <nav className="hidden sm:flex items-center gap-2 md:gap-3">
                 <NavItem to="/about">About</NavItem>
                 <NavItem to="/instruction">Instruction</NavItem>
