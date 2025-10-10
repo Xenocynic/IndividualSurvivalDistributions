@@ -1,10 +1,15 @@
 import type { JSX } from "react/jsx-runtime";
+import { Routes, Route, Navigate } from 'react-router-dom'
+import AppLayout from './layouts/AppLayout'
 
-// src/App.tsx
+
 export default function App(): JSX.Element {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-emerald-100">
-      <h1 className="text-3xl font-bold text-emerald-600">Tailwind OK</h1>
-    </div>
-  );
+    <Routes>
+      <Route element={<AppLayout />}>
+        {/* Add future pages here as soon as they get made - currently: dashboard, about, instruction, predictors */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+    )
 }

@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* App globals */
+:root { color-scheme: light; }
+html, body, #root { height: 100%; }
+
+
+/* utility for the thin top-border */
+.border-thin { border-width: 1px; }
