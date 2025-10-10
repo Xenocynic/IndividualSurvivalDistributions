@@ -45,18 +45,18 @@ User stories must be prioritized using the MoSCoW method.
 #### US 1.1 - User Logging in / Out
 > SP: 3
 
-> As a user, I want to log in and log out using my Google account, so that I can save my datasets and predictions. 
+> As a user, I want to log in and log out with an account, so that I can save my datasets and predictions. 
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can click the button "Sign In With Google Account", or alternatively enter a gmail address, followed by a password<br>
+1. Given a user is on the Login page, when they enter their correct credentials and click "Log In," then they are successfully authenticated and redirected to their main dashboard.<br>
 
-2. User is prompted with a pop-up to choose their Google Account<br>
+2. Given a user is on the account creation page, when they enter a password that does not meet the security requirements (e.g., too short), then an error message outlining the requirements is displayed.<br>
 
-3. User cannot sign up without a Google Account; the entered email is flagged if it is not a gmail account<br>
+3. Given a user is logged in, when they click the "Logout" button in their profile menu, then they are successfully logged out and redirected to the landing page.<br>
 
-4. User cannot enter a password that is shorter than a certain character limit, or if it doesn't contain the at least one number or special character<br>
+
 
 </details><br> 
 
@@ -68,13 +68,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can click their Profile and access the Settings page<br>
+1. Given a logged-in user navigates to their "Profile Settings" page, when they click on the "Change Password" option, then they are presented with fields for "Current Password," "New Password," and "Confirm New Password."<br>
 
-2. User is prompted to change their password<br>
+2. Given the user enters their correct current password and a valid new password in both fields, when they click "Save Changes," then they receive a "Password successfully changed" confirmation message.<br>
 
-3. User cannot change their password to the same password<br>
+3. Given the user enters a new password that is identical to their old one, when they try to save, then an error message "New password cannot be the same as the old password" is displayed.<br>
 
-4. User cannot enter a password that is shorter than a certain character limit, or if it doesn't contain the at least one number or special character<br>
+4. Given the user enters a new password that does not meet the security requirements (e.g., too short, no number), when they try to save, then a specific error message is displayed (e.g., "Password must be at least 8 characters and contain one number").<br>
 
 </details><br> 
 
@@ -86,13 +86,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User is given the option to sign in using their UAlberta credentials Google Account<br>
+1. Given a user with Superuser privileges is on the login page, when they sign in with their authorized UAlberta Google Account, then the system validates their Admin status in the database.<br>
 
-2. User is validated in the database to be a Superuser/Admin<br>
+2. Given the user's Admin status is validated, when they are redirected to the dashboard, then a permanent "Admin Panel" link is visible in the main navigation bar.<br>
 
-3. User is given access to a separate Superuser/Admin tab<br>
+3. Given a non-Admin user logs in, then the "Admin Panel" link is not visible.<br>
 
-4. With this tab, the Superuser/Admin can view all datasets and select them to view predictions<br>
+4. Given an Admin is on the "Admin Panel," when they click on a user's name, then they can view a list of all datasets and predictors owned by that user.<br>
 
 </details><br> 
 
@@ -104,15 +104,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can navigate to their Dashboard once logged in<br>
+1. Given a user successfully logs in, then they are automatically navigated to their Dashboard page.<br>
 
-2. User cannot access the Dashboard if they are not logged in<br>
+2. Given a user who is not logged in attempts to access the dashboard URL directly, then they are redirected to the Login page.<br>
 
-3. Users can view all their created predictors and folders<br>
+3. Given a user is on their Dashboard, then they can see a clear, organized list of all the predictors and folders they have created.<br>
 
-4. User can select existing predictors and folders, which will provide options to edit or delete them<br>
-
-5. User can click on a button that lets them create a new predictor<br>
+4. Given the user is on their Dashboard, when they click the "Create New Predictor" button, then they are navigated to the predictor creation page.<br>
 
 </details><br> 
 
@@ -124,57 +122,31 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can navigate to an "upload dataset" button<br>
+1. Given a logged-in user is on the "Create New Predictor" page, when they click the "Upload Dataset" button, then a file selection dialog appears.<br>
 
-2. User can upload their dataset using a file upload for .csv files<br>
+2. Given the user selects a correctly formatted .csv file, when they submit the file, then they receive a "Validation Successful" message and the dataset name appears in the form.<br>
 
-3. Tests to ensure all columns / rows are formatted in accordance to the machine learning model's requirements<br>
+3. Given the user selects a file that is not a .csv file (e.g., .txt, .xlsx), when they attempt to upload it, then the system displays an error message stating "Invalid file type. Please upload a .csv file."<br>
 
-4. User is prompted with the detected errors, if there are any<br>
-
-5. User is allowed to continue if no errors are detected<br>
+4. Given the user selects a .csv file with incorrect formatting (e.g., missing required columns), when they submit the file, then the system displays a specific error message detailing the issues found (e.g., "Error in row 15: Column 'Time' contains non-numeric data.").<br>
 
 </details><br> 
 
->> #### US 1.3.2 - Upload Formatted Datasets
->> SP: 3
-
->>> As a user, I want to upload input data as spreadsheets and .csv files, so that it's easier to upload and use. 
-
-<details>
-<summary>Acceptance Tests</summary><br> 
-
-1. User can upload .csv files using an "upload dataset" button<br>
-
-2. Website will validate and ensure the file is formatted properly<br>
-
-</details><br> 
-
->> #### US 1.3.3 - Predictor Privacy
+>> #### US 1.3.3 - Predictor Privacy & Sharing
 >>> SP: 2
 
->>> As a user, I want to be able to make a dataset / predictor private or public, so that I can control its access. 
+>>> As a user, I want to be able to make a dataset / predictor private or public and share it, so that I can control its access.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. When uploading or viewing their datasets / predictors, user can select privacy<br>
+1. Given a user is creating or editing a predictor, then they can see a privacy option (e.g., a toggle for "Public" or "Private").<br>
 
-2. A logged out user can only see public datasets / predictors<br>
+2. Given a user is not logged in, when they visit the "Predictors" page, then they can only see predictors that have been set to "Public".<br>
 
-3. A logged in user can only see public datasets / predictors and private predictors for which they are a selected user<br>
+3. Given a logged-in user visits the "Predictors" page, then they see all public predictors and any private predictors they have been granted access to.<br>
 
-</details><br> 
-
->>> #### US 1.3.3.1 - Share Private Predictors
->>>> SP: 5
-
->>>> As a user, I want to be able to decide which users can view my private predictor, so that I can let them use it too.
-
-<details>
-<summary>Acceptance Tests</summary><br> 
-
-1. User can add accounts to share datasets / predictors with while creating or editing them<br>
+4. Given a user is editing a private predictor, when they enter another user's valid email into the "Share with" field and click "Add," then that user is added to the list of authorized viewers.<br>
 
 </details><br> 
 
@@ -193,36 +165,32 @@ User stories must be prioritized using the MoSCoW method.
 >> #### US 1.3.4 - Create a Predictor
 >>> SP: 3
 
->>> As a user, I want to be able to create a predictor using a dataset i.e. train a model on my dataset, so that I can save it and view its predictions.
+>>> As a user, I want to be able to create a predictor using a dataset, so that I can save it and view its predictions.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can create a predictor after uploading a dataset<br>
+1. Given a user has successfully uploaded a valid dataset, when they fill in the required fields (Name, Description) and click "Create Predictor," then the predictor is created, and they are redirected to the predictor's main page.<br>
 
-2. User can name it, add notes, toggle visibility and permissions, add it to a folder, or modify some advanced settings<br>
+2. Given the user tries to create a predictor without filling in the "Name" field, when they click the create button, then an error message "Predictor Name is required" is displayed, and creation fails.<br>
 
-3. Required fields not being filled in will result in creation failure<br>
-
-4. The name being the same as another existing predictor will also lead to creation failure<br>
+3. Given the user enters a name that is identical to another predictor they already own, when they click the create button, then an error message "A predictor with this name already exists" is displayed.<br>
 
 </details><br> 
 
 >> #### US 1.3.5 - Edit a Predictor
 >>> SP: 3
 
->>> As a user, I want to be able to edit the details of my predictor (such as the notes, the dataset, and other settings), so that I can make it better.
+>>> As a user, I want to be able to edit the details of my predictor, so that I can make it better.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can select an existing predictor owned by them to edit<br>
+1. Given a user is on their Dashboard, when they click the "Edit" button for a predictor they own, then they are navigated to the predictor's settings page.<br>
 
-2. User can edit its name, notes, toggle visibility and permissions, add it to a folder, or modify some advanced settings<br>
+2. Given a user is on another user's public predictor page, then the "Edit" button is not visible or is disabled.<br>
 
-3. Required fields being removed will result in a save failure<br>
-
-4. User cannot select an existing predictor not owned by them to edit<br>
+3. Given the user is on the edit page and removes the predictor's name, when they click "Save," then a save failure error is shown with the message "Predictor Name is required".<br>
 
 </details><br> 
 
@@ -234,15 +202,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can select an existing predictor owned by them to delete<br>
+1. Given a user is on their Dashboard, when they click the "Delete" icon for a predictor they own, then a confirmation pop-up appears with the message "Are you sure you want to delete this predictor?".<br>
 
-2. User will be taken to a confirm popup where they can cancel the delete operation or continue<br>
+2. Given the confirmation pop-up is visible, when the user clicks "Confirm," then the predictor is permanently removed and no longer appears on the dashboard.<br>
 
-3. Deletion will result in the predictor no longer being visible / removed from the database<br>
-
-4. Canceling deletion will lead to nothing happening<br>
-
-5. User cannot select an existing predictor not owned by them to delete<br>
+3. Given the confirmation pop-up is visible, when the user clicks "Cancel," then the pop-up disappears, and no change is made.<br>
 
 </details><br> 
 
@@ -254,17 +218,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can select any predictor to pin<br>
+1. Given a user is viewing any predictor, when they click the "Pin" icon, then that predictor is added to a "Pinned Predictors" panel on their Dashboard and sidebar.<br>
 
-2. Pinned predictor will be added to a side panel<br>
+2. Given a predictor is already pinned, when the user clicks the "Unpin" icon, then it is removed from the "Pinned Predictors" panel.<br>
 
-3. Pinned predictor can be accessed from the panel by the user<br>
-
-4. Pinned predictor can be can unpinned by the user - this will lead to it being removed from the side panel<br>
-
-5. The three universally pinned predictors will exist on top<br>
-
-6. The three universally pinned predictors cannot be deleted<br>
+3. Given any user is on the site, then a set of three "universally pinned" predictors is always visible at the top of the main Predictors page and cannot be unpinned or deleted.<br>
 
 </details><br> 
 
@@ -276,41 +234,29 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can start creation process<br>
+1. Given a user has filled in the "Name" field on the creation page, when they click "Save Draft," then the predictor is saved as a private draft.<br>
 
-2. User can save the draft created - only needs to have the Name field filled in<br>
+2. Given a predictor is saved as a draft, then it is only visible on the creator's Dashboard and not on the public "Predictors" page.<br>
 
-3. Draft predictors are private by default - they do not show up on the Predictors tab, only on the user's Dashboard<br>
+3. Given a draft has not been updated for a set period (e.g., 30 days), then it is automatically deleted from the system.<br>
 
-4. Draft predictors are automatically deleted after some time<br>
-
-5. Draft predictors can be edited or deleted like regular predictors<br>
+4. Given a user is viewing their drafts on the Dashboard, then they have options to edit or delete each draft.<br>
 
 </details><br> 
 
-#### US 1.4.1 - Display Predictors
+#### US 1.4.1 - Display and Search for a Predictor
 > SP: 2
 
-> As a user, I want to be able to see all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
+> As a user, I want to be able to see and search for all public and private predictors (that I have the permissions to view or edit), so that I can decide which ones to work with.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can view all public / private (if permitted) predictors on the Predictors page<br>
+1. Given a user navigates to the "Predictors" page, then a list of all viewable predictors is displayed.<br>
 
-</details><br> 
+2. Given a user is on the "Predictors" page, when they type a query into the search bar and press Enter, then the list is filtered to show only predictors matching the query.<br>
 
->> #### US 1.4.2 - Search for a Dataset / Predictor
->>> SP: 3
-
->>> As a user, I want to search for a stored dataset/predictor that I have created or been granted access to, so that I can use it for my own predictions. 
-
-<details>
-<summary>Acceptance Tests</summary><br> 
-
-1. User can search for datasets / predictors using the search tab<br>
-
-2. User can select and view queried datasets<br>
+3. Given a list of search results, when the user clicks on a predictor, then they are navigated to that predictor's page.<br>
 
 </details><br> 
 
@@ -322,13 +268,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can filter predictors by whether they are public or private<br>
+1. Given a user is on the "Predictors" page, then they can see filter options for "Public" and "Private".<br>
 
-2. Checking off either one causes the other to vanish from the Predictors page<br>
+2. Given the user checks the "Private" filter, when the page updates, then only private predictors they have access to are shown.<br>
 
-3. Checking off both leads to the default view<br>
+3. Given the user checks only the "Public" filter, when the page updates, then only public predictors are shown.<br>
 
-4. User can select and view queried datasets<br>
+4. Given the user checks both "Public" and "Private" filters, then all predictors they have access to are shown.<br>
 
 </details><br> 
 
@@ -340,47 +286,33 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can search through all datasets<br>
+1. Given an Admin is on the "Admin Panel", then they can use a search bar to find any dataset or predictor in the system.<br>
 
-2. Statistics are automatically collected by the admin panel settings<br>
+2. Given an Admin is on the "Admin Panel", then they can view a dashboard with aggregate statistics (e.g., total users, total predictors).<br>
 
-3. User can log into the admin panel and view, modify or delete entries across the website<br>
+3. Given an Admin has located a specific dataset or predictor, then they have options to view, modify, or delete it.<br>
 
 </details><br> 
 
-#### US 1.6.1
+#### US 1.6
 > SP: 2
 
-> As a user, I want to be able to create folders, so that I can organize my predictors (and datasets) better.
+> As a user, I want to be able to create and delete folders, so that I can organize my predictors better.
 
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can create a folder once they have named it<br>
+1. Given a user is on their Dashboard, when they click "Create Folder," enter a name, and confirm, then a new, empty folder appears in their folder list.<br>
 
-2. User can expand or minimize a folder<br>
+2. Given a user is on their Dashboard, when they click the "Delete" icon next to a folder they created, then a confirmation modal appears.<br>
 
-3. User can rename a folder they have created<br>
+3. Given the user confirms the deletion, then the folder is removed, and any predictors that were inside it now appear outside the folder in the main list.<br>
 
-</details><br> 
-
->> #### US 1.6.2 - Delete Folders
->>> SP: 1
-
->>> As a user, I want to be able to delete folders I have created, so that I can organize my predictors (and datasets) better.
-
-<details>
-<summary>Acceptance Tests</summary><br> 
-
-1. User can delete a folder they have created<br>
-
-2. Upon deletion, the folder disappears. Its contents are not deleted<br>
-
-3. User cannot delete a folder not created by them<br>
+4. Given a user is viewing a folder not created by them, then the "Delete" icon is not visible.<br>
 
 </details><br> 
 
->> #### US 1.6.3 - Toggle Folder Visibility
+>> #### US 1.6.1 - Toggle Folder Visibility
 >>> SP: 5
 
 >>> As a user, I want to be able to set folders to public and private, so that I can control who sees my predictors.
@@ -388,17 +320,15 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can set a folder to public or private<br>
+1. Given a user is editing a folder they own, then they can see a toggle for "Public" and "Private" visibility.<br>
 
-2. Folders have their own privacy toggle. Only becomes private if EVERY predictor in it is marked off private<br>
+2. Given a folder is marked "Private" and contains a "Public" predictor, when another user views the "Predictors" page, then they can see the predictor listed individually but not within the private folder.<br>
 
-3. If a folder is marked private and its contents are public, they are all private on the Predictors page, but the predictors still show up on the Predictors page<br>
-
-4. If a folder is marked public and most of its contents are private, only the public predictors are shown in the folder on the Predictors page<br>
+3. Given a folder is marked "Public" and contains a "Private" predictor, when another user views the public folder, then the private predictor is not visible inside it.<br>
 
 </details><br> 
 
->> #### US 1.6.4 - Move Predictors Between Folders
+>> #### US 1.6.2 - Move Predictors Between Folders
 >>> SP: 5
 
 >>> As a user, I want to be able to drag and drop predictors into folders, so that it's easy to organize everything.
@@ -406,11 +336,11 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can drag predictors into and out of folders<br>
+1. Given a user is on their Dashboard, when they click and drag a predictor onto a folder, then the predictor is moved into that folder.<br>
 
-2. Visual updates and database updates should be quick and 'persist' onscreen<br>
+2. Given a predictor has been moved to a new folder, then the change is immediately visible on the Dashboard and persists after a page refresh.<br>
 
-3. If the operation fails for any reason, an error message should flash and the predictor should go back to its original place<br>
+3. Given a drag-and-drop operation fails (e.g., due to a network error), when the user releases the mouse button, then an error notification is displayed, and the predictor returns to its original location.<br>
 
 </details><br> 
 
@@ -464,11 +394,13 @@ User stories must be prioritized using the MoSCoW method.
 <details>
 <summary>Acceptance Tests</summary><br> 
 
-1. User can select learners for different datasets<br>
+1. Given a user is on a predictor's page, when they navigate to the "Train Model" tab, then they can select a learning tool from a dropdown menu.<br>
 
-2. System automatically saves trained models in "versions"<br>
+2. Given a model training process completes successfully, then a new, versioned entry is added to the "Model History" list for that predictor.<br>
 
-3. User can access different versions of learners on the dataset's page<br>
+3. Given a predictor has multiple model versions, when the user clicks on a specific version, then they are shown the results and metrics for that version.<br>
+
+
 
 </details><br> 
 
