@@ -1,0 +1,4 @@
+Django>=5.0,<6.0
+djangorestframework>=3.15,<4.0   # for APIs
+django-cors-headers>=4.3,<5.0    # for frontend-backend communication
+psycopg2-binary>=2.9,<3.0        # PostgreSQL driver
