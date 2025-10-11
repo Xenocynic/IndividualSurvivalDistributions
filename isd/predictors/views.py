@@ -9,6 +9,9 @@ class PredictorViewSet(viewsets.ModelViewSet):
     queryset = Predictor.objects.all().order_by("name")
     serializer_class = PredictorSerializer
 
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
 
 class PredictorPermissionViewSet(viewsets.ModelViewSet):
     """API viewset for PredictorPermission model."""
