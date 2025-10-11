@@ -1,5 +1,4 @@
 from django.test import TestCase
-
 from django.contrib.auth.models import User
 from dataset.models import Dataset
 from rest_framework.test import APITestCase, APIClient
@@ -8,7 +7,6 @@ from .models import Predictor
 from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
 
-# Create your tests here.
 
 class PredictorTests(APITestCase):
     def setUp(self):
@@ -54,3 +52,21 @@ class PredictorTests(APITestCase):
         self.assertEqual(predictor.description, "Updated description")
 
         
+    def test_create_predictor(self):
+        """Test creating a Predictor instance via the API."""
+        data = {
+            "name": "My Predictor",
+            "description": "Test predictor",
+            "dataset": self.dataset.dataset_id,
+            # include other required fields here
+        }
+        response = self.client.post(self.url, data, format='json')
+        print(response.data)   # <-- shows which fields are missing or invalid
+
+        # Check that the response status is 201 CREATED
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Check that the Predictor exists in the database
+        predictor = Predictor.objects.get(name="My Predictor")
+        self.assertEqual(predictor.owner, self.user)
+        self.assertEqual(predictor.description, "Test predictor")
