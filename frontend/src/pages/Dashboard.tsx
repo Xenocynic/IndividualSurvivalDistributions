@@ -2,7 +2,7 @@
  * DASHBOARD 
  * (Predictors & Datasets)
  *
- * High-level:
+ * Purpose:
  * - Renders a two-tab workspace: "Predictors" and "Datasets".
  * - Shares a single search box and an ownership filter (All / Owner / Viewer) across both tabs.
  * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
