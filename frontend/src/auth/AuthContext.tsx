@@ -21,14 +21,24 @@
  * - This is a UI-only thing. Replace each action with real API calls later
  *   (set / clear tokens, fetch profile, handle errors, etc.).
  *
+ * UPDATE (mock mode):
+ * - Added a MOCK AUTH switch controlled by VITE_AUTH_MODE=mock for local testing
+ *   without a backend. Clearly marked sections show what to remove later.
  */
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-// small helpers and service calls for real API wiring
+// ---- REAL API HELPERS (keep) ----
 import { loadTokensFromStorage, setTokens } from "../lib/apiClient";
 import * as Auth from "../services/auth";
+
+// ---- MOCK AUTH HELPERS (TEMPORARY) ----
+// REMOVE THIS IMPORT WHEN REAL API IS FULLY WIRED
+import { mockLogin, mockRegister, mockLogout } from "./mock";
+
+// Toggle between 'mock' and 'real' via .env: VITE_AUTH_MODE=mock
+const AUTH_MODE = (import.meta.env.VITE_AUTH_MODE || "real").toLowerCase();
 
 // Shape of a logged-in user - extend this as the backend grows
 export type User = { id: string; username: string; email?: string; displayName: string };
@@ -51,36 +61,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
 
-  // On mount, load any saved tokens (so a refresh can succeed later if you add /me fetching)
   useEffect(() => {
+    // On mount, load any saved tokens so a refresh can succeed later.
+    // NOTE: harmless in mock mode; only used by real API calls.
     loadTokensFromStorage();
-    // Optional future: call /api/auth/me to hydrate real profile if tokens exist.
+
+    // OPTIONAL (for real mode later): call /api/auth/me here if tokens exist
+    // to hydrate a persisted session with the actual profile.
   }, []);
 
   // Memoize the context value so consumers don’t rerender unnecessarily
   const value = useMemo<AuthContextType>(() => ({
     user,
 
-    // REAL login: calls /api/auth/login/ with username/password (SimpleJWT default)
     async login(username: string, password: string) {
-      await Auth.login(username, password);
-      // fetch here and set the real user
+      if (AUTH_MODE === "mock") {
+        // ---- MOCK LOGIN (TEMPORARY) ----
+        // REMOVE THIS BLOCK when the real API is working end-to-end.
+        const { user: u } = await mockLogin(username, password);
+        setUser({ id: u.id, username: u.username, displayName: u.displayName, email: u.email });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // ---- REAL LOGIN (KEEP) ----
+      await Auth.login(username, password); // sets tokens via apiClient
+      // TODO (real): fetch /api/auth/me and set real profile instead of synthesizing
       setUser({ id: "self", username, displayName: username });
       navigate("/dashboard", { replace: true });
     },
 
-    // REAL signup: calls /api/auth/register/, then logs in and redirects
     async signup({ username, email, password, password2 }) {
+      if (AUTH_MODE === "mock") {
+        // ---- MOCK SIGNUP (TEMPORARY) ----
+        // REMOVE THIS BLOCK when the real API is working end-to-end.
+        const { user: u } = await mockRegister(username, email, password, password2);
+        setUser({ id: u.id, username: u.username, displayName: u.displayName, email: u.email });
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // ---- REAL SIGNUP (KEEP) ----
       await Auth.register({ username, email, password, password2 });
       await Auth.login(username, password);
+      // TODO (real): fetch /api/auth/me and set real profile
       setUser({ id: "self", username, displayName: username, email });
       navigate("/dashboard", { replace: true });
     },
 
-    // REAL logout: clears tokens and user, then returns to home
     async logout() {
+      if (AUTH_MODE === "mock") {
+        // ---- MOCK LOGOUT (TEMPORARY) ----
+        // REMOVE THIS BLOCK when the real API is working end-to-end.
+        await mockLogout();
+        setUser(null);
+        navigate("/", { replace: true });
+        return;
+      }
+
+      // ---- REAL LOGOUT (KEEP) ----
       try {
-        await Auth.logout(); // if your backend expects refresh token, implement inside services/auth.ts
+        await Auth.logout(); // if backend expects refresh token, handle inside services/auth.ts
       } finally {
         setUser(null);
         setTokens(null);
