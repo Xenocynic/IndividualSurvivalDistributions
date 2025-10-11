@@ -70,3 +70,25 @@ class PredictorTests(APITestCase):
         predictor = Predictor.objects.get(name="My Predictor")
         self.assertEqual(predictor.owner, self.user)
         self.assertEqual(predictor.description, "Test predictor")
+
+    def test_delete_predictor(self):
+        """Test deleting a Predictor instance via the API."""
+        # First, create a predictor owned by the authenticated user
+        predictor = Predictor.objects.create(
+            name="My Predictor",
+            description="Test predictor to delete",
+            dataset=self.dataset,
+            owner=self.user
+        )
+
+        # Construct the detail URL (assuming you use DefaultRouter)
+        detail_url = f"{self.url}{predictor.predictor_id}/"
+
+        # Send DELETE request
+        response = self.client.delete(detail_url)
+
+        # Assert that the response status is HTTP 204 NO CONTENT
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Assert that the predictor has been deleted from the database
+        self.assertFalse(Predictor.objects.filter(predictor_id=predictor.predictor_id).exists())
