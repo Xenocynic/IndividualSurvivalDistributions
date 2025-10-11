@@ -164,3 +164,12 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/',
 }
+
+# EMAIL SETTINGS (for password reset)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'           # or your provider
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'cmput401survivalprediction@gmail.com'  # your email
+EMAIL_HOST_PASSWORD = 'wgau llrq qlyl mvha'  # from Gmail App Passwords
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
