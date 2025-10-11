@@ -20,7 +20,7 @@ class PredictorTests(APITestCase):
         # Authenticate via JWT
         token = AccessToken.for_user(self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        self.url = "/api/predictor/"  # adjust to your router path
+        self.url = "/api/predictors/"  # adjust to your router path
 
     def test_create_predictor(self):
         """Test creating a Predictor instance via the API."""
