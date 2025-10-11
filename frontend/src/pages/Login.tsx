@@ -15,36 +15,47 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // kept for parity with a real form
-  const loc = useLocation();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    // TODO: replace with real API call + error states
-    login(email);
+    setErrorMsg(null);
+    setSubmitting(true);
+    try {
+      await login(username, password);
+    } catch (err: any) {
+      // Common SimpleJWT error shapes:
+      // { detail: "No active account found..." }  OR field errors { username: [...], password: [...] }
+      const d = err?.details;
+      const message =
+        d?.detail ??
+        (Array.isArray(d?.username) && d.username[0]) ??
+        (Array.isArray(d?.password) && d.password[0]) ??
+        "Login failed";
+      setErrorMsg(String(message));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    // Center the auth card; page bg comes from AppLayout when logged out
     <section className="grid min-h-[60vh] place-items-center py-12">
       <div className="w-full max-w-md rounded-xl bg-black/5 p-1">
         <div className="rounded-xl bg-white p-6 shadow-card">
-          {/* Segmented toggle (Sign in active) */}
+          {/* Segmented toggle */}
           <div className="mb-5 flex justify-center">
             <div className="inline-flex items-center rounded-md border border-black/10 bg-white p-0.5">
-              <Link
-                to="/login"
-                className="inline-flex h-8 min-w-[84px] items-center justify-center rounded-[6px] px-4 text-xs font-medium bg-black text-white"
-                aria-current="page"
-              >
+              <div className="inline-flex h-8 min-w-[84px] items-center justify-center rounded-[6px] px-4 text-xs font-medium bg-black text-white">
                 Sign in
-              </Link>
+              </div>
               <Link
                 to="/signup"
                 className="inline-flex h-8 min-w-[84px] items-center justify-center rounded-[6px] px-4 text-xs font-medium text-gray-700 hover:bg-gray-100"
@@ -54,17 +65,22 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Auth form */}
+          {errorMsg && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {errorMsg}
+            </div>
+          )}
+
           <form onSubmit={onSubmit} className="space-y-3">
             <label className="block text-xs font-medium text-gray-700">
-              Email
+              Username
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-                autoComplete="email"
+                autoComplete="username"
               />
             </label>
 
@@ -76,8 +92,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-                // current-password helps managers autofill on login page
-                autoComplete={loc.pathname === "/login" ? "current-password" : "password"}
+                autoComplete="current-password"
               />
             </label>
 
@@ -87,9 +102,10 @@ export default function Login() {
               </Link>
               <button
                 type="submit"
-                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+                disabled={submitting}
+                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-70"
               >
-                Submit
+                {submitting ? "Signing in..." : "Submit"}
               </button>
             </div>
           </form>
