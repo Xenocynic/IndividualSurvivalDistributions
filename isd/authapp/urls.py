@@ -19,7 +19,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
 
     # Password reset workflow
-    path('password/forgot/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('password/forgot/', ForgotPasswordView.as_view(), name='forgot_password_api'),
     path('password/reset/<uidb64>/<token>/', ResetPasswordView.as_view(), name='reset_password'),
     
 ]
