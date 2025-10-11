@@ -19,42 +19,74 @@ import { useAuth } from "../auth/AuthContext";
 
 export default function Signup() {
   const { signup } = useAuth();
-  const [name, setName] = useState("");       // kept for future profile stuff
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (pw1 !== pw2) return alert("Passwords do not match");
-    // TODO: real API call (include name + email + password)
-    signup(email);
+    setErrorMsg(null);
+    if (pw1 !== pw2) {
+      setErrorMsg("Passwords do not match");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await signup({ username, email, password: pw1, password2: pw2 });
+    } catch (err: any) {
+      const d = err?.details;
+      // DRF often returns field dict: { username: ["…"], email: ["…"], password: ["…"] }
+      const firstFieldError =
+        (Array.isArray(d?.username) && d.username[0]) ||
+        (Array.isArray(d?.email) && d.email[0]) ||
+        (Array.isArray(d?.password) && d.password[0]) ||
+        (Array.isArray(d?.password2) && d.password2[0]) ||
+        d?.detail ||
+        "Registration failed";
+      setErrorMsg(String(firstFieldError));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <section className="grid min-h-[60vh] place-items-center">
+    <section className="grid min-h-[60vh] place-items-center py-12">
       <div className="w-full max-w-md rounded-xl bg-black/5 p-1">
         <div className="rounded-xl bg-white p-6 shadow-card">
-          {/* Segmented toggle (Sign up active) */}
-          <div className="mb-4 flex items-center justify-center gap-2">
-            <Link to="/login" className="h-8 rounded-md border border-black/10 px-3 text-xs hover:bg-gray-50">
-              Sign in
-            </Link>
-            <button className="h-8 rounded-md bg-black px-3 text-xs font-medium text-white">
-              Sign up
-            </button>
+          {/* Segmented toggle */}
+          <div className="mb-5 flex justify-center">
+            <div className="inline-flex items-center rounded-md border border-black/10 bg-white p-0.5">
+              <Link
+                to="/login"
+                className="inline-flex h-8 min-w-[84px] items-center justify-center rounded-[6px] px-4 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Sign in
+              </Link>
+              <div className="inline-flex h-8 min-w-[84px] items-center justify-center rounded-[6px] px-4 text-xs font-medium bg-black text-white">
+                Sign up
+              </div>
+            </div>
           </div>
 
-          {/* Sign-up form */}
+          {errorMsg && (
+            <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {errorMsg}
+            </div>
+          )}
+
           <form onSubmit={onSubmit} className="space-y-3">
             <label className="block text-xs font-medium text-gray-700">
-              Display Name
+              Username
               <input
                 type="text"
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="username"
               />
             </label>
 
@@ -66,6 +98,7 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="email"
               />
             </label>
 
@@ -77,6 +110,7 @@ export default function Signup() {
                 value={pw1}
                 onChange={(e) => setPw1(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="new-password"
               />
             </label>
 
@@ -88,15 +122,17 @@ export default function Signup() {
                 value={pw2}
                 onChange={(e) => setPw2(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="new-password"
               />
             </label>
 
             <div className="flex items-center justify-end pt-1">
               <button
                 type="submit"
-                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+                disabled={submitting}
+                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-70"
               >
-                Submit
+                {submitting ? "Creating account..." : "Submit"}
               </button>
             </div>
           </form>
@@ -105,3 +141,4 @@ export default function Signup() {
     </section>
   );
 }
+
