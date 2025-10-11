@@ -2,12 +2,15 @@ from rest_framework import generics, status, permissions, viewsets
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import send_mail
+from django.urls import reverse
 from .serializers import RegisterSerializer
 
 # Register new users
@@ -38,11 +41,11 @@ class LogoutView(APIView):
             return Response({"message": "Logged out successfully"}, status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
 # Forgot Password View
 class ForgotPasswordView(APIView):
     """
-    Sends a password reset link to user's email.
+    Sends a password reset link to the user's email.
     """
     permission_classes = [AllowAny]
 
@@ -53,25 +56,36 @@ class ForgotPasswordView(APIView):
 
         try:
             user = User.objects.get(email=email)
-
-            # Generate password reset token and link
-            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            reset_url = f"http://localhost:8000/auth/reset-password/{uid}/{token}/"
-
-            # Send email (in production, use a proper email backend)
-            send_mail(
-                subject="Password Reset Request",
-                message=f"Click the link to reset your password: {reset_url}",
-                from_email="noreply@ISDexample.com",
-                recipient_list=[email],
-                fail_silently=False,
-            )
-            return Response({"message": "Password reset link sent"}, status=status.HTTP_200_OK)
-        
         except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+            return Response({"message": "User does not exist"},
+                            status=status.HTTP_200_OK)
+
+        # create uid and token
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        try:
+            reset_path = reverse('reset_password_frontend', kwargs={'uidb64': uidb64, 'token': token})
+        except Exception:
+            # If reverse fails for any reason, fall back to constructing path directly
+            reset_path = f"/api/auth/password/reset/{uidb64}/{token}/"
+
+        reset_url = request.build_absolute_uri(reset_path)
+
+        # send email 
+        subject = "Password Reset Request"
+        message = f"Click the link to reset your password: {reset_url}"
+        from_email = None  
+        try:
+            send_mail(subject, message, from_email, [user.email], fail_silently=False)
+        except Exception as e:
+            return Response({"error": "Failed to send email. Check server email settings."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Success response 
+        return Response({"message": "Reset link has been sent."},
+                        status=status.HTTP_200_OK)
+
 
 # Reset Password View
 class ResetPasswordView(APIView):
