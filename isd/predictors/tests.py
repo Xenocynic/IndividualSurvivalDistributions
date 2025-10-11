@@ -22,6 +22,36 @@ class PredictorTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         self.url = "/api/predictors/"  # adjust to your router path
 
+    def test_edit_predictor(self):
+        """Test editing a Predictor instance via the API."""
+
+        # Step 1: Create a predictor
+        predictor = Predictor.objects.create(
+            name="Initial Predictor",
+            description="Initial description",
+            dataset=self.dataset,
+            owner=self.user
+        )
+
+        # Step 2: Prepare update data
+        updated_data = {
+            "name": "Updated Predictor",
+            "description": "Updated description",
+            "dataset": self.dataset.dataset_id
+        }
+
+        # Step 3: Send PATCH request to update the predictor
+        response = self.client.patch(f"{self.url}{predictor.predictor_id}/", updated_data, format='json')
+
+        # Step 4: Assert successful update
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Step 5: Verify that the database reflects the update
+        predictor.refresh_from_db()
+        self.assertEqual(predictor.name, "Updated Predictor")
+        self.assertEqual(predictor.description, "Updated description")
+
+        
     def test_create_predictor(self):
         """Test creating a Predictor instance via the API."""
         data = {
