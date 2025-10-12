@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 class Dataset(models.Model):
     """Dataset model for storing dataset information."""
     
