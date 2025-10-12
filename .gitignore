@@ -10,3 +10,12 @@ __pycache__/
 venv/
 .env
 .venv/
+
+# Node modules for selenium tests
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+.cache/
