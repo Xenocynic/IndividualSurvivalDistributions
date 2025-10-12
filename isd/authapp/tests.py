@@ -1,9 +1,12 @@
+from django.core import mail
 from django.urls import reverse
-from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth.models import User
+from rest_framework.test import APITestCase
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.core import mail
+from django.contrib.auth.tokens import default_token_generator
 
 class AuthTests(APITestCase):
     def setUp(self):
@@ -11,8 +14,12 @@ class AuthTests(APITestCase):
         self.login_url = reverse('token_obtain_pair')
         self.logout_url = reverse('logout')
         self.refresh_url = reverse('token_refresh')
+        # User testing
         self.forgot_password_url = reverse('user_forgot_password_api')
         self.reset_password_url_name = 'user_reset_password_api'
+        # Admin testing
+        self.user = User.objects.create_user(username="testuser", email="test@example.com", password="oldpassword")
+        self.forgot_url = reverse('forgot_password_api')
 
         self.user_data = {
             "username": "testuser",
@@ -55,7 +62,8 @@ class AuthTests(APITestCase):
         response = self.client.post(self.refresh_url, {"refresh": str(refresh)}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
-
+       
+    # User testing for password reset (2 tests)
     def test_forgot_password_sends_email(self):
         """Ensure forgot password sends reset email"""
         User.objects.create_user(username="testuser", email="testuser@example.com", password="StrongPassword123!")
@@ -87,3 +95,27 @@ class AuthTests(APITestCase):
         self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_204_NO_CONTENT])
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewPass123!"))
+
+    # Admin testing password reset (3 tests)
+    def test_password_reset_email_sent(self):
+        """POST valid email 200 OK"""
+        response = self.client.post(self.forgot_url, {"email": "test@example.com"}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_password_reset_invalid_email(self):
+        """POST invalid email still 200 OK"""
+        response = self.client.post(self.forgot_url, {"email": "noone@example.com"}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_password_reset_confirm(self):
+        """POST valid uid + password 200 OK"""
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        reset_url = reverse('reset_password', kwargs={'uidb64': uidb64, 'token': token})
+
+        response = self.client.post(reset_url, {"password": "newsecurepassword"}, format='json')
+
+        # API should return 200 if success
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("newsecurepassword"))

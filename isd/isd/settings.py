@@ -16,9 +16,10 @@ import os
 
 from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 load_dotenv(BASE_DIR /'.env')
-BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/admin/login/'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,7 +88,7 @@ ROOT_URLCONF = 'isd.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
