@@ -21,7 +21,7 @@
  * - Make sure API calls work and add more as needed
  */
 
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, setTokens, loadTokensFromStorage } from "../lib/apiClient";
 
 type User = {

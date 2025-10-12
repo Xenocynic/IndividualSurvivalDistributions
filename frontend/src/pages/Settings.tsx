@@ -12,7 +12,7 @@
  * - Basic inline validation (matching new passwords) before calling updatePassword.
  */
 
-import React, { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Settings() {
