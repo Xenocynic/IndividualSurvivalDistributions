@@ -1,5 +1,3 @@
-import type { JSX } from "react/jsx-runtime";
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -10,33 +8,35 @@ import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import Landing from "./pages/Landing";
-import About from "./pages/About"; 
-import Instructions from './pages/Instructions'
+import About from "./pages/About";
+import Instructions from "./pages/Instructions";
+// Temporary placeholder until you build it:
+const Predictors = () => <div className="p-6">Predictors page (coming soon)</div>;
 
 export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
+        {/* Public for everyone (including logged-in users) */}
+        <Route index element={<Landing />} />
+        <Route path="about" element={<About />} />
+        <Route path="instructions" element={<Instructions />} />
+        <Route path="predictors" element={<Predictors />} />
 
-        {/* Public pages (redirect to dashboard if already logged in) */}
+        {/* Guest-only (redirects to /dashboard if already logged in) */}
         <Route element={<GuestRoute />}>
-          <Route index element={<Landing />} />
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<Signup />} />
           <Route path="reset" element={<ResetPassword />} />
-          <Route path="about" element={<About />} />
-          <Route path="instructions" element={<Instructions />} />
         </Route>
-        {/* add the other pages here ^ - predictors / datasets */}
 
-        {/* Protected pages */}
+        {/* Auth-only */}
         <Route element={<ProtectedRoute />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 
-        {/* fallback */}
-
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
