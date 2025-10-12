@@ -206,3 +206,18 @@ open http://127.0.0.1:8000/api/docs/
 # Test endpoints interactively in Swagger UI
 # Or use curl/Postman with the documented endpoints
 ```
+
+
+
+### **For creating the .env file for Login/Logout**
+1. Login to Test Gmail Account Gmail: cmput401survivalprediction@gmail.com Password: cmput401survivalprediction?
+
+2. Go to Manage Google Account -> App Passwords Create a new name. Copy the generated app password
+
+3. Create a new file in the same folder as the manage.py Name it security.env
+
+4. Put this in the security.env ```EMAIL_HOST_PASSWORD=<gmail app password>```
+
+5. Save, run and edit as required
+
+6. Push as normal. .env will be ignored by the gitignore.
