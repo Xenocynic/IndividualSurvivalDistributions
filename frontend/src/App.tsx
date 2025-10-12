@@ -16,13 +16,18 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        {/* Public for everyone (including logged-in users) */}
+        {/* Public for everyone */}
         <Route index element={<Landing />} />
         <Route path="about" element={<About />} />
         <Route path="instructions" element={<Instructions />} />
         <Route path="browse" element={<Browse />} />
 
-        {/* Guest-only (redirects to /dashboard if already logged in) */}
+        {/* Password reset confirm — support both patterns */}
+        {/* UPDATE THIS LATER AND REMOVE THE WUERY TOKEN ONE */}
+        <Route path="reset/confirm" element={<ResetConfirm />} />
+        <Route path="reset/confirm/:uid/:token" element={<ResetConfirm />} />
+
+        {/* Guest-only */}
         <Route element={<GuestRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<Signup />} />
