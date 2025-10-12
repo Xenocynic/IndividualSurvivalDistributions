@@ -10,20 +10,27 @@ import Settings from "./pages/Settings";
 import Landing from "./pages/Landing";
 import About from "./pages/About";
 import Instructions from "./pages/Instructions";
-// Temporary placeholder until you build it:
+import ResetConfirm from "./pages/ResetConfirm";
+
+// Temporary placeholder until we build it:
 const Predictors = () => <div className="p-6">Predictors page (coming soon)</div>;
 
 export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        {/* Public for everyone (including logged-in users) */}
+        {/* Public for everyone */}
         <Route index element={<Landing />} />
         <Route path="about" element={<About />} />
         <Route path="instructions" element={<Instructions />} />
         <Route path="predictors" element={<Predictors />} />
 
-        {/* Guest-only (redirects to /dashboard if already logged in) */}
+        {/* Password reset confirm — support both patterns */}
+        {/* UPDATE THIS LATER AND REMOVE THE WUERY TOKEN ONE */}
+        <Route path="reset/confirm" element={<ResetConfirm />} />
+        <Route path="reset/confirm/:uid/:token" element={<ResetConfirm />} />
+
+        {/* Guest-only */}
         <Route element={<GuestRoute />}>
           <Route path="login" element={<Login />} />
           <Route path="signup" element={<Signup />} />
