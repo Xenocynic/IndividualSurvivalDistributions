@@ -1,8 +1,9 @@
-# Project Management
+# **Project Management**
 
 ## Story Map 
 
-Should include all user stories. You should start the document with a storymap. Include all five sprints. Don't forget to indicate estimation of each user story (in story points).
+[![Storymap](storymap.png)](storymap.png){target=_blank}
+View more details in [here](https://www.canva.com/design/DAG0T0_u72A/NvHJ91Rbdcr9bjI9JHdpyw/edit).
 
 ## Project Plan
 
@@ -53,10 +54,6 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
         Discuss storymap structure and trajectory on Wednesday
         - Planned it out (Hoang)
           **Completed**
-<img width="4821" height="5177" alt="storymap (1)" src="https://github.com/user-attachments/assets/f4765fb7-3781-407e-9a73-40738fb5c4a6" />
-
-View more details in [here](https://www.canva.com/design/DAG0T0_u72A/NvHJ91Rbdcr9bjI9JHdpyw/edit).
-
 
     - Project Plan (Selena: Sept 21)
       **Completed**

@@ -1,4 +1,4 @@
-# Project Requirements
+# **Project Requirements**
 
 ## Executive Summary
 
@@ -855,28 +855,17 @@ US 5.2 - Handle Censored Data<br>
 
 ## Open-source products
 
-1. <a href="https://github.com/shi-ang/SurvivalEVAL" target="_blank">MAE-PO (SurvivalEVAL)</a>
+1. <a href="https://github.com/shi-ang/MakeSurvivalCalibratedAgain/" target="_blank">MTLR model</a>  
+   Provides the main predictive model our website will integrate with. We will connect it to our Django backend through API calls to serve model predictions through the web interface.  
 
-2. <a href="https://github.com/shi-ang/MakeSurvivalCalibratedAgain" target="_blank">CSD/CiPOT (MakeSurvivalCalibratedAgain)</a>
+2. <a href="https://github.com/Recedivies/django-react-template">Recedivies / django-react-template</a>  
+   Demonstrates how to structure a full-stack app with Django REST, React, and PostgreSQL. Guides our architecture, Docker setup, and CI/CD process for development and deployment.  
 
-3. <a href="https://github.com/shi-ang/BNN-ISD" target="_blank">BNN-ISD</a>
+3. <a href="https://github.com/rudranag/Django-Vite-Boilerplate" target="_blank">Rudranag / Django-Vite-Boilerplate</a>  
+   Shows how to integrate Vite with Django for efficient frontend builds and hot-reloading, which helps us streamline React integration and speed up development.  
 
-## Technical resources
+4. <a href="https://github.com/jazzband/djangorestframework-simplejwt" target="_blank">SimpleJWT (Django REST Framework JWT Authentication)</a>  
+   Provides a simple and secure JWT implementation for Django REST Framework. We’ll use it to authenticate users and protect access to model results and private data.  
 
-### Brownfield Documentation
->- <a href="https://docs.google.com/document/d/1DmFf9IDluLoiTbr6PEhBdytxpxbRrxwnVw2zilON0GE/edit?usp=sharing" target="_blank">PSSP User Guide</a> (provided by client) 
->- <a href="https://papers.nips.cc/paper_files/paper/2011/file/1019c8091693ef5c5f55970346633f92-Paper.pdf" target="_blank">NIPS paper on Cancer Research</a>
->- Presentations and papers on the research being supported by the project. (provided by client)
->- 
-
-### Backend: 
-
-Ruby on Rails + C++ / R; MySQL
-
-### Frontend: 
-
-React / Vite + TypeScript + Tailwind CSS + Zustand + React Router
-
-### Deployment:
-
-TBD - to be communicated to us by the client at a later date
+5. <a href="https://github.com/SeleniumHQ/selenium" target="_blank">Selenium (Browser Automation Framework)</a>  
+   Used for end-to-end and UI testing. We will automate key website workflows such as logging in, submitting data, and retrieving predictions to ensure stable integration between the frontend and backend.  
