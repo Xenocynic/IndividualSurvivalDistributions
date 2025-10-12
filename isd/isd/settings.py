@@ -188,9 +188,12 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 # Frontend dev origin
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-]
+# Frontend dev origin
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:5173",
+#]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 # JWT = False. Cookie/CSRF = True
 CORS_ALLOW_CREDENTIALS = False
@@ -207,5 +210,5 @@ CORS_ALLOW_HEADERS = [
 # just keeping this here in case
 CSRF_TRUSTED_ORIGINS = [
     "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
-    "http://localhost:5173",
+    "http://localhost:5174",
 ]
