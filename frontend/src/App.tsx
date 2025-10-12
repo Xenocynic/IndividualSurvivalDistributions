@@ -10,8 +10,7 @@ import Settings from "./pages/Settings";
 import Landing from "./pages/Landing";
 import About from "./pages/About";
 import Instructions from "./pages/Instructions";
-// Temporary placeholder until you build it:
-const Predictors = () => <div className="p-6">Predictors page (coming soon)</div>;
+import Browse from "./pages/Browse";
 
 export default function App() {
   return (
@@ -21,7 +20,7 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="about" element={<About />} />
         <Route path="instructions" element={<Instructions />} />
-        <Route path="predictors" element={<Predictors />} />
+        <Route path="browse" element={<Browse />} />
 
         {/* Guest-only (redirects to /dashboard if already logged in) */}
         <Route element={<GuestRoute />}>
