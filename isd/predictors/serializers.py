@@ -8,6 +8,9 @@ class PredictorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Predictor
         fields = ["predictor_id", "name", "description", "dataset", "owner"]
+        extra_kwargs = {
+            "owner": {"read_only": True}
+        }
 
 
 class PredictorPermissionSerializer(serializers.ModelSerializer):
