@@ -23,7 +23,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 urlpatterns = [
     path('admin/password/forgot/',TemplateView.as_view(template_name="registration/forgot_password.html"),name='forgot_password'),
     path('auth/reset-password/<uidb64>/<token>/',TemplateView.as_view(template_name="registration/reset_password.html"),name='reset_password_frontend'),
+    
+    # Django admin
     path('admin/', admin.site.urls),
+    path('admin/auth/', include('django.contrib.auth.urls')),
 
     # Base API routes
     path('api/', include('core.urls')),
