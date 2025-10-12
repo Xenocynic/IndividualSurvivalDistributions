@@ -1,23 +1,44 @@
 import type { JSX } from "react/jsx-runtime";
-import { Routes, Route, Navigate } from 'react-router-dom'
-import AppLayout from './layouts/AppLayout'
-import Dashboard from './pages/Dashboard'
+
+import { Routes, Route, Navigate } from "react-router-dom";
+import AppLayout from "./layouts/AppLayout";
+import Dashboard from "./pages/Dashboard";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import GuestRoute from "./auth/GuestRoute";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ResetPassword from "./pages/ResetPassword";
+import Settings from "./pages/Settings";
+import Landing from "./pages/Landing";
+import About from "./pages/About"; 
 import Instructions from './pages/Instructions'
 
-
-export default function App(): JSX.Element {
+export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
 
-        <Route index element={<Dashboard />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="instructions" element={<Instructions />} />
-        
-        {/* Add future pages here as soon as they get made - currently: about, predictors */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Public pages (redirect to dashboard if already logged in) */}
+        <Route element={<GuestRoute />}>
+          <Route index element={<Landing />} />
+          <Route path="login" element={<Login />} />
+          <Route path="signup" element={<Signup />} />
+          <Route path="reset" element={<ResetPassword />} />
+          <Route path="about" element={<About />} />
+          <Route path="instructions" element={<Instructions />} />
+        </Route>
+        {/* add the other pages here ^ - predictors / datasets */}
 
+        {/* Protected pages */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+
+        {/* fallback */}
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
-    )
+  );
 }
