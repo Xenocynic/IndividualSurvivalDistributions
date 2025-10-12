@@ -108,6 +108,40 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 * > Due - (tentative) **October 11th**
 
+#### Accounts App – Requirement Traceability Matrix
+
+| User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
+|---------------|------------------------|--------------|-----------|----------------|
+| US 1.1.1 | User can change their password using the correct old password and matching confirmation. | `test_change_password_success` | `test_accounts.py` | Covered |
+| US 1.1.1 | Changing password should fail if old password is incorrect. | `test_change_password_incorrect_old` | `test_accounts.py` | Covered |
+| US 1.1.1 | Changing password should fail if new and confirm passwords do not match. | `test_change_password_mismatch` | `test_accounts.py` | Covered |
+| US 1.1.1 | Unauthenticated users cannot change password. | `test_unauthenticated_cannot_change_password` | `test_accounts.py` | Covered |
+| US 1.3 | Authenticated users can view their own profile information at `/me/`. | `test_get_profile` | `test_accounts.py` | Covered |
+| US 1.3 | Authenticated users can update their profile (first and last name) through `/me/`. | `test_update_profile` | `test_accounts.py` | Covered |
+| US 1.3 | Unauthenticated users cannot access the `/me/` endpoint. | `test_unauthenticated_cannot_access_me` | `test_accounts.py` | Covered |
+
+### AuthApp – Requirement Traceability Matrix
+
+| User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
+|---------------|------------------------|--------------|-----------|----------------|
+| US 1.1 | User can log in with valid credentials and receive access/refresh tokens. | `test_login_user` | `test_auth.py` | Covered |
+| US 1.1 | User can log out and invalidate refresh tokens. | `test_logout_user` | `test_auth.py` | Covered |
+| US 1.1 | User can refresh access tokens using a valid refresh token. | `test_refresh_token` | `test_auth.py` | Covered |
+| US 1.1 | User can register a new account with valid username, email, and password. | `test_register_user` | `test_auth.py` | Covered |
+| US 1.1.1 | User can initiate a forgot password request and receive a reset email. | `test_forgot_password_sends_email` | `test_auth.py` | Covered |
+| US 1.1.1 | User can reset password using a valid token and new password. | `test_reset_password_success` | `test_auth.py` | Covered |
+| US 1.1.1 | Admin can send password reset email to a valid user. | `test_password_reset_email_sent` | `test_auth.py` | Covered |
+| US 1.1.1 | Admin password reset request with invalid email still returns a 200 OK. | `test_password_reset_invalid_email` | `test_auth.py` | Covered |
+| US 1.1.1 | Admin can confirm password reset using UID and token. | `test_password_reset_confirm` | `test_auth.py` | Covered |
+
+### Predictors App – Requirement Traceability Matrix
+
+| User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
+|---------------|------------------------|--------------|-----------|----------------|
+| US 1.3.4 | Authenticated users can create a new predictor. | `test_create_predictor` | `test_predictors.py` | Covered |
+| US 1.3.5 | Authenticated users can edit/update an existing predictor. | `test_edit_predictor` | `test_predictors.py` | Covered |
+| US 1.3.6 | Authenticated users can delete a predictor they own. | `test_delete_predictor` | `test_predictors.py` | Covered |
+
 
 ### Sprint 3
 
