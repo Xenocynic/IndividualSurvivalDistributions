@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import About from "./pages/About";
 import Instructions from "./pages/Instructions";
 import Browse from "./pages/Browse";
+import ResetConfirm from "./pages/ResetConfirm";
 
 export default function App() {
   return (
