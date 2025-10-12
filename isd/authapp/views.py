@@ -67,13 +67,7 @@ class UserForgotPasswordView(APIView):
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        try:
-            reset_path = reverse('reset_password_frontend', kwargs={'uidb64': uidb64, 'token': token})
-        except Exception:
-            # If reverse fails for any reason, fall back to constructing path directly
-            reset_path = f"/api/auth/password/reset/{uidb64}/{token}/"
-
-        reset_url = request.build_absolute_uri(reset_path)
+        reset_url = request.build_absolute_uri(f"/api/auth/user/password/reset/{uidb64}/{token}/")
         # after backend is deployed, change to frontend URL
         # reset_url = f"{settings.FRONTEND_URL}/reset-password/{uidb64}/{token}/"
 
