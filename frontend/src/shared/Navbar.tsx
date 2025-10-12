@@ -64,6 +64,7 @@ export default function Navbar() {
   }, []);
 
   return (
+
     <header className="sticky top-0 z-50 w-full border-b border-black/20 bg-black">
       <div className="container mx-auto max-w-6xl h-14 md:h-16 px-3 md:px-4 flex items-center justify-between">
         {/* LEFT: site name + primary nav */}

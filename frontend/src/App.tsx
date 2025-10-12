@@ -1,4 +1,5 @@
 import type { JSX } from "react/jsx-runtime";
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -10,6 +11,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import Landing from "./pages/Landing";
 import About from "./pages/About"; 
+import Instructions from './pages/Instructions'
 
 export default function App() {
   return (
@@ -23,8 +25,9 @@ export default function App() {
           <Route path="signup" element={<Signup />} />
           <Route path="reset" element={<ResetPassword />} />
           <Route path="about" element={<About />} />
+          <Route path="instructions" element={<Instructions />} />
         </Route>
-        {/* add the other pages here ^ - instructions, predictors / datasets */}
+        {/* add the other pages here ^ - predictors / datasets */}
 
         {/* Protected pages */}
         <Route element={<ProtectedRoute />}>
