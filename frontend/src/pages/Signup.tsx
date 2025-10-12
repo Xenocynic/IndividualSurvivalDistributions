@@ -23,6 +23,8 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -35,7 +37,14 @@ export default function Signup() {
     }
     setSubmitting(true);
     try {
-      await signup({ username, email, password: pw1, password2: pw2 });
+      await signup({
+          username,
+          email,
+          password: pw1,
+          password2: pw2,
+          first_name: firstName,
+          last_name: lastName,
+        });
     } catch (err: any) {
       const d = err?.details;
       // DRF often returns field dict: { username: ["…"], email: ["…"], password: ["…"] }
@@ -87,6 +96,28 @@ export default function Signup() {
                 onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
                 autoComplete="username"
+              />
+            </label>
+
+            <label className="block text-xs font-medium text-gray-700">
+              First name
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="given-name"
+              />
+            </label>
+
+            <label className="block text-xs font-medium text-gray-700">
+              Last name
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                autoComplete="family-name"
               />
             </label>
 

@@ -13,7 +13,6 @@ export function setTokens(tokens: { access?: string; refresh?: string } | null) 
   if (tokens.access) accessToken = tokens.access;
   if (tokens.refresh) refreshToken = tokens.refresh;
 
-  // Persist for reload survival (optional; you can remove if you prefer memory-only)
   localStorage.setItem("auth_tokens", JSON.stringify({ access: accessToken, refresh: refreshToken }));
 }
 

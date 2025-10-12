@@ -18,136 +18,140 @@
  *   create it as discussed (login/register/logout using /api/auth/* endpoints).
  *
  * TO DO
- * - This is a UI-only thing. Replace each action with real API calls later
- *   (set / clear tokens, fetch profile, handle errors, etc.).
- *
- * UPDATE (mock mode):
- * - Added a MOCK AUTH switch controlled by VITE_AUTH_MODE=mock for local testing
- *   without a backend. Clearly marked sections show what to remove later.
+ * - Make sure API calls work and add more as needed
  */
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { api, setTokens, loadTokensFromStorage } from "../lib/apiClient";
 
-// ---- REAL API HELPERS (keep) ----
-import { loadTokensFromStorage, setTokens } from "../lib/apiClient";
-import * as Auth from "../services/auth";
-
-// ---- MOCK AUTH HELPERS (TEMPORARY) ----
-// REMOVE THIS IMPORT WHEN REAL API IS FULLY WIRED
-import { mockLogin, mockRegister, mockLogout } from "./mock";
-
-// Toggle between 'mock' and 'real' via .env: VITE_AUTH_MODE=mock
-const AUTH_MODE = (import.meta.env.VITE_AUTH_MODE || "real").toLowerCase();
-
-// Shape of a logged-in user - extend this as the backend grows
-export type User = { id: string; username: string; email?: string; displayName: string };
-
-// What the context exposes to the app
-type AuthContextType = {
-  user: User | null;
-  login: (username: string, password: string) => Promise<void>;
-  signup: (payload: { username: string; email: string; password: string; password2: string }) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (patch: Partial<Pick<User, "displayName" | "email">>) => void;
-  updatePassword: (current: string, next: string) => void;
+type User = {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  date_joined: string;
+  is_active: boolean;
+  groups: string[];
 };
 
-// Internal context instance. Undefined means "not wrapped by <AuthProvider>"
+type SignupBody = {
+  username: string;
+  email: string;
+  password: string;
+  password2: string;
+  first_name?: string;
+  last_name?: string;
+};
+
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  signup: (body: SignupBody) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  updateProfile: (patch: Partial<Pick<User, "first_name" | "last_name" | "email">>) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Wrap the app with this provider to make auth state/actions available
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const navigate = useNavigate();
+const AUTH = "/api/auth";
+const ACCOUNTS = "/api/accounts"; 
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Load persisted tokens and prefetch profile on mount
   useEffect(() => {
-    // On mount, load any saved tokens so a refresh can succeed later.
-    // NOTE: harmless in mock mode; only used by real API calls.
-    loadTokensFromStorage();
-
-    // OPTIONAL (for real mode later): call /api/auth/me here if tokens exist
-    // to hydrate a persisted session with the actual profile.
+    try {
+      loadTokensFromStorage();
+    } catch {}
+    // try to fetch me; ignore errors (not logged in)
+    refreshProfile().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Memoize the context value so consumers don’t rerender unnecessarily
-  const value = useMemo<AuthContextType>(() => ({
+  const login = async (username: string, password: string) => {
+    setError(null);
+    const res = await api.post<{ access: string; refresh: string }>(`${AUTH}/login/`, {
+      username,
+      password,
+    });
+    setTokens({ access: res.access, refresh: res.refresh });
+    await refreshProfile();
+  };
+
+  const signup = async (body: SignupBody) => {
+    setError(null);
+    // create account
+    await api.post(`${AUTH}/register/`, body);
+    // then login automatically
+    await login(body.username, body.password);
+  };
+
+  const logout = async () => {
+    setError(null);
+    try {
+      // If backend supports blacklisting on logout, post refresh token here.
+
+      // We don't have direct access to refresh in this file; store it in context and send it.
+      // For now, best-effort clear server & client:
+      await api.post(`${AUTH}/logout/`, {} as any).catch(() => {});
+    } catch {}
+    setTokens(null);
+    setUser(null);
+  };
+
+  const refreshProfile = async () => {
+    try {
+      const me = await api.get<User>(`${ACCOUNTS}/users/me/`);
+      setUser(me);
+    } catch (e: any) {
+      setUser(null);
+    }
+  };
+
+  const updateProfile = async (patch: Partial<Pick<User, "first_name" | "last_name" | "email">>) => {
+    setError(null);
+    const cleaned: Record<string, unknown> = {};
+    if (typeof patch.first_name === "string") cleaned.first_name = patch.first_name;
+    if (typeof patch.last_name === "string") cleaned.last_name = patch.last_name;
+    if (typeof patch.email === "string") cleaned.email = patch.email;
+
+    const updated = await api.patch<User>(`${ACCOUNTS}/users/me/`, cleaned);
+    setUser(updated);
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    setError(null);
+    // Your UserSerializer.update supports changing password via PATCH "password"
+    await api.patch(`${ACCOUNTS}/users/me/`, { password: newPassword });
+    // Optional: force re-login if desired
+    // await logout();
+  };
+
+  const value: AuthContextType = {
     user,
-
-    async login(username: string, password: string) {
-      if (AUTH_MODE === "mock") {
-        // ---- MOCK LOGIN (TEMPORARY) ----
-        // REMOVE THIS BLOCK when the real API is working end-to-end.
-        const { user: u } = await mockLogin(username, password);
-        setUser({ id: u.id, username: u.username, displayName: u.displayName, email: u.email });
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      // ---- REAL LOGIN (KEEP) ----
-      await Auth.login(username, password); // sets tokens via apiClient
-      // TODO (real): fetch /api/auth/me and set real profile instead of synthesizing
-      setUser({ id: "self", username, displayName: username });
-      navigate("/dashboard", { replace: true });
-    },
-
-    async signup({ username, email, password, password2 }) {
-      if (AUTH_MODE === "mock") {
-        // ---- MOCK SIGNUP (TEMPORARY) ----
-        // REMOVE THIS BLOCK when the real API is working end-to-end.
-        const { user: u } = await mockRegister(username, email, password, password2);
-        setUser({ id: u.id, username: u.username, displayName: u.displayName, email: u.email });
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      // ---- REAL SIGNUP (KEEP) ----
-      await Auth.register({ username, email, password, password2 });
-      await Auth.login(username, password);
-      // TODO (real): fetch /api/auth/me and set real profile
-      setUser({ id: "self", username, displayName: username, email });
-      navigate("/dashboard", { replace: true });
-    },
-
-    async logout() {
-      if (AUTH_MODE === "mock") {
-        // ---- MOCK LOGOUT (TEMPORARY) ----
-        // REMOVE THIS BLOCK when the real API is working end-to-end.
-        await mockLogout();
-        setUser(null);
-        navigate("/", { replace: true });
-        return;
-      }
-
-      // ---- REAL LOGOUT (KEEP) ----
-      try {
-        await Auth.logout(); // if backend expects refresh token, handle inside services/auth.ts
-      } finally {
-        setUser(null);
-        setTokens(null);
-        navigate("/", { replace: true });
-      }
-    },
-
-    // DEMO profile update: patch local state (replace with API later)
-    updateProfile: (patch) => {
-      setUser((u) => (u ? { ...u, ...patch } : u));
-      alert("(demo) Profile updated");
-    },
-
-    // DEMO password update: no-op + toast (replace with API later)
-    updatePassword: (_current, _next) => {
-      // Replace with API call and proper error handling
-      alert("(demo) Password changed");
-    },
-  }), [user, navigate]);
+    loading,
+    error,
+    login,
+    signup,
+    logout,
+    refreshProfile,
+    updateProfile,
+    updatePassword,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};
 
-// Consumer hook — throws if used outside <AuthProvider>
-export function useAuth() {
+export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-}
+};
