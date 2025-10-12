@@ -20,7 +20,6 @@
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
  *
- * 
  * TO DO:
  * - Replace mock data with API data when backend is ready.
  * - Navigate to actual create / edit / view routes instead of alert() stubs.
@@ -32,6 +31,7 @@ import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
 import DatasetCard from "../components/DatasetCard";
 import { DeletePredictor } from "../components/DeletePredictor";
 import type { Ownership } from "../components/FilterMenu";
+import { useAuth } from "../auth/AuthContext";
 
 type Tab = "predictors" | "datasets";
 
@@ -66,6 +66,8 @@ const MOCK_DATASETS: PredictorItem[] = [
 
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  
   // tabs + data
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
   const [predictors, setPredictors] = useState<PredictorItem[]>(MOCK_PREDICTORS);
@@ -185,13 +187,18 @@ export default function Dashboard() {
       {/* welcome header */}
       <div className="py-6 text-center" onClick={(e) => e.stopPropagation()}>
         <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-          Welcome, Username
+          Welcome,{" "}
+          {user
+            ? user.first_name?.trim()
+              ? user.first_name
+              : user.username
+            : "User"}!
         </h1>
         {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
         <div className="mx-auto mt-4 max-w-2xl space-y-2">
-          <div className="h-2 rounded bg-gray-200" />
-          <div className="h-2 w-11/12 rounded bg-gray-200" />
-          <div className="h-2 w-8/12 rounded bg-gray-200" />
+          <h2 className="text-2xl tracking-tight md:text-2xl">
+          Find your datasets and predictors below.
+        </h2>
         </div>
       </div>
 
