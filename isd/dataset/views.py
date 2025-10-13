@@ -1,7 +1,8 @@
+from django.db.models import Q
 from rest_framework import viewsets, permissions
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from .models import Dataset, DatasetPermission
 from rest_framework.exceptions import PermissionDenied
+from .models import Dataset, DatasetPermission
 from .serializers import DatasetSerializer, DatasetPermissionSerializer
 
 # ----------------------------
@@ -19,6 +20,7 @@ class CanAccessDataset(permissions.BasePermission):
         if obj.owner == request.user:
             return True
         return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
+
 
 # ----------------------------
 # Dataset ViewSet
@@ -55,7 +57,6 @@ class CanAccessDataset(permissions.BasePermission):
         tags=["Datasets"]
     ),
 )
-
 class DatasetViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing datasets.
@@ -66,13 +67,16 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return datasets that the user owns or has permission to access.
-        - Owned datasets: user is the owner
-        - Shared datasets: user has a DatasetPermission
+        Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
-        owned = Dataset.objects.filter(owner=user)
-        shared = Dataset.objects.filter(datasetpermission__user=user).distinct()
-        return (owned | shared).order_by("dataset_name")
+        return (
+            Dataset.objects.filter(
+                Q(owner=user) | Q(permissions__user=user)
+            )
+            .distinct()
+            .order_by("dataset_name")
+        )
 
     def get_permissions(self):
         """
@@ -82,47 +86,49 @@ class DatasetViewSet(viewsets.ModelViewSet):
         - list/create: any authenticated user
         """
         if self.action in ["update", "partial_update", "destroy"]:
-            return [permissions.IsAuthenticated(), IsDatasetOwner()]
+            permission_classes = [permissions.IsAuthenticated, IsDatasetOwner]
         elif self.action == "retrieve":
-            return [permissions.IsAuthenticated(), CanAccessDataset()]
-        return [permissions.IsAuthenticated()]
+            permission_classes = [permissions.IsAuthenticated, CanAccessDataset]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [perm() for perm in permission_classes]
 
     def perform_create(self, serializer):
-        """
-        When creating a dataset, automatically assign the authenticated user as the owner.
-        """
+        """Automatically assign the authenticated user as the dataset owner."""
         serializer.save(owner=self.request.user)
 
 
+# ----------------------------
+# Dataset Permission ViewSet
+# ----------------------------
 @extend_schema_view(
     list=extend_schema(
         summary="List dataset permissions",
-        description="List all users who have access to datasets.",
+        description="List all users who have access to datasets owned by the authenticated user.",
         tags=["Dataset Permissions"]
     ),
     create=extend_schema(
         summary="Grant dataset access",
-        description="Grant a user access to a specific dataset.",
+        description="Grant a user access to a specific dataset (only the owner can do this).",
         tags=["Dataset Permissions"]
     ),
     destroy=extend_schema(
         summary="Revoke dataset access",
-        description="Revoke a user's access to a dataset.",
+        description="Revoke a user's access to a dataset (only the owner can do this).",
         tags=["Dataset Permissions"]
-    )
+    ),
 )
 class DatasetPermissionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing dataset permissions.
     Allows dataset owners to grant or revoke access to their datasets.
     """
-
     serializer_class = DatasetPermissionSerializer
 
     def get_queryset(self):
         """
         Only return permissions for datasets owned by the current user.
-        This ensures a user cannot see or modify permissions for datasets they don't own.
+        Prevents non-owners from viewing or modifying other users' dataset permissions.
         """
         return DatasetPermission.objects.filter(dataset__owner=self.request.user)
 
