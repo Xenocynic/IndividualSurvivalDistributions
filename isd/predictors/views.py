@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions
 from .models import Predictor, PredictorPermission
 from rest_framework.exceptions import PermissionDenied
 from .serializers import PredictorSerializer, PredictorPermissionSerializer
+from django.db.models import Q
 
 # ----------------------------
 # Custom Permissions
@@ -36,9 +37,9 @@ class PredictorViewSet(viewsets.ModelViewSet):
         - Shared predictors: user has PredictorPermission
         """
         user = self.request.user
-        owned = Predictor.objects.filter(owner=user)
-        shared = Predictor.objects.filter(permissions__user=user).distinct()
-        return (owned | shared).order_by("name")
+        return Predictor.objects.filter(
+            Q(owner=user) | Q(permissions__user=user)
+        ).distinct().order_by("name")
 
     def get_permissions(self):
         """
