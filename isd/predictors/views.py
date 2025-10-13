@@ -34,7 +34,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # Show all public & user-owned predictors
-        return Predictor.objects.filter(models.Q(is_private=False) | models.Q(owner=user)).order_by("name")
+        return Predictor.objects.filter(Q(is_private=False) | Q(owner=user)).order_by("name")
 
     def get_queryset(self):
         """
@@ -100,3 +100,22 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
         if instance.predictor.owner != self.request.user:
             raise PermissionDenied("Only the predictor owner can revoke access.")
         instance.delete()
+
+# ----------------------------
+# PinnedPredictor ViewSet
+# ----------------------------
+class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API viewset for PinnedPredictor.
+    - Only returns predictors pinned by the current user.
+    - Read-only: users cannot create/delete pins through this viewset.
+    """
+    serializer_class = PredictorSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Returns predictors that are pinned by the currently authenticated user.
+        """
+        user = self.request.user
+        return Predictor.objects.filter(pinned_by__user=user).order_by("-pinned_by__pinned_at")
