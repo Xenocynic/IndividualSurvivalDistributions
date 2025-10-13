@@ -81,26 +81,25 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
-| US 1.1 | User Logging In / Out | 3 | Yaatheshini, Advi |
-| US 1.1.1 | Change Password | 1 | Alex | 
-| US 1.2 | Superuser / Admin Logging In / Out | 1 | Hoang, Excel |
+| US 1.1 | User Logging In / Out | 3 | Advi, Selena, Yaatheshini |
+| US 1.1.1 | Change Password and User Information | 3 | Advi, Selena, Yaatheshini | 
 | US 1.3 | Logged-In User Dashboard | 3 | Advi, Selena | 
-| US 1.3.1 | Upload a Dataset | 3 | Yaatheshini, Excel | 
-| US 1.3.3 | Predictor Privacy | 2 | Advi, Shahmeer | 
-| US 1.3.4 | Create a Predictor | 3 | Selena, Excel, Alex | 
-| US 1.3.5 | Edit a Predictor | 3 | Shahmeer, Yaatheshini |  
-| US 1.3.6 | Delete a Predictor | 1 | Advi, Yaatheshini | 
-| US 1.3.7 | Pin Predictors | 3 | Advi, Selena | 
-| US 1.4.1 | Display Predictors | 2 | Advi, Selena | 
-| US 1.5 | Superuser / Admin Access (Panel Set-Up) | 8 | Advi, Selena, Alex, Yaatheshini, Hoang | 
-| US 1.7 | Landing Page | 2 | Excel | 
+| US 1.3.1 | Upload a Dataset | 3 | Alex, Hoang, Advi, Selena | 
+| US 1.3.3 | Predictor Privacy | 2 | Yaatheshini, Selena | 
+| US 1.3.4 | Create a Predictor | 3 | Advi, Excel, Selena | 
+| US 1.3.5 | Edit a Predictor | 1 | Excel, Selena | 
+| US 1.3.6 | Delete a Predictor | 1 | Excel, Selena | 
+| US 1.3.7 | Pin Predictors | 3 | Yaatheshini, Selena | 
+| US 1.4.1 | Display Predictors & Datasets | 2 | Advi, Selena | 
+| US 1.4.2 | Search for a Dataset / Predictor | 1 | Selena |
+| US 1.4.3 | Filter Predictors By Public / Private Access | 1 | Selena | 
+| US 1.5 | Admin Access (Panel Set-Up) | 3 | Yaatheshini | 
+| US 1.7 | Landing Page | 2 | Shahmeer | 
 | US 1.8 | About Page | 2 | Shahmeer | 
-| US 4.1.1 | Instructions Page | 1 | Alex, Yaatheshini | 
-| US 4.1.2 | Hover Over Button / Tab for Info | 2 | Selena | 
-| US 6.1 | Tests for Sprint 2 | 3 | Shahmeer, Alex | 
+| US 4.1.1 | Instructions Page | 2 | Hoang | 
+| Us 6.1 | Frontend Tests for Sprint 2 | 5 | Yaatheshini
 
-
-**Estimated sprint velocity**: 43
+**Estimated sprint velocity**: 40
 
 * > Initial Check-In - **October 5th**
 
@@ -161,6 +160,8 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.3.5 | Non-owner cannot edit a predictor. | `test_non_owner_cannot_update` | `test_predictors.py` | Covered |
 | US 1.3.6 | Non-owner cannot delete a predictor. | `test_non_owner_cannot_delete` | `test_predictors.py` | Covered |
 
+---  
+
 ### Sprint 3
 
 *Due date: 26 Oct 2025*
@@ -169,25 +170,20 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
-| US 1.3.2 | Upload Formatted Datasets | 3 | **TBD** |
-| US 1.3.3.1 | Share Private Predictors | 5 | **TBD** | 
-| US 1.4.2 | Search for a Dataset / Predictor | 3 | **TBD** |
-| US 1.4.3 | Filter Predictors By Public / Private Access | 1 | **TBD** | 
-| US 1.6.1 | Create Folders | 2 | **TBD** | 
-| US 1.6.2 | Delete Folders | 1 | **TBD** | 
-| US 1.6.3 | Toggle Folder Visibility | 5 | **TBD** | 
-| US 1.6.4 | Move Predictors Between Folders | 5 | **TBD** |  
-| US 2.1 | Identify an accessible dataset, a specific learning tool, and a specification of that learner's hyperparameter | 8 | **TBD** | 
-| US 2.1.2 | Save Predictors After Runs | 3 | **TBD** | 
-| US 2.1.3 | Re-Train Predictors | 2 | **TBD** | 
-| US 2.1.3.1 | Search for Features | 2 | **TBD** | 
-| US 2.1.3.2 |  Select and Deselect All Features | 2 | **TBD** | 
-| US 2.1.3.3 | Paginate Features | 2 | **TBD** |  
-| US 2.2 |  Implement Learning Tools | 5 | **TBD** | 
-| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | **TBD** | 
-| US 4.2 | Guided Tour / Demo Implementation | 3 | **TBD** | 
+| US 1.2 | Admin Logging In / Out | 1 | Advi, Hoang, Yaatheshini |
+| US 1.3.3.1 | Share Private Predictors | 5 | Alex, Yaatheshini | 
+| US 1.6.1 | Create Folders | 2 | Hoang, Selena | 
+| US 1.6.2 | Delete Folders | 1 | Hoang, Selena | 
+| US 1.6.3 | Toggle Folder Visibility | 5 | Hoang, Selena | 
+| US 1.6.4 | Move Predictors Between Folders | 5 | Advi, Yaatheshini, Shahmeer |  
+| US 2.1.2 | Save Predictors After Runs | 3 | Excel, Shahmeer | 
+| US 2.1.3 | Re-Train Predictors | 2 | Excel, Shahmeer | 
+| US 2.1.3.1 | Search for Features | 2 | Alex, Excel | 
+| US 2.1.3.2 |  Select and Deselect All Features | 2 | Alex, Excel | 
+| US 2.1.3.3 | Paginate Features | 2 | Selena |  
+| US 2.2 |  Implement Learning Tools | 5 | Advi, Alex | 
 
-**Estimated sprint velocity**: 60
+**Estimated sprint velocity**: 35
 
 * > Initial Check-In - **October 19th**
 
@@ -204,6 +200,7 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
+| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | **TBD** | 
 | US 3.1 | Run Predictors on Unlabeled Data | 2 | **TBD** |
 | US 3.3 | Quality Evaluation of Predictors | 3 | **TBD** | 
 | US 3.4 | Dataset Metrics / Analysis | 3 | **TBD** |
@@ -229,6 +226,8 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 |-|-|-|-|
 | US 1.3.3.2 | (Optional) - Manage User Permissions on Private Predictor | 5 | **TBD** |
 | US 1.3.8 | (Optional) - Save My Draft Predictors  | 3 | **TBD** | 
+| US 2.1 | Identify an accessible dataset, a specific learning tool, and a specification of that learner's hyperparameter | 8 | **TBD** |
+| US 4.2 | Guided Tour / Demo Implementation | 3 | **TBD** |  
 | US 5.1 | (Optional) - PSSP Package Download | 8 | **TBD** |
 | US 5.2 | (Optional) - Handle Censored Data | 8 | **TBD** | 
 
@@ -239,5 +238,3 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 * > Due (for Review) - (tentative) **November 27th**
 
 * > Due - (tentative) **November 29th**
-
-
