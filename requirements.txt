@@ -4,3 +4,8 @@ django-cors-headers>=4.3,<5.0           # for frontend-backend communication
 psycopg2-binary>=2.9,<3.0               # PostgreSQL driver
 djangorestframework-simplejwt>=5.3      # For JWT tokens
 drf-spectacular                         # For API documentation
+python-dotenv                           # For environment variable management
+pytest
+pytest-django
+selenium
+webdriver-manager
