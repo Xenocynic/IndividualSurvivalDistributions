@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import SearchBar from "../components/SearchBar";
-import CardShell from "../components/CardShell"; 
+import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
 
@@ -36,6 +36,10 @@ export default function Browse() {
   const [predictors] = useState<Item[]>(MOCK_PREDICTORS);
   const [datasets] = useState<Item[]>(MOCK_DATASETS);
 
+  // Pinned IDs separated per tab
+  const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
+  const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
+
   const list = activeTab === "predictors" ? predictors : datasets;
 
   const filtered = useMemo(() => {
@@ -46,16 +50,34 @@ export default function Browse() {
     return arr;
   }, [list, query, visibility, activeTab]);
 
-  // pretend these are the first two “pinned” public items for demo
-  const pinned = list.slice(0, 3);
+  const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
+  const pinned = list.filter((it) => pinnedSet.has(it.id));
+
+  function togglePin(id: string) {
+    if (activeTab === "predictors") {
+      setPinnedPredictorIds((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
+    } else {
+      setPinnedDatasetIds((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
+    }
+  }
 
   return (
     <section className="flex gap-4">
       {/* Left: Pinned panel */}
       <aside className="w-64 shrink-0">
         <div className="rounded-md border border-black/10 bg-black">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-black/10">
-            <div className="text-xs text-white font-semibold">Pinned {activeTab === "predictors" ? "Predictors" : "Datasets"}</div>
+          <div className="flex items-center justify-between border-b border-black/10 px-3 py-2">
+            <div className="text-xs font-semibold text-white">
+              Pinned {activeTab === "predictors" ? "Predictors" : "Datasets"}
+            </div>
             <button
               onClick={() => setPinnedOpen((v) => !v)}
               className="rounded border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
@@ -65,15 +87,28 @@ export default function Browse() {
             </button>
           </div>
           {pinnedOpen && (
-            <div className="p-2 space-y-2">
-              {pinned.map((p) => (
-                <button
-                  key={p.id}
-                  className="w-full rounded-md border border-black/10 bg-gray-200 px-3 py-2 text-left text-xs hover:bg-gray-100"
-                >
-                  {p.title}
-                </button>
-              ))}
+            <div className="space-y-2 p-2">
+              {pinned.length === 0 ? (
+                <div className="rounded-md bg-gray-200 px-3 py-2 text-left text-xs text-gray-600">
+                  Nothing pinned yet
+                </div>
+              ) : (
+                pinned.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between rounded-md border border-black/10 bg-gray-200 px-3 py-2 text-xs"
+                  >
+                    <span className="truncate">{p.title}</span>
+                    <button
+                      className="ml-2 rounded px-2 py-0.5 text-xs hover:bg-gray-300"
+                      title="Unpin"
+                      onClick={() => togglePin(p.id)}
+                    >
+                      📌
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -88,13 +123,17 @@ export default function Browse() {
             <div className="flex w-full items-center gap-2">
               <div className="inline-flex h-9 overflow-hidden rounded-md border border-black/10 bg-white">
                 <button
-                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                  className={`px-3 text-sm ${
+                    activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
+                  }`}
                   onClick={() => setActiveTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                  className={`px-3 text-sm ${
+                    activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
+                  }`}
                   onClick={() => setActiveTab("datasets")}
                 >
                   Datasets
@@ -120,34 +159,56 @@ export default function Browse() {
 
         {/* Grid of cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((it) => (
-            <CardShell
-              key={it.id}
-              title={
-                <div>
-                  {/* username tag sits on top area */}
-                  <div className="-mb-1">
-                    <UsernameTag name={it.ownerName} />
+          {filtered.map((it) => {
+            const isPinned = pinnedSet.has(it.id);
+            return (
+              <CardShell
+                key={it.id}
+                actionVisibility="hover" // <-- only show actions on hover
+                title={
+                  <div>
+                    <div className="-mb-1">
+                      <UsernameTag name={it.ownerName} />
+                    </div>
+                    <div className="mt-1 text-sm font-medium">{it.title}</div>
                   </div>
-                  <div className="mt-1 text-sm font-medium">{it.title}</div>
-                </div>
-              }
-              description={<span>{it.notes}</span>}
-              footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
-              footerRight={
-                it.isPublic ? (
-                  <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
-                ) : (
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
-                )
-              }
-            >
-              {/* actions for the browse page are simple (view only) */}
-              <button className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100">
-                View
-              </button>
-            </CardShell>
-          ))}
+                }
+                description={<span>{it.notes}</span>}
+                footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
+                footerRight={
+                  it.isPublic ? (
+                    <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
+                  ) : (
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
+                  )
+                }
+              >
+                {/* Hover actions (top-right) */}
+                <button
+                  className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // TODO: route to details page
+                    // navigate(`/predictors/${it.id}`) or similar
+                  }}
+                >
+                  View
+                </button>
+                <button
+                  className={`rounded-md border border-black/10 px-2 py-1 text-xs ${
+                    isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
+                  }`}
+                  title={isPinned ? "Unpin" : "Pin"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePin(it.id);
+                  }}
+                >
+                  📌
+                </button>
+              </CardShell>
+            );
+          })}
         </div>
       </div>
     </section>
