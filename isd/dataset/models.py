@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 class Dataset(models.Model):
     """Dataset model for storing dataset information."""
     
@@ -23,4 +22,4 @@ class DatasetPermission(models.Model):
         unique_together = ('dataset', 'user')
     
     def __str__(self):
-        return f"{self.user.user_name} - {self.dataset.dataset_name}"
+        return f"{self.user.username} - {self.dataset.dataset_name}"

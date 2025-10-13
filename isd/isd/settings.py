@@ -34,7 +34,8 @@ SECRET_KEY = 'django-insecure-xddpk!60p@!pnt&o-1m%9h70r(rm-@97!t*5!d&@hvcffd2r#!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [    "localhost", "127.0.0.1",
+    "2605:fd00:4:1001:f816:3eff:fe77:c149"]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -56,6 +57,7 @@ SIMPLE_JWT = {
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -74,6 +76,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -182,3 +185,30 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'cmput401survivalprediction@gmail.com' 
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# Frontend dev origin
+# Frontend dev origin
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:5173",
+#]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+# JWT = False. Cookie/CSRF = True
+CORS_ALLOW_CREDENTIALS = False
+
+# If your requests send Authorization: Bearer ...
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "x-csrftoken",
+]
+
+# just keeping this here in case
+CSRF_TRUSTED_ORIGINS = [
+    "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
+    "http://localhost:5174",
+]

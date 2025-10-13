@@ -40,4 +40,4 @@ class PredictorPermission(models.Model):
         unique_together = ('predictor', 'user')
     
     def __str__(self):
-        return f"{self.user.user_name} - {self.predictor.name}"
+        return f"{self.user.username} - {self.predictor.name}"
