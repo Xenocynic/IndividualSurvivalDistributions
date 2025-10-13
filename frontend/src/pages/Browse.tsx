@@ -164,7 +164,7 @@ export default function Browse() {
             return (
               <CardShell
                 key={it.id}
-                actionVisibility="hover" // <-- only show actions on hover
+                actionVisibility="hover" 
                 title={
                   <div>
                     <div className="-mb-1">
@@ -189,7 +189,7 @@ export default function Browse() {
                   onClick={(e) => {
                     e.stopPropagation();
                     // TODO: route to details page
-                    // navigate(`/predictors/${it.id}`) or similar
+
                   }}
                 >
                   View
