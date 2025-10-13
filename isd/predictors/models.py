@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from dataset.models import Dataset
+from django.conf import settings
 
 
 class Predictor(models.Model):
@@ -11,9 +12,22 @@ class Predictor(models.Model):
     description = models.TextField()
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='predictors')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_predictors')
-    
+    is_private = models.BooleanField(default=False)  # False = public, True = private
+
     def __str__(self):
         return self.name
+
+
+class PinnedPredictor(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pinned_predictors")
+    predictor = models.ForeignKey(Predictor, on_delete=models.CASCADE, related_name="pinned_by")
+    pinned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "predictor")  # prevent duplicate pins
+
+    def __str__(self):
+        return f"{self.user.username} pinned {self.predictor.name}"
 
 
 class PredictorPermission(models.Model):
