@@ -12,6 +12,8 @@ import About from "./pages/About";
 import Instructions from "./pages/Instructions";
 import Browse from "./pages/Browse";
 import ResetConfirm from "./pages/ResetConfirm";
+import DatasetUpload from "./pages/DatasetUpload";
+import PredictorCreate from "./pages/PredictorCreate";
 
 export default function App() {
   return (
@@ -24,7 +26,7 @@ export default function App() {
         <Route path="browse" element={<Browse />} />
 
         {/* Password reset confirm — support both patterns */}
-        {/* UPDATE THIS LATER AND REMOVE THE WUERY TOKEN ONE */}
+        {/* UPDATE THIS LATER AND REMOVE THE QUERY TOKEN ONE */}
         <Route path="reset/confirm" element={<ResetConfirm />} />
         <Route path="reset/confirm/:uid/:token" element={<ResetConfirm />} />
 
@@ -39,6 +41,8 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="datasets/new" element={<DatasetUpload />} />
+          <Route path="predictors/new" element={<PredictorCreate />} />
         </Route>
 
         {/* Fallback */}
