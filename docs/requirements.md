@@ -1,4 +1,4 @@
-# **Project Requirements**
+# **Project Requirements**<br><br>
 
 ## Executive Summary
 
@@ -16,7 +16,7 @@ Users will be able to:
 
 Our target users include medical researchers and clinicians, engineers, finance managers, and insurance agents who are familiar with spreadsheets but not with programming.
 
-The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/G-Sheet/SPSS add-on.
+The system is web-based, initially running in a browser (focus on Chrome). If time permits, it may also be packaged as an Excel/Google-Sheet/SPSS add-on.<br><br>
 
 
 ## Project Glossary
@@ -33,7 +33,7 @@ The system is web-based, initially running in a browser (focus on Chrome). If ti
 
 * **Censored Data** - Incomplete survival time information, representing only a lower bound of a patient’s lifespan. Prevalent across datasets and an issue addressed by the client's research.
 
-* **KM Curve (Kaplan-Meier)** - A standard survival function estimate used for comparisons.
+* **KM Curve (Kaplan-Meier)** - A standard survival function estimate used for comparisons.<br><br>
 
 
 ## User Stories
@@ -730,7 +730,7 @@ User stories must be prioritized using the MoSCoW method.
 
 2. User can generate more precise predictions by specifying censoring information<br>
 
-</details><br> 
+</details><br><br><br> 
 
 
 ## MoSCoW
@@ -822,50 +822,83 @@ US 1.3.8 - Save My Draft Predictors
 
 
 ### Would Like But Won't Get
-US 2.1.1 - Recommendation System
+US 2.1 - Recommendation System
 
 US 5.1 - PSSP Package Download
 
-US 5.2 - Handle Censored Data<br>
-
-
-
+US 5.2 - Handle Censored Data<br><br><br>
 
 
 ## Similar products
 
-1. <a href="https://mlconsole.com/" target="_blank">ML Console</a>
-> * Builds AI models by using uploaded dataset
-> * Secure data and predictions
-> * Used for inspiration to produce model predictions
+1. <a href="https://mlconsole.com/" target="_blank">ML Console</a><br>
+*Web-based platform for managing machine learning workflows.*<br>
+> * Provides a clean dashboard interface for uploading datasets and visualizing model outputs.
+> * Inspires our frontend design for displaying results and managing user data through an interactive UI.
+> * Demonstrates secure handling of user-uploaded data, which we can mirror in our backend data management.
 
-2. <a href="https://voxel51.com/landing/ml-datasets?utm_source=google&utm_medium=search&utm_campaign=ML_Datasets&utm_term=ml%20datasets&device=c&utm_source=google&utm_medium=cpc&utm_campaign=22835379762&utm_term=ml%20datasets&utm_content=184661742362&hsa_acc=7373578919&hsa_cam=22835379762&hsa_grp=184661742362&hsa_ad=766399187256&hsa_src=g&hsa_tgt=kwd-532915517679&hsa_kw=ml%20datasets&hsa_mt=p&hsa_net=adwords&hsa_ver=3&gad_source=1&gad_campaignid=22835379762&gbraid=0AAAAApQT94lRAgU_hSN23gQFoPXlkvTA6&gclid=Cj0KCQjw_rPGBhCbARIsABjq9ccSlWcC4PbVUiUcXcZKopEP72HyRifrKWRV_4DKS-1pqOuR8_NWuD4aAmaZEALw_wcB" target="_blank">FiftyOne</a> 
-> * Identifies edge cases, outliers, duplicates and mislabeled samples
-> * Visualizes images, video, 3D in an interactive UI
-> * Used for inpiration to clean the dataset before conducting predictions
+2. <a href="https://voxel51.com/landing/ml-datasets?utm_source=google&utm_medium=search&utm_campaign=ML_Datasets&utm_term=ml%20datasets&device=c&utm_source=google&utm_medium=cpc&utm_campaign=22835379762&utm_term=ml%20datasets&utm_content=184661742362&hsa_acc=7373578919&hsa_cam=22835379762&hsa_grp=184661742362&hsa_ad=766399187256&hsa_src=g&hsa_tgt=kwd-532915517679&hsa_kw=ml%20datasets&hsa_mt=p&hsa_net=adwords&hsa_ver=3&gad_source=1&gad_campaignid=22835379762&gbraid=0AAAAApQT94lRAgU_hSN23gQFoPXlkvTA6&gclid=Cj0KCQjw_rPGBhCbARIsABjq9ccSlWcC4PbVUiUcXcZKopEP72HyRifrKWRV_4DKS-1pqOuR8_NWuD4aAmaZEALw_wcB" target="_blank">FiftyOne</a><br>
+*Open-source visualization tool for exploring datasets and model predictions.*<br>
+> * Offers an interactive web interface for identifying edge cases, outliers, duplicates and mislabeled samples.
+> * Provides inspiration for implementing dynamic data visualizations in our frontend.
+> * Used for inpiration to clean the dataset before conducting predictions.
 
-3. Other survival analysis libraries (R survival, Python lifelines) for algorithm inspiration.
-> * Used commonly but not nearly as user-friendly for non-tech-based professionals who may want to conduct further resarch in the field
-> * Functionality may be of interest to us for the development of the backend, as stated
-
-4. Kaplan–Meier online calculators (various web tools) as an inspiration for practical implementation techniques.<br>
-> * Similar issue - used commonly but not nearly as user-friendly for non-tech-based professionals who may want to conduct further resarch in the field, but in the sense that it is only as insightful as the user knows it to be.
-> * May be of interest to us for the development of how to display results on the frontend
+3. Kaplan–Meier online calculators (various web tools) as an inspiration for practical implementation techniques.<br>
+*Commonly used in research to generate survival plots.*<br>
+> * Inspires us to develop a modern, accessible, and responsive UI to visualize similar results through our web app.
+> * Potentially useful for understanding frontend charting requirements and simplifying complex statistical outputs.
+> * Demonstrates how to display survival analysis results to end users, but interfaces are often outdated.
 
 
 ## Open-source products
 
 1. <a href="https://github.com/shi-ang/MakeSurvivalCalibratedAgain/" target="_blank">MTLR model</a>  
-   Provides the main predictive model our website will integrate with. We will connect it to our Django backend through API calls to serve model predictions through the web interface.  
+*Provides the predictive model integrated into our system.*<br> 
+> * We will serve this model through our Django backend API, ensuring predictions can be accessed from the web interface.
+> * Helps define how backend–model integration and asynchronous data handling will work in production.<br>
 
 2. <a href="https://github.com/Recedivies/django-react-template">Recedivies / django-react-template</a>  
-   Demonstrates how to structure a full-stack app with Django REST, React, and PostgreSQL. Guides our architecture, Docker setup, and CI/CD process for development and deployment.  
+*Boilerplate for a Django REST + React + PostgreSQL architecture.*<br> 
+> * Provides a reference for full-stack project structure, including routing, authentication, and database connections.
+> * Guides our Docker setup and CI/CD process for deployment and development efficiency.<br>
 
 3. <a href="https://github.com/rudranag/Django-Vite-Boilerplate" target="_blank">Rudranag / Django-Vite-Boilerplate</a>  
-   Shows how to integrate Vite with Django for efficient frontend builds and hot-reloading, which helps us streamline React integration and speed up development.  
+*Integrates Vite with Django for optimized frontend builds.*<br> 
+> * Helps streamline frontend development and enables hot module reloading.
+> * Inspires efficient React + Django integration in our workflow.<br>
 
 4. <a href="https://github.com/jazzband/djangorestframework-simplejwt" target="_blank">SimpleJWT (Django REST Framework JWT Authentication)</a>  
-   Provides a simple and secure JWT implementation for Django REST Framework. We’ll use it to authenticate users and protect access to model results and private data.  
+*Provides authentication and authorization mechanisms for Django REST APIs.*<br> 
+> * Will be used to secure user sessions and API access for model predictions through tokens.
+> * Guides our Docker setup and CI/CD process for deployment and development efficiency. 
 
-5. <a href="https://github.com/SeleniumHQ/selenium" target="_blank">Selenium (Browser Automation Framework)</a>  
-   Used for end-to-end and UI testing. We will automate key website workflows such as logging in, submitting data, and retrieving predictions to ensure stable integration between the frontend and backend.  
+5. <a href="https://github.com/SeleniumHQ/selenium" target="_blank">Selenium</a>  
+*Browser automation framework for testing web apps.*<br> 
+> * Used for end-to-end UI testing to verify data submission, result generation, and backend communication.
+> * Ensures reliability and performance of critical workflows across frontend and backend.<br>
+
+6. Other survival analysis libraries (R survival, Python lifelines)<br>
+*Primarily for backend algorithmic reference rather than web features.*<br> 
+> * Used to understand data handling and result computation before adapting methods to our Django API.
+> * Used commonly but not nearly as user-friendly for non-tech-based professionals who may want to conduct further resarch in the field
+
+
+## Technical Resources
+
+### Backend: Django + PostgreSQL
+* > [Django Documentation](https://docs.djangoproject.com/en/5.2/) — core backend framework
+* > [Django Rest Framework Tutorial](https://www.django-rest-framework.org/tutorial/quickstart/) — for building RESTful APIs
+* > [Postgres Documentation](https://www.postgresql.org/docs/) — relational database used for data persistence
+* > [Supabase Documentation](https://supabase.com/docs) - open-source backend service platform providing PostgreSQL hosting, authentication, and RESTful APIs for database access
+
+### Frontend: React + TypeScript
+* > [React + Typescript Setup](https://react.dev/learn/typescript) — frontend logic and component typing
+* > [Vite Guide](https://vite.dev/guide/) — for fast build and development environment
+* > [React Router Reference](https://reactrouter.com/start/modes#framework) — navigation and routing between pages
+* > [Tailwind CSS Documentation](https://tailwindcss.com/docs/installation/framework-guides/react-router) — UI styling and responsiveness
+* > [Zustand Tutorial](https://zustand.docs.pmnd.rs/getting-started/introduction) — state management for global data
+* > [Selenium Documentation](https://django-selenium.readthedocs.io/en/latest/) — UI and integration testing
+
+### Deployment:
+
+*To be finalized in coordination with the client (likely Docker + cloud-based deployment).*
