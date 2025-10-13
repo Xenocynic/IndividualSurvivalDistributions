@@ -22,9 +22,9 @@
 import type {
   PropsWithChildren,
   CSSProperties,
-  MouseEvent,
   KeyboardEvent,
   ReactNode,
+  MouseEvent,
 } from "react";
 
 type CardShellProps = {
@@ -35,6 +35,8 @@ type CardShellProps = {
   selected?: boolean;
   onSelect?: () => void;
   onActionAreaClick?: (e: MouseEvent) => void;
+  /** when to reveal the action buttons (children) */
+  actionVisibility?: "hover" | "selected" | "always";
 };
 
 const clamp3: CSSProperties = {
@@ -52,8 +54,19 @@ export default function CardShell({
   selected = false,
   onSelect,
   onActionAreaClick,
+  actionVisibility = "hover",
   children,
 }: PropsWithChildren<CardShellProps>) {
+  const actionClass =
+    actionVisibility === "always"
+      ? ""
+      : actionVisibility === "selected"
+      ? selected
+        ? ""
+        : "hidden"
+      : // hover (default)
+        "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity";
+
   return (
     <div
       role="button"
@@ -66,12 +79,12 @@ export default function CardShell({
           onSelect?.();
         }
       }}
-      className={`relative cursor-pointer rounded-xl border border-black/10 bg-white p-4 shadow-card transition
+      className={`group relative cursor-pointer rounded-xl border border-black/10 bg-white p-4 shadow-card transition
         ${selected ? "ring-2 ring-black" : "hover:ring-1 hover:ring-black/30"}`}
     >
       <div className="flex min-h-[168px] flex-col gap-3">
         {/* Title */}
-        <h3 className="text-sm font-medium leading-snug break-words hyphens-auto pr-20">
+        <h3 className="pr-20 text-sm font-medium leading-snug break-words hyphens-auto">
           {title}
         </h3>
 
@@ -96,7 +109,10 @@ export default function CardShell({
 
       {/* Action area (absolute, top-right) */}
       {children ? (
-        <div className="absolute right-3 top-3 flex gap-2" onClick={onActionAreaClick as any}>
+        <div
+          className={`absolute right-3 top-3 flex gap-2 ${actionClass}`}
+          onClick={onActionAreaClick as any}
+        >
           {children}
         </div>
       ) : null}

@@ -21,7 +21,6 @@ import { User } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useEffect, useRef, useState } from "react";
 
-// Small helper for left-side primary nav links with an "active" state.
 function NavItem({
   to,
   children,
@@ -79,7 +78,7 @@ export default function Navbar() {
           <nav className="hidden sm:flex items-center gap-2 md:gap-3">
             <NavItem to="/about">About</NavItem>
             <NavItem to="/instructions">Instructions</NavItem>
-            <NavItem to="/predictors">Predictors</NavItem>
+            <NavItem to="/browse">Browse</NavItem>
           </nav>
         </div>
 

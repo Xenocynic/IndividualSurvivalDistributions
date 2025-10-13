@@ -10,10 +10,8 @@ import Settings from "./pages/Settings";
 import Landing from "./pages/Landing";
 import About from "./pages/About";
 import Instructions from "./pages/Instructions";
+import Browse from "./pages/Browse";
 import ResetConfirm from "./pages/ResetConfirm";
-
-// Temporary placeholder until we build it:
-const Predictors = () => <div className="p-6">Predictors page (coming soon)</div>;
 
 export default function App() {
   return (
@@ -23,7 +21,7 @@ export default function App() {
         <Route index element={<Landing />} />
         <Route path="about" element={<About />} />
         <Route path="instructions" element={<Instructions />} />
-        <Route path="predictors" element={<Predictors />} />
+        <Route path="browse" element={<Browse />} />
 
         {/* Password reset confirm — support both patterns */}
         {/* UPDATE THIS LATER AND REMOVE THE WUERY TOKEN ONE */}
