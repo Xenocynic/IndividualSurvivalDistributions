@@ -108,7 +108,9 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 * > Due - (tentative) **October 11th**
 
-#### Accounts App – Requirement Traceability Matrix
+## Requirement Traceability Matrices 
+ 
+### Accounts App
 
 | User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
 |---------------|------------------------|--------------|-----------|----------------|
@@ -120,7 +122,7 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.3 | Authenticated users can update their profile (first and last name) through `/me/`. | `test_update_profile` | `test_accounts.py` | Covered |
 | US 1.3 | Unauthenticated users cannot access the `/me/` endpoint. | `test_unauthenticated_cannot_access_me` | `test_accounts.py` | Covered |
 
-### AuthApp – Requirement Traceability Matrix
+### AuthApp
 
 | User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
 |---------------|------------------------|--------------|-----------|----------------|
@@ -134,14 +136,30 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.1.1 | Admin password reset request with invalid email still returns a 200 OK. | `test_password_reset_invalid_email` | `test_auth.py` | Covered |
 | US 1.1.1 | Admin can confirm password reset using UID and token. | `test_password_reset_confirm` | `test_auth.py` | Covered |
 
-### Predictors App – Requirement Traceability Matrix
+### Datasets App
 
 | User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
 |---------------|------------------------|--------------|-----------|----------------|
-| US 1.3.4 | Authenticated users can create a new predictor. | `test_create_predictor` | `test_predictors.py` | Covered |
-| US 1.3.5 | Authenticated users can edit/update an existing predictor. | `test_edit_predictor` | `test_predictors.py` | Covered |
-| US 1.3.6 | Authenticated users can delete a predictor they own. | `test_delete_predictor` | `test_predictors.py` | Covered |
+| US 1.3.1 | User can upload/create a dataset. | `test_create_dataset` | `test_datasets.py` | Covered |
+| US 1.3.1 | Dataset creation fails if `dataset_name` is missing. | `test_create_dataset_missing_name` | `test_datasets.py` | Covered |
+| US 1.3.1 | Owner can update their dataset. | `test_update_dataset` | `test_datasets.py` | Covered |
+| US 1.3.1 | Owner can delete their dataset. | `test_delete_dataset` | `test_datasets.py` | Covered |
+| US 1.3.1 | Non-owner cannot update a dataset. | `test_non_owner_cannot_update` | `test_datasets.py` | Covered |
+| US 1.3.1 | Non-owner cannot delete a dataset. | `test_non_owner_cannot_delete` | `test_datasets.py` | Covered |
+| US 1.3.1 | Non-owner can view a dataset if granted permission. | `test_non_owner_can_view_if_granted` | `test_datasets.py` | Covered |
+| US 1.3.1 | Non-owner cannot view a dataset if not granted permission. | `test_non_owner_cannot_view_if_not_granted` | `test_datasets.py` | Covered |
 
+### Predictors App
+
+| User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
+|---------------|------------------------|--------------|-----------|----------------|
+| US 1.3.4 | User can create a predictor. | `test_create_predictor` | `test_predictors.py` | Covered |
+| US 1.3.5 | User can edit a predictor. | `test_edit_predictor` | `test_predictors.py` | Covered |
+| US 1.3.6 | User can delete a predictor. | `test_delete_predictor` | `test_predictors.py` | Covered |
+| US 1.3.3 | Predictor privacy – only owners and permitted users can view a predictor. | `test_non_owner_can_view_if_granted` | `test_predictors.py` | Covered |
+| US 1.3.3 | Non-owner cannot view a predictor if access is restricted. | `test_non_owner_cannot_view_if_restricted` | `test_predictors.py` | Covered |
+| US 1.3.5 | Non-owner cannot edit a predictor. | `test_non_owner_cannot_update` | `test_predictors.py` | Covered |
+| US 1.3.6 | Non-owner cannot delete a predictor. | `test_non_owner_cannot_delete` | `test_predictors.py` | Covered |
 
 ### Sprint 3
 
