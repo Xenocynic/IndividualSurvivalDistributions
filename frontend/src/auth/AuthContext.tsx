@@ -68,12 +68,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Load persisted tokens and prefetch profile on mount
   useEffect(() => {
-    try {
-      loadTokensFromStorage();
-    } catch {}
-    // try to fetch me; ignore errors (not logged in)
-    refreshProfile().finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const hasTokens = !!localStorage.getItem("auth_tokens");
+    try { if (hasTokens) loadTokensFromStorage(); } catch {}
+    const p = hasTokens ? refreshProfile() : Promise.resolve();
+    p.finally(() => setLoading(false));
   }, []);
 
   const login = async (username: string, password: string) => {

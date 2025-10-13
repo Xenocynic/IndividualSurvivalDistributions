@@ -26,6 +26,7 @@
  */
 
 import { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
 import DatasetCard, { type DatasetItem } from "../components/DatasetCard";
@@ -70,6 +71,7 @@ type Tab = "predictors" | "datasets";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // tabs + data
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
@@ -178,35 +180,20 @@ export default function Dashboard() {
     setSelectedDatasetId(null);
   }
 
-  // create Predictor - make a new card, add actual line taking you to Create page once created
-  async function createPredictor() {
-    const n: PredictorItem = {
-      id: Math.random().toString(36).slice(2),
-      title: `New Predictor ${predictors.length + 1}`,
-      status: "DRAFT",
-      updatedAt: "just now",
-      owner: true,
-      notes: "New predictor draft.",
-    };
-    setPredictors([n, ...predictors]);
-    setActiveTab("predictors");
-    setSelectedPredictorId(n.id);
+  // create Predictor - navigate to the Create Predictor page
+  function createPredictor() {
+    // Previously: inserted a mock card + selected it.
+    // Now: send the user to the creation flow.
+    navigate("/predictors/new");
   }
 
-  // create Dataset: mirror predictor behavior; similarly, take to Upload Dataset page
+  // create Dataset - navigate to the Upload/Create Dataset page
   function addDataset() {
-    const n: PredictorItem = {
-      id: Math.random().toString(36).slice(2),
-      title: `New Dataset ${datasets.length + 1}`,
-      updatedAt: "just now",
-      owner: true,
-      notes: "New dataset draft.",
-    };
-    setDatasets([n, ...datasets]);
-    setActiveTab("datasets");         
-    setSelectedDatasetId(n.id);       
-    setSelectedPredictorId(null);
+    // Previously: inserted a mock card + selected it.
+    // Now: send the user to the creation flow.
+    navigate("/datasets/new");
   }
+
   // should ideally add a new bubble onscreen, like a black / grey pocket
   // can see collapsed view of cards inside - just the names. Open it, it expands and takes as many lines as it needs
   function createFolder() {
