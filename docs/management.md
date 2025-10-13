@@ -107,6 +107,83 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 * > Due - (tentative) **October 11th**
 
+---
+
+## Interfaces (APIs and Modules)
+
+### 1. Overview
+The backend is divided into four main modules: `accounts`, `authapp`, `dataset`, and `predictors`.  
+Each module is responsible for a distinct part of the system and communicates with others through well-defined interfaces, primarily using REST API endpoints and shared database models.  
+This modular structure keeps the codebase organized and makes it easier to maintain, test, and extend.
+
+---
+
+### **Accounts Module**
+- **Purpose:**  
+  Handles user profile data such as name, email, and organization. It provides endpoints for retrieving and updating user information.
+
+- **Interface Type:**  
+  DRF serializers and viewsets that expose user-related CRUD operations.
+
+- **Interactions:**  
+  - Works with **AuthApp** to validate user identity through JWT tokens.  
+  - Provides user information and ownership data to the **Dataset** and **Predictors** modules.  
+  - Allows the frontend to access and display authenticated user profiles.
+
+---
+
+### **AuthApp Module**
+- **Purpose:**  
+  Manages all authentication and authorization processes, including user registration, login, logout, and password resets.
+
+- **Interface Type:**  
+  DRF APIViews that provide authentication endpoints and issue JWT tokens for secure user sessions.
+
+- **Interactions:**  
+  - Provides authentication tokens used by **Accounts**, **Dataset**, and **Predictors** to authorize requests.  
+  - Updates and verifies user credentials stored in the shared `User` model used by **Accounts**.  
+  - Acts as the main entry point for verifying user identity across all other modules.
+
+---
+
+### **Dataset Module**
+- **Purpose:**  
+  Manages user-uploaded datasets, including creation, retrieval, and permission control for sharing with other users.
+
+- **Interface Type:**  
+  DRF ViewSets and serializers that define dataset CRUD operations and permission endpoints.
+
+- **Interactions:**  
+  - Uses authentication from **AuthApp** to verify user access before allowing dataset operations.  
+  - Associates each dataset with a user record from **Accounts** to manage ownership.  
+  - Provides dataset resources to the **Predictors** module for use in model training and prediction.
+
+---
+
+### **Predictors Module**
+- **Purpose:**  
+  Handles machine learning predictors, including model configuration, execution, and storage of results.
+
+- **Interface Type:**  
+  DRF ViewSets and serializers that define endpoints for creating and managing predictors.
+
+- **Interactions:**  
+  - Requires authentication from **AuthApp** to ensure only authorized users can create or run predictors.  
+  - Uses ownership and user data from **Accounts** to associate predictors with specific users.  
+  - Depends on **Dataset** for input data during prediction and training tasks.
+
+---
+
+### 2. Data Flow Summary
+1. Users authenticate through **AuthApp**, which issues JWT tokens.  
+2. The **Accounts** module uses the token to retrieve or update user information.  
+3. The **Dataset** module allows authenticated users to upload, manage, and share datasets.  
+4. The **Predictors** module accesses datasets and performs predictions based on the authenticated user’s data.  
+5. All data exchanged between modules follows standardized REST API contracts using JSON.
+
+---
+
+
 ## Requirement Traceability Matrices 
  
 ### Accounts App
