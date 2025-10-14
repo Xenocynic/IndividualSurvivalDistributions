@@ -7,3 +7,7 @@ export async function createPredictor(body: { name: string; description: string;
 export async function grantPredictorViewer(predictorId: number, userId: number) {
   return api.post("/api/predictors/permissions/", { predictor: predictorId, user: userId });
 }
+
+export async function listMyPredictors() {
+  return api.get<Predictor[]>("/api/predictors/");
+}

@@ -1,11 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
+import { listMyPredictors } from "../lib/predictors";
+import { listMyDatasets } from "../lib/datasets";
+import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 
 type Tab = "predictors" | "datasets";
 
+/**
+ * Item is the local UI shape used by Browse cards.
+ * We derive it from API objects via the mapper layer, then normalize
+ * here into the fields Browse needs (title / owner / visibility / notes/etc.).
+ */
 type Item = {
   id: string;
   title: string;
@@ -15,30 +23,73 @@ type Item = {
   notes?: string;
 };
 
-// mock data; replace from API later
-const MOCK_PREDICTORS: Item[] = [
-  { id: "p1", title: "Liver Transplant Calculator All", updatedAt: "2d ago", isPublic: true, ownerName: "A", notes: "All livers welcome." },
-  { id: "p2", title: "Liver Transplant Calculator 2002", updatedAt: "5d ago", isPublic: false, ownerName: "B", notes: "me when mcr." },
-  { id: "p3", title: "That One Predictor", updatedAt: "just now", isPublic: false, ownerName: "CCCC", notes: "Fascinating." },
-];
-
-const MOCK_DATASETS: Item[] = [
-  { id: "d1", title: "Cancer Registry Cohort", updatedAt: "Aug 20, 2023", isPublic: false, ownerName: "S", notes: "waaaaaaaaaaaa" },
-  { id: "d2", title: "Cervical Cancer CSV Upload", updatedAt: "Jul 02, 2010", isPublic: true, ownerName: "D", notes: "wwwwwwwwwww" },
-];
-
 export default function Browse() {
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
 
-  const [predictors] = useState<Item[]>(MOCK_PREDICTORS);
-  const [datasets] = useState<Item[]>(MOCK_DATASETS);
+  // API-loaded data (mapped through the mappers)
+  const [predictors, setPredictors] = useState<Item[]>([]);
+  const [datasets, setDatasets] = useState<Item[]>([]);
 
-  // Pinned IDs separated per tab
+  // Pinned IDs separated per tab (pinning is ONLY on Browse)
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
+
+  // Fetch & map once on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [apiPreds, apiDsets] = await Promise.all([
+          listMyPredictors(),
+          listMyDatasets(),
+        ]);
+
+        if (!mounted) return;
+
+        // Map API → UI (predictors)
+        const uiPreds = apiPreds.map((p) => {
+          const ui = toPredictorItem(p);
+          // Normalize to Browse's Item fields
+          const item: Item = {
+            id: ui.id,
+            title: ui.title,
+            updatedAt: ui.updatedAt ?? "",       // fill in when backend adds timestamp
+            isPublic: !!ui.isPublic,
+            ownerName: "Owner",                   // TODO: map actual owner display when available
+            notes: ui.notes,
+          };
+          return item;
+        });
+
+        // Map API → UI (datasets)
+        const uiDsets = apiDsets.map((d) => {
+          const ui = toDatasetItem(d);
+          const item: Item = {
+            id: ui.id,
+            title: ui.title,
+            updatedAt: ui.updatedAt ?? "",
+            isPublic: !!ui.isPublic,
+            ownerName: "Owner",
+            notes: ui.notes,
+          };
+          return item;
+        });
+
+        setPredictors(uiPreds);
+        setDatasets(uiDsets);
+      } catch {
+        setPredictors([]);
+        setDatasets([]);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const list = activeTab === "predictors" ? predictors : datasets;
 
@@ -53,6 +104,7 @@ export default function Browse() {
   const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
   const pinned = list.filter((it) => pinnedSet.has(it.id));
 
+  // Pin / unpin (Browse-only interaction)
   function togglePin(id: string) {
     if (activeTab === "predictors") {
       setPinnedPredictorIds((prev) => {
@@ -164,7 +216,7 @@ export default function Browse() {
             return (
               <CardShell
                 key={it.id}
-                actionVisibility="hover" 
+                actionVisibility="hover"
                 title={
                   <div>
                     <div className="-mb-1">
@@ -188,8 +240,7 @@ export default function Browse() {
                   className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // TODO: route to details page
-
+                    // TODO: route to read-only details page
                   }}
                 >
                   View
@@ -214,3 +265,4 @@ export default function Browse() {
     </section>
   );
 }
+

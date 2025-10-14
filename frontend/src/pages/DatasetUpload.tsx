@@ -1,93 +1,311 @@
-import { useState } from "react";
-import { createDataset, grantDatasetViewer } from "../lib/datasets";
+/**
+ * Upload Dataset
+ *
+ * UX notes:
+ * - Sticky grey header with Back / title / Save
+ * - "Back" warns if there are unsaved changes
+ * - Name field checks availability (client-side for now via listMyDatasets)
+ * - Notes is UI-only (persist when backend adds a field)
+ * - File format help is collapsible
+ * - File upload is a simple input (drop / click); replace with real uploader later
+ * - Time unit buttons (Year / Month / Day / Hour)
+ * - Public/Private toggle with a help blurb
+ * - Save - creates dataset object, then returns to Dashboard on the Datasets tab
+ */
 
-export default function DatasetCreate() {
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createDataset, listMyDatasets } from "../lib/datasets";
+
+type TimeUnit = "year" | "month" | "day" | "hour";
+
+export default function DatasetUpload() {
+  const navigate = useNavigate();
+
+  // form state
   const [name, setName] = useState("");
-  const [notes] = useState(""); // UI-only for now - implement this on the backend please.
+  const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [validated, setValidated] = useState(false);
+  const [showFormatHelp, setShowFormatHelp] = useState(true);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>("month");
+  const [isPublic, setIsPublic] = useState(false);
+
+  // meta state
+  const [checking, setChecking] = useState(false);
+  const [nameTaken, setNameTaken] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
-  const [newDatasetId, setNewDatasetId] = useState<number | null>(null);
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false);
 
-  async function validateFile() {
-    // TODO replace with real validator from Alex's branch; for now just check CSV extension
-    setValidated(!!file && file.name.toLowerCase().endsWith(".csv"));
-  }
+  // local detection to decide whether to warn 
+  const dirtyRef = useRef(false);
+  useEffect(() => {
+    dirtyRef.current =
+      !!name.trim() || !!notes.trim() || !!file || isPublic || timeUnit !== "month";
+  }, [name, notes, file, isPublic, timeUnit]);
 
-  async function onSave() {
+  // check name availability (client-side)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        setNameTaken(null);
+        return;
+      }
+      setChecking(true);
+      try {
+        const mine = await listMyDatasets(); // API wrapper
+        // NOTE: case-insensitive compare
+        const exists = mine.some((d) => d.dataset_name.toLowerCase() === trimmed.toLowerCase());
+        if (!cancelled) setNameTaken(exists);
+      } catch {
+        // If this fails, don't block user; just show "unknown"
+        if (!cancelled) setNameTaken(null);
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    }
+
+    // Small debounce 
+    const t = setTimeout(run, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [name]);
+
+  // “valid” when the required bits are present
+  const canSave = useMemo(() => {
+    if (!name.trim()) return false;
+    if (nameTaken) return false;
+    if (!file) return false; 
+    return true;
+  }, [name, nameTaken, file]);
+
+  // Save - create dataset object, then go back to Dashboard (Datasets tab)
+  const onSave = async () => {
+    if (!canSave || saving) return;
     setSaving(true);
     try {
-      const ds = await createDataset(name);
-      setNewDatasetId(ds.dataset_id);
-      // NOTE: file upload here, also take it from Alex's branch.
+      // Create the dataset object (server expects dataset_name)
+      const created = await createDataset(name.trim());
+
+      // TODO: connect real upload once backend exposes it
+      //    replace with a FormData uploader (dataset_id + file)
+      //    and a PATCH/PUT for notes, timeUnit, and isPublic.
+
+      // Route to dashboard with the Datasets tab selected
+      navigate("/dashboard", { state: { tab: "datasets", justCreatedId: created.dataset_id } });
+    } catch (err) {
+      // surface error if failed
+      alert("Failed to save dataset. Please try again.");
     } finally {
       setSaving(false);
     }
-  }
+  };
+
+  const onBack = () => {
+    if (dirtyRef.current) {
+      setShowLeavePrompt(true);
+    } else {
+      navigate("/dashboard", { state: { tab: "datasets" } });
+    }
+  };
+
+  // simple drop handler (visual only)
+  const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) setFile(f);
+  };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-xl font-semibold text-center">Create New Dataset</h1>
-
-      <section className="space-y-2">
-        <label className="block text-xs font-medium">Name</label>
-        <input className="w-full rounded-md border px-3 py-2 text-sm" value={name} onChange={e=>setName(e.target.value)} />
-        <p className="text-xs text-gray-500">This maps to <code>dataset_name</code>.</p>
-      </section>
-
-      <section className="space-y-2">
-        <label className="block text-xs font-medium">Notes (not saved yet)</label>
-        <textarea className="w-full rounded-md border px-3 py-2 text-sm" placeholder="Not persisted (backend TBD)" />
-      </section>
-
-      <section className="space-y-2">
-        <label className="block text-xs font-medium">Delimited Dataset (UI only)</label>
-        <input type="file" accept=".csv" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
-        <div className="flex gap-2">
-          <button onClick={validateFile} className="btn-gray">Validate</button>
-          <span className={`text-xs ${validated ? "text-green-600" : "text-gray-500"}`}>
-            {validated ? "Looks good" : "Awaiting validation"}
-          </span>
+    <div className="min-h-[60vh]">
+      {/* Sticky header */}
+      <div className="sticky top-14 md:top-16 z-40 border-b border-black/10 bg-gray-400">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-3">
+          <button
+            onClick={onBack}
+            className="rounded border border-black/10 bg-white px-3 py-1.5 text-sm hover:bg-gray-100"
+          >
+            Back
+          </button>
+          <div className="font-semibold">Upload Dataset</div>
+          <button
+            onClick={onSave}
+            disabled={!canSave || saving}
+            className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Visibility (placeholders)</h2>
-        <div className="text-xs text-gray-600">Admin access & Make Public are UI-only right now.</div>
-      </section>
-
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Share with users (viewers)</h3>
-        <div className="text-xs text-gray-600">Add users as <b>viewers</b>. Owners = creator only.</div>
-        {/* simple viewer adder once dataset exists */}
-        {newDatasetId ? (
-          <ShareViewer datasetId={newDatasetId} />
-        ) : (
-          <div className="text-xs text-gray-500">Save dataset first to grant access.</div>
-        )}
-      </section>
-
-      <div className="flex gap-2">
-        <button onClick={onSave} disabled={!name || !validated || saving} className="btn-gray">
-          {saving ? "Saving…" : "Save Dataset"}
-        </button>
-        <button className="rounded-md border px-4 py-2 text-sm">Save draft</button>
       </div>
+
+      {/* Body */}
+      <div className="mx-auto max-w-4xl space-y-8 p-4">
+        {/* Name */}
+        <section className="space-y-2">
+          <label className="block text-xs font-medium text-gray-700">Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+            placeholder="A concise dataset name"
+          />
+          <div className="min-h-[1.25rem] text-xs">
+            {name
+              ? checking
+                ? <span className="text-gray-500">Checking availability…</span>
+                : nameTaken === true
+                  ? <span className="text-red-600">This name is already taken.</span>
+                  : nameTaken === false
+                    ? <span className="text-green-600">Name is available. Proceed!</span>
+                    : <span className="text-gray-500">Could not verify name; you can still proceed.</span>
+              : <span className="text-gray-500">This maps to <code>dataset_name</code>.</span>}
+          </div>
+        </section>
+
+        {/* Notes */}
+        <section className="space-y-2">
+          <label className="block text-xs font-medium text-gray-700">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={4}
+            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+            placeholder="Optional notes for collaborators (not yet persisted; backend TODO)."
+          />
+        </section>
+
+        {/* Delimited Dataset / File format + uploader */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-gray-700">Delimited Dataset</div>
+            <button
+              onClick={() => setShowFormatHelp((v) => !v)}
+              className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50"
+            >
+              {showFormatHelp ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          {showFormatHelp && (
+            <div className="rounded-md border border-black/10 bg-gray-100 p-3 text-xs text-gray-700">
+              <div className="font-medium">File Format</div>
+              <p className="mt-1 leading-relaxed">
+                Put formatting guide here (placeholder for now).
+              </p>
+            </div>
+          )}
+
+          {/* Upload box */}
+          <label
+            onDrop={onDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="grid cursor-pointer place-items-center rounded-md border-2 border-dashed border-black/20 bg-white py-10 text-center hover:bg-gray-50"
+          >
+            <input
+              type="file"
+              accept=".csv,.tsv,text/csv"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            <div>
+              <div className="text-3xl">☁️</div>
+              <div className="mt-1 text-sm">
+                {file ? <strong>{file.name}</strong> : "Click to choose a file or drag it here"}
+              </div>
+              <div className="text-xs text-gray-500">CSV recommended</div>
+            </div>
+          </label>
+        </section>
+
+        {/* Time Unit */}
+        <section className="space-y-2">
+          <div className="text-xs font-semibold text-gray-700">Time Unit</div>
+          <div className="inline-flex overflow-hidden rounded-md border border-black/10 bg-white">
+            {(["year", "month", "day", "hour"] as TimeUnit[]).map((unit) => (
+              <button
+                key={unit}
+                onClick={() => setTimeUnit(unit)}
+                className={`px-3 py-1.5 text-sm capitalize ${
+                  timeUnit === unit ? "bg-black text-white" : "hover:bg-gray-100"
+                }`}
+              >
+                {unit}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
+            Specify the time scale used by this dataset (e.g., survival durations recorded in months).
+          </div>
+        </section>
+
+        {/* Visibility */}
+        <section className="space-y-2">
+          <div className="text-xs font-semibold text-gray-700">Visibility</div>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="h-4 w-4 accent-black"
+            />
+            <span className="text-sm">Make Dataset Public</span>
+          </label>
+          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
+            If enabled, other users can discover and view this dataset. (Viewers can use datasets,
+            but only the owner can modify or delete.)
+          </div>
+        </section>
+      </div>
+
+      {/* Leave prompt */}
+      {showLeavePrompt && (
+        <ConfirmLeave
+          onCancel={() => setShowLeavePrompt(false)}
+          onContinue={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+        />
+      )}
     </div>
   );
 }
 
-function ShareViewer({ datasetId }: { datasetId: number }) {
-  const [userId, setUserId] = useState<number | "">("");
-  async function add() {
-    if (typeof userId === "number") await grantDatasetViewer(datasetId, userId);
-    setUserId("");
-  }
+/** "are you sure?" modal */
+function ConfirmLeave({
+  onCancel,
+  onContinue,
+}: {
+  onCancel: () => void;
+  onContinue: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <input type="number" className="w-40 rounded-md border px-2 py-1 text-sm" placeholder="User ID"
-             value={userId} onChange={(e)=>setUserId(e.target.value ? Number(e.target.value) : "")} />
-      <button onClick={add} className="btn-gray">Add Viewer</button>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg">
+        <h3 className="text-base font-semibold">Leave without saving?</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Your data will not be saved if you return to the Dashboard.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onContinue}
+            className="rounded-md bg-black px-3 py-1.5 text-sm text-white"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
