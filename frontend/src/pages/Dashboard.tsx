@@ -15,14 +15,13 @@
  *   - The new card is selected.
  *
  * Implementation notes:
- * - Local state holds the mock data and UI state (activeTab, query, ownership, selection, etc.).
+ * - Local state holds the data and UI state (activeTab, query, ownership, selection, etc.).
  * - useMemo filters each list by query + ownership.
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
  *
  * TO DO:
- * - Replace mock data with API data when backend is ready.
- * - Navigate to actual create / edit / view routes instead of alert() stubs.
+ * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
 import { useMemo, useState, useEffect } from "react";
@@ -229,15 +228,11 @@ export default function Dashboard() {
 
   // create Predictor - navigate to the Create Predictor page
   function createPredictor() {
-    // Previously: inserted a mock card + selected it.
-    // Now: send the user to the creation flow.
     navigate("/predictors/new");
   }
 
   // create Dataset - navigate to the Upload/Create Dataset page
   function addDataset() {
-    // Previously: inserted a mock card + selected it.
-    // Now: send the user to the creation flow.
     navigate("/datasets/new");
   }
 
@@ -290,8 +285,8 @@ export default function Dashboard() {
         {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
         <div className="mx-auto mt-4 max-w-2xl space-y-2">
           <h2 className="text-2xl tracking-tight md:text-2xl">
-          Find your datasets and predictors below.
-        </h2>
+            Find your datasets and predictors below.
+          </h2>
         </div>
       </div>
       {/* sticky toolbar under navbar - stays on top when you scroll */}
