@@ -35,6 +35,7 @@ import type { Ownership } from "../components/FilterMenu";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/apiClient";
 
+
 type Tab = "predictors" | "datasets";
 
 
@@ -76,7 +77,7 @@ export default function Dashboard() {
   // tabs + data
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
   const [predictors, setPredictors] = useState<PredictorItem[]>([]);
-  const [datasets, setDatasets] = useState<PredictorItem[]>([]);
+  const [datasets, setDatasets] = useState<DatasetItem[]>([]);
 
 
   // error and loading
@@ -96,6 +97,38 @@ export default function Dashboard() {
   // delete modal
   const [pendingDelete, setPendingDelete] = useState<PredictorItem | null>(null);
 
+  // Mapper function from Dataset to UI 
+  function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
+  return {
+    id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
+    title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
+    // If API returns owner as an id, compare with current user id to produce boolean
+    owner:
+      typeof item.owner === "number" && currentUserId !== undefined
+        ? item.owner === currentUserId
+        : Boolean(item.owner),
+    ownerId: item.owner ?? null,
+    ownerName: item.owner_name ?? item.ownerName ?? null,
+    updatedAt: item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
+    notes: item.description ?? item.notes ?? "",
+    __raw: item,
+  };
+  }
+
+  function mapApiPredictorToUi(item: any, currentUserId?: number): PredictorItem {
+  return {
+    id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
+    title: item.name ?? item.title ?? "Untitled predictor",
+    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
+    updatedAt: item.updated_at ?? item.modified ?? item.last_edited ?? undefined,
+    owner:
+      typeof item.owner === "number" && currentUserId !== undefined
+        ? item.owner === currentUserId
+        : Boolean(item.owner),
+    notes: item.description ?? item.notes ?? "",
+  };
+    }
+
 
   useEffect(() => {
     let mounted = true;
@@ -111,14 +144,25 @@ export default function Dashboard() {
         if (activeTab === "predictors") {
           const data = await api.get<PredictorItem[]>(`/api/predictors/`);
           if (!mounted) return;
-          setPredictors(Array.isArray(data) ? data: []);
+          const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
+          const mapped = Array.isArray(data)
+            ? data.map((it) => mapApiPredictorToUi(it, currentUserId))
+            : [];
+          setPredictors(mapped);
+          console.log("mapped predictors:", JSON.parse(JSON.stringify(mapped)));
         } else {
-          const data = await api.get<DatasetItem[]>(`/api/datasets/`);
+          const data = await api.get<DatasetItem[]>(`/api/datasets/`)
           if (!mounted) return;
-          setDatasets(Array.isArray(data) ? data : []);
+          const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
+          const mapped = Array.isArray(data)
+            ? data.map((it) => mapApiDatasetToUi(it, currentUserId))
+            : [];
+
+          setDatasets(mapped);
+          // debug snapshot:
+          console.log("mapped datasets:", JSON.parse(JSON.stringify(mapped)));
         }
         
-
       } catch (err: any) {
         if (err?.status === 0) {
           setError("Network error");
@@ -157,7 +201,10 @@ export default function Dashboard() {
 
   const filteredDatasets = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = datasets.filter((it) => (q ? it.title.toLowerCase().includes(q) : true));
+    let list = datasets.filter((it) => {
+    const title = it?.title ?? "";
+    return q ? title.toLowerCase().includes(q) : true;
+    });
     if (ownership === "owner") list = list.filter((it) => it.owner);
     if (ownership === "viewer") list = list.filter((it) => !it.owner);
     return list;
@@ -247,29 +294,6 @@ export default function Dashboard() {
         </h2>
         </div>
       </div>
-      {/* show error banner above toolbar */}
-      {error && (
-          <div className="mx-auto max-w-4xl px-4 py-2">
-            <div className="rounded-md bg-red-50 border border-red-200 p-3 flex items-center justify-between">
-              <div className="text-sm text-red-800">
-                <strong className="mr-1">Error:</strong>
-                {error}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="text-sm px-3 py-1 bg-white border rounded-md hover:bg-gray-50"
-                  onClick={() => {
-                    // simple retry — reload the page or better: call your fetch routine
-                    // quick option: force a full reload
-                    window.location.reload();
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
-          </div>
-      )}
       {/* sticky toolbar under navbar - stays on top when you scroll */}
       <div
         className="sticky top-14 md:top-16 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60"
@@ -336,7 +360,7 @@ export default function Dashboard() {
           : list.map((it) => (
               <DatasetCard
                 key={it.id}
-                item={it}
+                item={{ ...it, owner: Boolean(it.owner) }}
                 selected={selectedId === it.id}
                 onToggleSelect={toggleSelect}
                 onEdit={editItem}

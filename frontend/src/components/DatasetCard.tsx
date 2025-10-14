@@ -9,12 +9,25 @@
  */
 
 import CardShell from "./CardShell";
-import type { PredictorItem } from "./PredictorCard";
+// import type { PredictorItem } from "./PredictorCard";
 
-// Reuse PredictorItem shape so search / filter logic remains unchanged.
-export type DatasetItem = PredictorItem & {
+// // Reuse PredictorItem shape so search / filter logic remains unchanged.
+// export type DatasetItem = PredictorItem & {
+//   rows?: number;
+//   sizeMB?: number;
+// };
+
+export type DatasetItem = {
+  id: string;
+  title: string;
+  owner: boolean;        // true if current user is owner
+  ownerId?: number | null;
+  ownerName?: string | null;
+  updatedAt?: string;
+  notes?: string;
   rows?: number;
   sizeMB?: number;
+  __raw?: any;           // keep the raw API object if you need it later
 };
 
 export default function DatasetCard({
