@@ -84,13 +84,13 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.1 | User Logging In / Out | 3 | Advi, Selena, Yaatheshini |
 | US 1.1.1 | Change Password and User Information | 3 | Advi, Selena, Yaatheshini | 
 | US 1.3 | Logged-In User Dashboard | 3 | Advi, Selena | 
-| US 1.3.1 | Upload a Dataset | 3 | Alex, Hoang, Advi, Selena | 
+| US 1.3.2 | * Upload a Dataset | 3 | Alex, Hoang, Advi, Selena | 
 | US 1.3.3 | Predictor Privacy | 2 | Yaatheshini, Selena | 
-| US 1.3.4 | Create a Predictor | 3 | Advi, Excel, Selena | 
-| US 1.3.5 | Edit a Predictor | 1 | Excel, Selena | 
-| US 1.3.6 | Delete a Predictor | 1 | Excel, Selena | 
+| US 1.3.4 | * Create a Predictor | 3 | Advi, Excel, Selena |
+| US 1.3.5 | * Edit a Predictor | 1 | Excel, Selena |  
+| US 1.3.6 | * Delete a Predictor | 1 | Excel, Selena | 
 | US 1.3.7 | Pin Predictors | 3 | Yaatheshini, Selena | 
-| US 1.4.1 | Display Predictors & Datasets | 2 | Advi, Selena | 
+| US 1.4.1 | * Display Predictors & Datasets | 2 | Advi, Selena | 
 | US 1.4.2 | Search for a Dataset / Predictor | 1 | Selena |
 | US 1.4.3 | Filter Predictors By Public / Private Access | 1 | Selena | 
 | US 1.5 | Admin Access (Panel Set-Up) | 3 | Yaatheshini | 
@@ -99,7 +99,9 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 4.1.1 | Instructions Page | 2 | Hoang | 
 | Us 6.1 | Frontend Tests for Sprint 2 | 5 | Yaatheshini
 
-**Estimated sprint velocity**: 40
+**User Stories Marked with an * are incomplete and have been moved to sprint 3**
+
+**Estimated sprint velocity**: 30
 
 * > Initial Check-In - **October 5th**
 
@@ -183,7 +185,7 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 2.1.3.3 | Paginate Features | 2 | Selena |  
 | US 2.2 |  Implement Learning Tools | 5 | Advi, Alex | 
 
-**Estimated sprint velocity**: 35
+**Estimated sprint velocity**: 45
 
 * > Initial Check-In - **October 19th**
 
