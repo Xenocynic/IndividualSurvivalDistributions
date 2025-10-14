@@ -20,6 +20,8 @@ export interface PredictorItem {
   updatedAt?: string;  // last edited date
   owner?: boolean; // permissions
   notes?: string; // description text
+  isPublic?: boolean;     // privacy 
+  pinned?: boolean;       // show pin state
 }
 
 export default function PredictorCard({
