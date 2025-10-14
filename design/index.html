@@ -58,14 +58,6 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#wireframes">Wireframes</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#tech-stack-everyone">Tech Stack (Everyone)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#backend">Backend</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#frontend">Frontend</a>
-    </li>
-        </ul>
-    </li>
     </ul>
                 </li>
               </ul>
@@ -100,69 +92,20 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="software-design">Software Design</h1>
-<p>This page includes a short description of the overall architecture style of the system, its high-level system components, and their logical (what data they exchange) and control (how they invoke each other) dependencies.</p>
+                <h1 id="software-design"><strong>Software Design</strong> <br><br></h1>
 <h2 id="high-level-architecture">High-level Architecture</h2>
-<p><em>This is a short description of the architecture.</em></p>
-<p><a href="../design.jpg" target="_blank"><img alt="Software Design" src="../design.jpg" /></a></p>
+<p>This architecture follows a four-layer structure where a React + Vite frontend communicates via JSON with a Django REST Framework backend that handles analytics, background tasks, and chart generation. The backend connects through Django ORM to a PostgreSQL database for secure data storage and retrieval.</p>
+<p><a href="../design.jpg" target="_blank"><img alt="High-level Architecture" src="../design.jpg" /></a><br><br></p>
 <h2 id="uml-class-diagram">UML Class Diagram</h2>
-<p><em>This is a short description of logical entities of the domain in a UML diagram.</em></p>
-<p><a href="../uml.jpg" target="_blank"><img alt="UML Class Diagram" src="../uml.jpg" /></a></p>
+<p>This diagram represents a controller–model architecture where multiple controllers manage user actions and system processes, interacting with interconnected data models that handle datasets, users, training, predictions, and analysis workflows.</p>
+<p><a href="../uml.jpg" target="_blank"><img alt="UML Class Diagram" src="../uml.jpg" /></a><br><br></p>
 <h2 id="sequence-diagram">Sequence Diagram</h2>
-<p><em>Multiple sequence diagrams depicting the most important scenarios.</em></p>
-<p><a href="../sequence.jpg" target="_blank"><img alt="Sequence Diagram" src="../sequence.jpg" /></a></p>
+<p>This sequence diagram shows how users interact with the application and database during key processes such as logging in, uploading datasets, training models, making predictions, and evaluating results, highlighting the flow of information and system responses throughout each step.</p>
+<p><a href="../sequence.jpg" target="_blank"><img alt="Sequence Diagram" src="../sequence.jpg" /></a><br><br></p>
 <h2 id="wireframes">Wireframes</h2>
-<p><em>Looking at the wireframes, anyone should be able to get an idea of what will be developed. Test your wireframes with your client, encourage them to give feedback.</em></p>
+<p>This user flow diagram illustrates how public and registered users navigate through the application from login and registration to dataset management, model training, and prediction generation, showing how users interact with dashboards, upload data, train models, and use trained predictors for analysis and insights.</p>
 <p><a href="../wireframes.png" target="_blank"><img alt="Wireframes" src="../wireframes.png" /></a></p>
 <p>For a clearer look, go <a href="https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tpLJT6JhqGsAFkg/view?utm_content=DAG0JPaxo_k&amp;utm_campaign=designshare&amp;utm_medium=link2&amp;utm_source=uniquelinks&amp;utlId=h867f811d61">here</a>.</p>
-<h2 id="tech-stack-everyone">Tech Stack (Everyone)</h2>
-<p>List the possible tech stack you will be using. Include links and descriptions of any libraries, frameworks, and tools you will be using.</p>
-<h3 id="backend">Backend</h3>
-<ul>
-<li>
-<blockquote>
-<p><a href="https://guides.rubyonrails.org/">Ruby On Rails</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p><a href="https://dev.mysql.com/doc/">MySQL</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p>Look up C++ / R as applicable (not quite writing the code but may have to parse it as we are working with models.)</p>
-</blockquote>
-</li>
-</ul>
-<h3 id="frontend">Frontend</h3>
-<ul>
-<li>
-<blockquote>
-<p><a href="https://react.dev/learn/typescript">React + Typescript</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p><a href="https://vite.dev/guide/">Vite</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p><a href="https://reactrouter.com/start/modes#framework">React Router</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p><a href="https://tailwindcss.com/docs/installation/framework-guides/react-router">Tailwind CSS</a></p>
-</blockquote>
-</li>
-<li>
-<blockquote>
-<p><a href="https://zustand.docs.pmnd.rs/getting-started/introduction">Zustand</a></p>
-</blockquote>
-</li>
-</ul>
               
             </div>
           </div><footer>
