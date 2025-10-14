@@ -1,18 +1,26 @@
-# **Software Design**
+# **Software Design** <br><br>
 
 ## High-level Architecture 
 
-[![Software Design](design.jpg)](design.jpg){target=_blank}
+This architecture follows a four-layer structure where a React + Vite frontend communicates via JSON with a Django REST Framework backend that handles analytics, background tasks, and chart generation. The backend connects through Django ORM to a PostgreSQL database for secure data storage and retrieval.
+
+[![High-level Architecture](design.jpg)](design.jpg){target=_blank}<br><br>
 
 ## UML Class Diagram
 
-[![UML Class Diagram](uml.jpg)](uml.jpg){target=_blank}
+This diagram represents a controller–model architecture where multiple controllers manage user actions and system processes, interacting with interconnected data models that handle datasets, users, training, predictions, and analysis workflows.
+
+[![UML Class Diagram](uml.jpg)](uml.jpg){target=_blank}<br><br>
 
 ## Sequence Diagram
 
-[![Sequence Diagram](sequence.jpg)](sequence.jpg){target=_blank}
+This sequence diagram shows how users interact with the application and database during key processes such as logging in, uploading datasets, training models, making predictions, and evaluating results, highlighting the flow of information and system responses throughout each step.
+
+[![Sequence Diagram](sequence.jpg)](sequence.jpg){target=_blank}<br><br>
 
 ## Wireframes
+
+This user flow diagram illustrates how public and registered users navigate through the application from login and registration to dataset management, model training, and prediction generation, showing how users interact with dashboards, upload data, train models, and use trained predictors for analysis and insights.
 
 [![Wireframes](wireframes.png)](wireframes.png){target=_blank}
 
