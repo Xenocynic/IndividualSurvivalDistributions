@@ -49,22 +49,24 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.1 | User Logging In / Out | 3 | Advi, Selena, Yaatheshini |
 | US 1.1.1 | Change Password and User Information | 3 | Advi, Selena, Yaatheshini | 
 | US 1.3 | Logged-In User Dashboard | 3 | Advi, Selena | 
-| US 1.3.2 | Upload a Dataset | 3 | Alex, Hoang, Advi, Selena | 
+| US 1.3.2 | * Upload a Dataset | 3 | Alex, Hoang, Advi, Selena | 
 | US 1.3.3 | Predictor Privacy | 2 | Yaatheshini, Selena | 
-| US 1.3.4 | Create a Predictor | 3 | Advi, Excel, Selena | 
-| US 1.3.5 | Edit a Predictor | 1 | Excel, Selena | 
-| US 1.3.6 | Delete a Predictor | 1 | Excel, Selena | 
-| US 1.3.7 | Pin Predictors | 2 | Yaatheshini, Selena | 
-| US 1.4 | Display Predictors & Datasets | 2 | Advi, Selena | 
-| US 1.4.1 | Search for a Dataset / Predictor | 1 | Selena |
-| US 1.4.2 | Filter Predictors By Public / Private Access | 1 | Selena | 
-| US 1.5 | Admin Access (Panel Set-Up) | 5 | Yaatheshini | 
+| US 1.3.4 | * Create a Predictor | 3 | Advi, Excel, Selena |
+| US 1.3.5 | * Edit a Predictor | 1 | Excel, Selena |  
+| US 1.3.6 | * Delete a Predictor | 1 | Excel, Selena | 
+| US 1.3.7 | Pin Predictors | 3 | Yaatheshini, Selena | 
+| US 1.4.1 | * Display Predictors & Datasets | 2 | Advi, Selena | 
+| US 1.4.2 | Search for a Dataset / Predictor | 1 | Selena |
+| US 1.4.3 | Filter Predictors By Public / Private Access | 1 | Selena | 
+| US 1.5 | Admin Access (Panel Set-Up) | 3 | Yaatheshini | 
 | US 1.7 | Landing Page | 2 | Shahmeer | 
 | US 1.8 | About Page | 2 | Shahmeer | 
 | US 4.1 | Instructions Page | 1 | Hoang | 
 | Us 6.1 | Frontend Tests for Sprint 2 | 5 | Yaatheshini
 
-**Estimated sprint velocity**: 40
+**User Stories Marked with an * are incomplete and have been moved to sprint 3**
+
+**Estimated sprint velocity**: 30
 
 ##### First Draft of All Deliverables Due: Thursday, Oct 9
 ##### Actually Finished: Sunday, Oct 13
@@ -244,7 +246,7 @@ This modular structure keeps the codebase organized and makes it easier to maint
 | US 2.2 |  Implement Learning Tools | 5 | Advi, Alex | 
 | US 6.2 |  Frontend tests for Sprint 3 | 5 | Yaatheshini | 
 
-**Estimated sprint velocity**: 38
+**Estimated sprint velocity**: 45
 
 * > Initial Check-In - **October 19th**
 
