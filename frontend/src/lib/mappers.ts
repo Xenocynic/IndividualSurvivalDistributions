@@ -12,8 +12,8 @@ export function toPredictorItem(p: Predictor): PredictorItem {
     owner: true,          // map real ownership from backend 
     // updatedAt:    , // when backend provides a timestamp
     // status:   ,        // when backend provides status
-    // isPublic:   // privacy
-    // pinned:     // is it pinned
+    isPublic: (p as any).is_public ?? false,  // update
+    pinned: (p as any).pinned ?? false,  // update
   };
 }
 
@@ -23,9 +23,10 @@ export function toDatasetItem(d: Dataset): DatasetItem {
     id: String(d.dataset_id),
     title: d.dataset_name,
     owner: true,          // map real ownership from backend 
-    // updatedAt:   , // when backend provides a timestamp
-    // notes:   ,          // once backend adds itafter alex's merge
-    // isPublic:   // privacy
-    // pinned:     // is it pinned
+    // updatedAt:     // when backend provides a timestamp
+    // status:           // when backend provides status
+
+    isPublic: (d as any).is_public ?? false,  // update
+    pinned: (d as any).pinned ?? false,  // update
   };
 }
