@@ -1,111 +1,148 @@
 /**
- * Upload Dataset
+ * Edit Dataset
  *
  * UX notes:
- * - Sticky grey header with Back / title / Save
- * - "Back" warns if there are unsaved changes
- * - Name field checks availability (client-side for now via listMyDatasets)
- * - Notes is UI-only (persist when backend adds a field)
- * - File format help is collapsible
- * - File upload is a simple input (drop / click); replace with real uploader later
- * - Time unit buttons (Year / Month / Day / Hour)
- * - Public/Private toggle with a help blurb
- * - Save - creates dataset object, then returns to Dashboard on the Datasets tab
+ * - Similar to DatasetUpload but for editing existing datasets
+ * - File cannot be changed (show current file info)
+ * - Name field checks availability (excluding current dataset)
+ * - Pre-populate all fields with current values
+ * - Save updates the dataset metadata
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createDataset, listMyDatasets, type CreateDatasetRequest } from "../lib/datasets";
+import { useNavigate, useParams } from "react-router-dom";
+import { getDataset, updateDataset, listMyDatasets, type Dataset } from "../lib/datasets";
 
 type TimeUnit = "year" | "month" | "day" | "hour";
 
-export default function DatasetUpload() {
+export default function DatasetEdit() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const datasetId = id ? parseInt(id) : null;
 
   // form state
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [showFormatHelp, setShowFormatHelp] = useState(true);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("month");
   const [isPublic, setIsPublic] = useState(false);
 
+  // dataset info
+  const [dataset, setDataset] = useState<Dataset | null>(null);
+  const [originalName, setOriginalName] = useState("");
+
   // meta state
+  const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [nameTaken, setNameTaken] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // local detection to decide whether to warn 
   const dirtyRef = useRef(false);
   useEffect(() => {
+    if (!dataset) return;
     dirtyRef.current =
-      !!name.trim() || !!notes.trim() || !!file || isPublic || timeUnit !== "month";
-  }, [name, notes, file, isPublic, timeUnit]);
+      name.trim() !== dataset.dataset_name ||
+      notes.trim() !== (dataset.notes || "") ||
+      timeUnit !== dataset.time_unit ||
+      isPublic !== dataset.is_public;
+  }, [name, notes, timeUnit, isPublic, dataset]);
 
-  // check name availability (client-side)
+  // Load dataset data
+  useEffect(() => {
+    if (!datasetId) {
+      setError("Invalid dataset ID");
+      setLoading(false);
+      return;
+    }
+
+    async function loadDataset() {
+      try {
+        const data = await getDataset(datasetId!);
+        setDataset(data);
+        setName(data.dataset_name);
+        setOriginalName(data.dataset_name);
+        setNotes(data.notes || "");
+        setTimeUnit(data.time_unit);
+        setIsPublic(data.is_public);
+      } catch (err: any) {
+        if (err?.status === 404) {
+          setError("Dataset not found");
+        } else if (err?.status === 403) {
+          setError("You don't have permission to edit this dataset");
+        } else {
+          setError("Failed to load dataset");
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDataset();
+  }, [datasetId]);
+
+  // check name availability (client-side, excluding current dataset)
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       const trimmed = name.trim();
-      if (!trimmed) {
+      if (!trimmed || trimmed === originalName) {
         setNameTaken(null);
         return;
       }
       setChecking(true);
       try {
-        const mine = await listMyDatasets(); // API wrapper
-        // NOTE: case-insensitive compare
-        const exists = mine.some((d) => d.dataset_name.toLowerCase() === trimmed.toLowerCase());
+        const mine = await listMyDatasets();
+        // Check if name exists (excluding current dataset)
+        const exists = mine.some((d) => 
+          d.dataset_name.toLowerCase() === trimmed.toLowerCase() && 
+          d.dataset_id !== datasetId
+        );
         if (!cancelled) setNameTaken(exists);
       } catch {
-        // If this fails, don't block user; just show "unknown"
         if (!cancelled) setNameTaken(null);
       } finally {
         if (!cancelled) setChecking(false);
       }
     }
 
-    // Small debounce 
     const t = setTimeout(run, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [name]);
+  }, [name, originalName, datasetId]);
 
-  // “valid” when the required bits are present
+  // "valid" when the required bits are present and changed
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
     if (nameTaken) return false;
-    if (!file) return false; 
+    if (!dirtyRef.current) return false; // No changes made
     return true;
-  }, [name, nameTaken, file]);
+  }, [name, nameTaken, dirtyRef.current]);
 
-  // Save - create dataset object with file upload
+  // Save - update dataset
   const onSave = async () => {
-    if (!canSave || saving || !file) return;
+    if (!canSave || saving || !datasetId) return;
     setSaving(true);
     try {
-      const request: CreateDatasetRequest = {
+      const updateData = {
         dataset_name: name.trim(),
-        file: file,
         notes: notes.trim() || undefined,
         time_unit: timeUnit,
         is_public: isPublic
       };
 
-      const created = await createDataset(request);
+      await updateDataset(datasetId, updateData);
 
-      // Route to dashboard with the Datasets tab selected
-      navigate("/dashboard", { state: { tab: "datasets", justCreatedId: created.dataset_id } });
+      // Route back to dashboard
+      navigate("/dashboard", { state: { tab: "datasets" } });
     } catch (err: any) {
-      // Handle different types of errors
-      let errorMessage = "Failed to save dataset. Please try again.";
+      let errorMessage = "Failed to update dataset. Please try again.";
       
       if (err?.details) {
-        // Handle validation errors from the backend
         if (typeof err.details === 'object') {
           const errors = Object.entries(err.details)
             .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
@@ -132,13 +169,32 @@ export default function DatasetUpload() {
     }
   };
 
-  // simple drop handler (visual only)
-  const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const f = e.dataTransfer?.files?.[0];
-    if (f) setFile(f);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-700 mx-auto"></div>
+          <div className="mt-2 text-sm text-gray-600">Loading dataset...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-lg font-semibold">{error}</div>
+          <button
+            onClick={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+            className="mt-4 rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[60vh]">
@@ -151,7 +207,7 @@ export default function DatasetUpload() {
           >
             Back
           </button>
-          <div className="font-semibold">Upload Dataset</div>
+          <div className="font-semibold">Edit Dataset</div>
           <button
             onClick={onSave}
             disabled={!canSave || saving}
@@ -174,7 +230,7 @@ export default function DatasetUpload() {
             placeholder="A concise dataset name"
           />
           <div className="min-h-[1.25rem] text-xs">
-            {name
+            {name && name.trim() !== originalName
               ? checking
                 ? <span className="text-gray-500">Checking availability…</span>
                 : nameTaken === true
@@ -198,50 +254,29 @@ export default function DatasetUpload() {
           />
         </section>
 
-        {/* Delimited Dataset / File format + uploader */}
+        {/* Current File Info */}
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold text-gray-700">Delimited Dataset</div>
-            <button
-              onClick={() => setShowFormatHelp((v) => !v)}
-              className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50"
-            >
-              {showFormatHelp ? "Hide" : "Show"}
-            </button>
-          </div>
-
-          {showFormatHelp && (
-            <div className="rounded-md border border-black/10 bg-gray-100 p-3 text-xs text-gray-700">
-              <div className="font-medium">File Format</div>
-              <p className="mt-1 leading-relaxed">
-                Put formatting guide here (placeholder for now).
-              </p>
-            </div>
-          )}
-
-          {/* Upload box */}
-          <label
-            onDrop={onDrop}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            className="grid cursor-pointer place-items-center rounded-md border-2 border-dashed border-black/20 bg-white py-10 text-center hover:bg-gray-50"
-          >
-            <input
-              type="file"
-              accept=".csv,.tsv,text/csv"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            <div>
-              <div className="text-3xl">☁️</div>
-              <div className="mt-1 text-sm">
-                {file ? <strong>{file.name}</strong> : "Click to choose a file or drag it here"}
+          <div className="text-xs font-semibold text-gray-700">Current File</div>
+          <div className="rounded-md border border-black/10 bg-gray-50 p-3">
+            {dataset?.has_file ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📄</span>
+                  <div>
+                    <div className="text-sm font-medium">{dataset.file_display_name || dataset.original_filename}</div>
+                    <div className="text-xs text-gray-500">
+                      {dataset.file_size_display} • Uploaded {new Date(dataset.uploaded_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-600">
+                  Note: Files cannot be changed after upload. To use a different file, create a new dataset.
+                </div>
               </div>
-              <div className="text-xs text-gray-500">CSV recommended</div>
-            </div>
-          </label>
+            ) : (
+              <div className="text-sm text-gray-600">No file associated with this dataset.</div>
+            )}
+          </div>
         </section>
 
         {/* Time Unit */}
@@ -308,7 +343,7 @@ function ConfirmLeave({
       <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg">
         <h3 className="text-base font-semibold">Leave without saving?</h3>
         <p className="mt-1 text-sm text-gray-600">
-          Your data will not be saved if you return to the Dashboard.
+          Your changes will not be saved if you return to the Dashboard.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button

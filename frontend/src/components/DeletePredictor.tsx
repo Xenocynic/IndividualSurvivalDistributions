@@ -12,6 +12,7 @@ interface DeletePredictorProps {
   name: string;
   onCancel: () => void;
   onConfirm: () => void;
+  isLoading?: boolean;
 }
 
 export function DeletePredictor({
@@ -19,6 +20,7 @@ export function DeletePredictor({
   name,
   onCancel,
   onConfirm,
+  isLoading = false,
 }: DeletePredictorProps) {
   if (!open) return null;
 
@@ -32,15 +34,17 @@ export function DeletePredictor({
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+            disabled={isLoading}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
+            disabled={isLoading}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Delete
+            {isLoading ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
