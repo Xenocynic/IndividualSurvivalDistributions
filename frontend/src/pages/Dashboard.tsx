@@ -34,6 +34,9 @@ import { DeletePredictor } from "../components/DeletePredictor";
 import type { Ownership } from "../components/FilterMenu";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/apiClient";
+import { mapApiPredictorToUi } from "../lib/predictors";
+import { mapApiDatasetToUi } from "../lib/datasets";
+
 
 
 type Tab = "predictors" | "datasets";
@@ -97,59 +100,55 @@ export default function Dashboard() {
   // delete modal
   const [pendingDelete, setPendingDelete] = useState<PredictorItem | null>(null);
 
-  // Mapper function from Dataset to UI 
-  function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
-  return {
-    id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
-    title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
-    // If API returns owner as an id, compare with current user id to produce boolean
-    owner:
-      typeof item.owner === "number" && currentUserId !== undefined
-        ? item.owner === currentUserId
-        : Boolean(item.owner),
-    ownerId: item.owner ?? null,
-    ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
-    notes: item.description ?? item.notes ?? "",
-    __raw: item,
-  };
-  }
-
-  function mapApiPredictorToUi(item: any, currentUserId?: number): PredictorItem {
-  return {
-    id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
-    title: item.name ?? item.title ?? "Untitled predictor",
-    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
-    updatedAt: item.updated_at ?? item.modified ?? item.last_edited ?? undefined,
-    owner:
-      typeof item.owner === "number" && currentUserId !== undefined
-        ? item.owner === currentUserId
-        : Boolean(item.owner),
-    notes: item.description ?? item.notes ?? "",
-  };
-    }
-
-
   useEffect(() => {
     let mounted = true;
     // AbortController for cleanup if component unmounts or user changes rapidly
-
     const controller = new AbortController();
+
+    // Track whether the fetch finished
+    let didFinish = false; 
+
     setError(null);
 
+    // After 300 ms, show the loading screen
+    const SHOW_LOADING_DELAY = 300;
+
+    // track whether we’ve already fetched data for this tab
+    const isInitialPredictorFetch = predictors.length === 0 && activeTab === "predictors";
+    const isInitialDatasetFetch = datasets.length === 0 && activeTab === "datasets";
+    const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
+
+    // Define loadingTimer
+    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+
+
     async function fetchActive() {
-      setIsLoading(true);
+
+      // Only trigger loader delay if it's the first fetch of the data
+      if (isInitialFetch) {
+      // Only set loading true if fetch has not completed yet
+      loadingTimer = setTimeout(() => {
+        if (!didFinish && mounted) setIsLoading(true);
+      }, SHOW_LOADING_DELAY);
+      } else {
+        // no loader when switching tabs or refetching
+        setIsLoading(false);
+      }
 
       try{
         if (activeTab === "predictors") {
-          const data = await api.get<PredictorItem[]>(`/api/predictors/`);
+
+          const predictorData = await api.get<PredictorItem[]>(`/api/predictors/`);
+
           if (!mounted) return;
+
           const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
-          const mapped = Array.isArray(data)
-            ? data.map((it) => mapApiPredictorToUi(it, currentUserId))
+          const mapped = Array.isArray(predictorData)
+            ? predictorData.map((it) => mapApiPredictorToUi(it, currentUserId))
             : [];
           setPredictors(mapped);
           console.log("mapped predictors:", JSON.parse(JSON.stringify(mapped)));
+
         } else {
           const data = await api.get<DatasetItem[]>(`/api/datasets/`)
           if (!mounted) return;
@@ -169,19 +168,23 @@ export default function Dashboard() {
         } else {
           setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
         }
-        console.error("Fetch err", err);
+        console.error("Fetch error", error);
       } finally {
+        // clear the timeout no matter what
+        didFinish = true;
+        if (loadingTimer) clearTimeout(loadingTimer);
         if (mounted) setIsLoading(false);
       }
     }
 
-    // debounce by 250 ms
+    // debounce fetch start by 250 ms
     const t = window.setTimeout(() => fetchActive(), 250);
 
     return () => {
       mounted = false;
       controller.abort();
       clearTimeout(t);
+      if (loadingTimer) clearTimeout(loadingTimer);
     };
 
 
