@@ -3,6 +3,7 @@ from .models import Predictor, PredictorPermission
 from rest_framework.exceptions import PermissionDenied
 from .serializers import PredictorSerializer, PredictorPermissionSerializer
 from django.db.models import Q
+from rest_framework.decorators import action
 
 # ----------------------------
 # Custom Permissions
@@ -66,6 +67,18 @@ class PredictorViewSet(viewsets.ModelViewSet):
         to the currently authenticated user.
         """
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def pin(self, request, pk=None):
+        predictor = self.get_object()
+        PinnedPredictor.objects.get_or_create(user=request.user, predictor=predictor)
+        return Response({"status": "pinned"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def unpin(self, request, pk=None):
+        predictor = self.get_object()
+        PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
+        return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
 
 # ----------------------------
 # PredictorPermission ViewSet
