@@ -1,9 +1,18 @@
 from django.db.models import Q
-from rest_framework import viewsets, permissions
+from django.db import transaction
+from django.http import HttpResponse, Http404
+from django.core.files.storage import default_storage
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
 from .models import Dataset, DatasetPermission
 from .serializers import DatasetSerializer, DatasetPermissionSerializer
+from .file_utils import FileStorageManager
+import os
+import mimetypes
 
 # ----------------------------
 # Custom Permissions
@@ -33,7 +42,7 @@ class CanAccessDataset(permissions.BasePermission):
     ),
     create=extend_schema(
         summary="Create a new dataset",
-        description="Create a new dataset. The authenticated user becomes the owner.",
+        description="Create a new dataset with file upload. The authenticated user becomes the owner. Supports multipart form data for file uploads.",
         tags=["Datasets"]
     ),
     retrieve=extend_schema(
@@ -53,16 +62,34 @@ class CanAccessDataset(permissions.BasePermission):
     ),
     destroy=extend_schema(
         summary="Delete dataset",
-        description="Delete a dataset. Only the owner can delete. This action cannot be undone.",
+        description="Delete a dataset and its associated file. Only the owner can delete. This action cannot be undone.",
         tags=["Datasets"]
+    ),
+    download_file=extend_schema(
+        summary="Download dataset file",
+        description="Download the file associated with a dataset. Only users with access to the dataset can download the file.",
+        tags=["Datasets"],
+        responses={
+            200: {
+                'description': 'File download',
+                'content': {
+                    'text/csv': {'schema': {'type': 'string', 'format': 'binary'}},
+                    'text/tab-separated-values': {'schema': {'type': 'string', 'format': 'binary'}},
+                }
+            },
+            403: {'description': 'Permission denied'},
+            404: {'description': 'Dataset or file not found'},
+        }
     ),
 )
 class DatasetViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing datasets.
     Provides CRUD operations for datasets with proper ownership and permission checks.
+    Supports file uploads through multipart form data.
     """
     serializer_class = DatasetSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         """
@@ -92,6 +119,160 @@ class DatasetViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [perm() for perm in permission_classes]
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new dataset with file upload support.
+        
+        Handles multipart form data and implements transaction management
+        for atomic operations with proper error handling and rollback.
+        """
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            # Validate the serializer data
+            serializer.is_valid(raise_exception=True)
+            
+            # Use atomic transaction to ensure consistency
+            with transaction.atomic():
+                # The serializer's create method handles file processing
+                dataset = serializer.save()
+                
+                # Return success response
+                headers = self.get_success_headers(serializer.data)
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_201_CREATED,
+                    headers=headers
+                )
+                
+        except Exception as e:
+            # Handle any errors that occur during creation
+            # The serializer's create method handles file cleanup
+            
+            # If it's a validation error, return the validation errors
+            if hasattr(e, 'detail'):
+                return Response(
+                    {'error': 'Validation failed', 'details': e.detail},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # For other errors, return a generic error message
+            return Response(
+                {
+                    'error': 'Dataset creation failed',
+                    'message': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a dataset and its associated file.
+        
+        The model's delete() method handles file cleanup automatically.
+        """
+        try:
+            # Get the instance (this checks permissions and raises Http404 if not found)
+            instance = self.get_object()
+            
+            # Use transaction to ensure atomicity
+            with transaction.atomic():
+                # The model's delete() method handles file cleanup
+                self.perform_destroy(instance)
+                
+                return Response(status=status.HTTP_204_NO_CONTENT)
+                
+        except (Http404, PermissionDenied):
+            # Let DRF handle these exceptions properly
+            raise
+        except Exception as e:
+            return Response(
+                {
+                    'error': 'Dataset deletion failed',
+                    'message': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['get'], url_path='download')
+    def download_file(self, request, pk=None):
+        """
+        Download the dataset file.
+        
+        Provides secure file serving with permission checks and proper HTTP headers.
+        Only authorized users (owner or users with permission) can download files.
+        """
+        try:
+            # Get the dataset instance (this will check permissions via get_object)
+            dataset = self.get_object()
+            
+            # Check if dataset has a file
+            if not dataset.file_path:
+                return Response(
+                    {'error': 'No file associated with this dataset'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Check if file exists in storage
+            storage_manager = FileStorageManager()
+            if not storage_manager.file_exists(dataset.file_path):
+                return Response(
+                    {'error': 'File not found in storage'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get the file from storage
+            try:
+                file_obj = default_storage.open(dataset.file_path, 'rb')
+            except Exception as e:
+                return Response(
+                    {'error': f'Error accessing file: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(dataset.original_filename or dataset.file_path)
+            if not content_type:
+                # Default to CSV for dataset files
+                if dataset.file_path.lower().endswith('.tsv'):
+                    content_type = 'text/tab-separated-values'
+                else:
+                    content_type = 'text/csv'
+            
+            # Create HTTP response with proper headers
+            response = HttpResponse(file_obj.read(), content_type=content_type)
+            
+            # Set filename for download
+            filename = dataset.original_filename or f"dataset_{dataset.dataset_id}.csv"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            # Set additional headers
+            response['Content-Length'] = dataset.file_size or storage_manager.get_file_size(dataset.file_path)
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            # Close the file
+            file_obj.close()
+            
+            return response
+            
+        except Http404:
+            return Response(
+                {'error': 'Dataset not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except PermissionDenied:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'File download failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def perform_create(self, serializer):
         """Automatically assign the authenticated user as the dataset owner."""

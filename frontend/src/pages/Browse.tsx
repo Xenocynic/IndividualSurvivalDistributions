@@ -1,11 +1,21 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
+import { listMyPredictors } from "../lib/predictors";
+import { listMyDatasets } from "../lib/datasets";
+import { toPredictorItem, toDatasetItem } from "../lib/mappers";
+import { useAuth } from "../auth/AuthContext";
+import { downloadDatasetFile } from "../lib/datasets";
 
 type Tab = "predictors" | "datasets";
 
+/**
+ * Item is the local UI shape used by Browse cards.
+ * We derive it from API objects via the mapper layer, then normalize
+ * here into the fields Browse needs (title / owner / visibility / notes/etc.).
+ */
 type Item = {
   id: string;
   title: string;
@@ -13,32 +23,81 @@ type Item = {
   isPublic: boolean;
   ownerName: string;
   notes?: string;
+  hasFile?: boolean;
+  originalFilename?: string;
 };
 
-// mock data; replace from API later
-const MOCK_PREDICTORS: Item[] = [
-  { id: "p1", title: "Liver Transplant Calculator All", updatedAt: "2d ago", isPublic: true, ownerName: "A", notes: "All livers welcome." },
-  { id: "p2", title: "Liver Transplant Calculator 2002", updatedAt: "5d ago", isPublic: false, ownerName: "B", notes: "me when mcr." },
-  { id: "p3", title: "That One Predictor", updatedAt: "just now", isPublic: false, ownerName: "CCCC", notes: "Fascinating." },
-];
-
-const MOCK_DATASETS: Item[] = [
-  { id: "d1", title: "Cancer Registry Cohort", updatedAt: "Aug 20, 2023", isPublic: false, ownerName: "S", notes: "waaaaaaaaaaaa" },
-  { id: "d2", title: "Cervical Cancer CSV Upload", updatedAt: "Jul 02, 2010", isPublic: true, ownerName: "D", notes: "wwwwwwwwwww" },
-];
-
 export default function Browse() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
 
-  const [predictors] = useState<Item[]>(MOCK_PREDICTORS);
-  const [datasets] = useState<Item[]>(MOCK_DATASETS);
+  // API-loaded data (mapped through the mappers)
+  const [predictors, setPredictors] = useState<Item[]>([]);
+  const [datasets, setDatasets] = useState<Item[]>([]);
 
-  // Pinned IDs separated per tab
+  // Pinned IDs separated per tab (pinning is ONLY on Browse)
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
+
+  // Fetch & map once on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [apiPreds, apiDsets] = await Promise.all([
+          listMyPredictors(),
+          listMyDatasets(),
+        ]);
+
+        if (!mounted) return;
+
+        // Map API → UI (predictors)
+        const uiPreds = apiPreds.map((p) => {
+          const ui = toPredictorItem(p);
+          // Normalize to Browse's Item fields
+          const item: Item = {
+            id: ui.id,
+            title: ui.title,
+            updatedAt: ui.updatedAt ?? "",       // fill in when backend adds timestamp
+            isPublic: !!ui.isPublic,
+            ownerName: "Owner",                   // TODO: map actual owner display when available
+            notes: ui.notes,
+          };
+          return item;
+        });
+
+        // Map API → UI (datasets)
+        const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
+        const uiDsets = apiDsets.map((d) => {
+          const ui = toDatasetItem(d, currentUserId);
+          const item: Item = {
+            id: ui.id,
+            title: ui.title,
+            updatedAt: ui.updatedAt ?? "",
+            isPublic: !!(d as any).is_public, // Use raw API data for is_public
+            ownerName: ui.ownerName || "Owner",
+            notes: ui.notes,
+            hasFile: ui.hasFile,
+            originalFilename: ui.originalFilename,
+          };
+          return item;
+        });
+
+        setPredictors(uiPreds);
+        setDatasets(uiDsets);
+      } catch {
+        setPredictors([]);
+        setDatasets([]);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const list = activeTab === "predictors" ? predictors : datasets;
 
@@ -53,6 +112,7 @@ export default function Browse() {
   const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
   const pinned = list.filter((it) => pinnedSet.has(it.id));
 
+  // Pin / unpin (Browse-only interaction)
   function togglePin(id: string) {
     if (activeTab === "predictors") {
       setPinnedPredictorIds((prev) => {
@@ -66,6 +126,26 @@ export default function Browse() {
         next.has(id) ? next.delete(id) : next.add(id);
         return next;
       });
+    }
+  }
+
+  // download dataset file
+  async function downloadDataset(id: string) {
+    try {
+      const datasetId = parseInt(id);
+      const { blob, filename } = await downloadDatasetFile(datasetId);
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(`Download failed: ${error.message || 'Unknown error'}`);
     }
   }
 
@@ -164,7 +244,7 @@ export default function Browse() {
             return (
               <CardShell
                 key={it.id}
-                actionVisibility="hover" 
+                actionVisibility="hover"
                 title={
                   <div>
                     <div className="-mb-1">
@@ -176,11 +256,16 @@ export default function Browse() {
                 description={<span>{it.notes}</span>}
                 footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
                 footerRight={
-                  it.isPublic ? (
-                    <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
-                  ) : (
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
-                  )
+                  <div className="flex items-center gap-2">
+                    {activeTab === "datasets" && it.hasFile && it.originalFilename && (
+                      <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
+                    )}
+                    {it.isPublic ? (
+                      <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
+                    ) : (
+                      <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
+                    )}
+                  </div>
                 }
               >
                 {/* Hover actions (top-right) */}
@@ -188,12 +273,28 @@ export default function Browse() {
                   className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // TODO: route to details page
-
+                    if (activeTab === "datasets") {
+                      window.open(`/datasets/${it.id}/view`, '_blank');
+                    } else {
+                      // TODO: Add predictor view when available
+                      alert(`View predictor ${it.id} - not yet implemented`);
+                    }
                   }}
                 >
                   View
                 </button>
+                {activeTab === "datasets" && it.hasFile && (
+                  <button
+                    className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                    title="Download file"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadDataset(it.id);
+                    }}
+                  >
+                    📥
+                  </button>
+                )}
                 <button
                   className={`rounded-md border border-black/10 px-2 py-1 text-xs ${
                     isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
@@ -214,3 +315,4 @@ export default function Browse() {
     </section>
   );
 }
+

@@ -15,14 +15,13 @@
  *   - The new card is selected.
  *
  * Implementation notes:
- * - Local state holds the mock data and UI state (activeTab, query, ownership, selection, etc.).
+ * - Local state holds the data and UI state (activeTab, query, ownership, selection, etc.).
  * - useMemo filters each list by query + ownership.
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
  *
  * TO DO:
- * - Replace mock data with API data when backend is ready.
- * - Navigate to actual create / edit / view routes instead of alert() stubs.
+ * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
 import { useMemo, useState, useEffect } from "react";
@@ -34,9 +33,7 @@ import { DeletePredictor } from "../components/DeletePredictor";
 import type { Ownership } from "../components/FilterMenu";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/apiClient";
-import { mapApiPredictorToUi } from "../lib/predictors";
-import { mapApiDatasetToUi } from "../lib/datasets";
-
+import { downloadDatasetFile, deleteDataset } from "../lib/datasets";
 
 
 type Tab = "predictors" | "datasets";
@@ -99,6 +96,56 @@ export default function Dashboard() {
 
   // delete modal
   const [pendingDelete, setPendingDelete] = useState<PredictorItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Mapper function from Dataset to UI 
+  function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
+    // Format the uploaded date for display
+    const formatDate = (dateStr: string) => {
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString();
+      } catch {
+        return dateStr;
+      }
+    };
+
+    // Convert file size from bytes to MB
+    const fileSizeMB = item.file_size ? Math.round(item.file_size / (1024 * 1024) * 10) / 10 : undefined;
+
+    return {
+      id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
+      title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
+      // If API returns owner as an id, compare with current user id to produce boolean
+      owner:
+        typeof item.owner === "number" && currentUserId !== undefined
+          ? item.owner === currentUserId
+          : Boolean(item.owner),
+      ownerId: item.owner ?? null,
+      ownerName: item.owner_name ?? item.ownerName ?? null,
+      updatedAt: item.uploaded_at ? formatDate(item.uploaded_at) : (item.updated_at ?? item.updatedAt ?? item.modified ?? undefined),
+      notes: item.notes ?? item.description ?? "",
+      sizeMB: fileSizeMB,
+      hasFile: item.has_file ?? Boolean(item.file_path),
+      originalFilename: item.original_filename ?? item.originalFilename,
+      __raw: item,
+    };
+  }
+
+  function mapApiPredictorToUi(item: any, currentUserId?: number): PredictorItem {
+  return {
+    id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
+    title: item.name ?? item.title ?? "Untitled predictor",
+    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
+    updatedAt: item.updated_at ?? item.modified ?? item.last_edited ?? undefined,
+    owner:
+      typeof item.owner === "number" && currentUserId !== undefined
+        ? item.owner === currentUserId
+        : Boolean(item.owner),
+    notes: item.description ?? item.notes ?? "",
+  };
+    }
+
 
   useEffect(() => {
     let mounted = true;
@@ -232,15 +279,11 @@ export default function Dashboard() {
 
   // create Predictor - navigate to the Create Predictor page
   function createPredictor() {
-    // Previously: inserted a mock card + selected it.
-    // Now: send the user to the creation flow.
     navigate("/predictors/new");
   }
 
   // create Dataset - navigate to the Upload/Create Dataset page
   function addDataset() {
-    // Previously: inserted a mock card + selected it.
-    // Now: send the user to the creation flow.
     navigate("/datasets/new");
   }
 
@@ -250,27 +293,78 @@ export default function Dashboard() {
     alert("(demo) Folder creation UI");
   }
 
-  // replace with Edit Predictor / Dataset view when created
+  // navigate to edit page
   function editItem(id: string) {
-    alert(`(demo) Edit ${id}`);
+    if (activeTab === "predictors") {
+      // TODO: Add predictor edit page when available
+      alert(`(demo) Edit predictor ${id}`);
+    } else {
+      // Navigate to dataset edit page
+      navigate(`/datasets/${id}/edit`);
+    }
   }
 
-  // replace with Edit Predictor / Dataset view but with the buttons greyed out - can only view, not edit
+  // navigate to view page
   function viewItem(id: string) {
-    alert(`(demo) View ${id}`); 
+    if (activeTab === "predictors") {
+      // TODO: Add predictor view page when available
+      alert(`(demo) View predictor ${id}`);
+    } else {
+      // Navigate to dataset view page
+      navigate(`/datasets/${id}/view`);
+    }
+  }
+
+  // download dataset file
+  async function downloadItem(id: string) {
+    try {
+      const datasetId = parseInt(id);
+      const { blob, filename } = await downloadDatasetFile(datasetId);
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(`Download failed: ${error.message || 'Unknown error'}`);
+    }
   }
   
   // delete dataset / predictor prompt and deletion
-  function confirmDelete() {
-    if (!pendingDelete) return;
-    if (activeTab === "predictors") {
-      setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-      if (selectedPredictorId === pendingDelete.id) setSelectedPredictorId(null);
-    } else {
-      setDatasets((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-      if (selectedDatasetId === pendingDelete.id) setSelectedDatasetId(null);
+  async function confirmDelete() {
+    if (!pendingDelete || isDeleting) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      if (activeTab === "predictors") {
+        // TODO: Add predictor delete API call when available
+        alert("Predictor deletion not yet implemented");
+        setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
+        if (selectedPredictorId === pendingDelete.id) setSelectedPredictorId(null);
+      } else {
+        // Delete dataset via API
+        const datasetId = parseInt(pendingDelete.id);
+        await deleteDataset(datasetId);
+        
+        // Remove from local state after successful API call
+        setDatasets((arr) => arr.filter((x) => x.id !== pendingDelete.id));
+        if (selectedDatasetId === pendingDelete.id) setSelectedDatasetId(null);
+      }
+      
+      setPendingDelete(null);
+    } catch (error: any) {
+      // Show error message
+      const errorMessage = error?.details?.error || error?.message || 'Failed to delete dataset';
+      alert(`Delete failed: ${errorMessage}`);
+    } finally {
+      setIsDeleting(false);
     }
-    setPendingDelete(null);
   }
 
   const list = activeTab === "predictors" ? filteredPredictors : filteredDatasets;
@@ -293,8 +387,8 @@ export default function Dashboard() {
         {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
         <div className="mx-auto mt-4 max-w-2xl space-y-2">
           <h2 className="text-2xl tracking-tight md:text-2xl">
-          Find your datasets and predictors below.
-        </h2>
+            Find your datasets and predictors below.
+          </h2>
         </div>
       </div>
       {/* sticky toolbar under navbar - stays on top when you scroll */}
@@ -371,6 +465,7 @@ export default function Dashboard() {
                   setPendingDelete(datasets.find((x) => x.id === id) ?? null)
                 }
                 onView={viewItem}
+                onDownload={downloadItem}
               />
             ))}
       </div>
@@ -378,8 +473,9 @@ export default function Dashboard() {
       <DeletePredictor
         open={!!pendingDelete}
         name={pendingDelete?.title ?? ""}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => !isDeleting && setPendingDelete(null)}
         onConfirm={confirmDelete}
+        isLoading={isDeleting}
       />
     </section>
   );
