@@ -13,6 +13,8 @@ import Instructions from "./pages/Instructions";
 import Browse from "./pages/Browse";
 import ResetConfirm from "./pages/ResetConfirm";
 import DatasetUpload from "./pages/DatasetUpload";
+import DatasetEdit from "./pages/DatasetEdit";
+import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 
 export default function App() {
@@ -42,6 +44,8 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="settings" element={<Settings />} />
           <Route path="datasets/new" element={<DatasetUpload />} />
+          <Route path="datasets/:id/edit" element={<DatasetEdit />} />
+          <Route path="datasets/:id/view" element={<DatasetView />} />
           <Route path="predictors/new" element={<PredictorCreate />} />
         </Route>
 
