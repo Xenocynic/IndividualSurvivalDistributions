@@ -5,8 +5,8 @@ from django.core.files.storage import default_storage
 from django.db import transaction
 from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import Dataset, DatasetPermission
-from .file_utils import FileStorageManager, FileValidator
+from dataset.models import Dataset, DatasetPermission
+from dataset.file_utils import FileStorageManager, FileValidator
 from rest_framework_simplejwt.tokens import AccessToken
 from unittest.mock import patch, MagicMock, Mock
 import tempfile

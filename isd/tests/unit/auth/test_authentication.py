@@ -1,3 +1,8 @@
+"""
+Authentication and authorization unit tests.
+Tests for user registration, login, logout, token refresh, and password reset.
+"""
+
 import uuid
 from django.core import mail
 from django.urls import reverse
@@ -11,12 +16,15 @@ from django.contrib.auth.tokens import default_token_generator
 
 
 def unique_user(username_base="user"):
+    """Helper function to create unique users for testing."""
     username = f"{username_base}_{uuid.uuid4().hex[:6]}"
     email = f"{username}@example.com"
     return User.objects.create_user(username=username, email=email, password="StrongPassword123!")
 
 
-class AuthTests(APITestCase):
+class AuthenticationTests(APITestCase):
+    """Test suite for authentication functionality."""
+    
     def setUp(self):
         self.register_url = reverse('register')
         self.login_url = reverse('token_obtain_pair')
@@ -70,8 +78,16 @@ class AuthTests(APITestCase):
         response = self.client.post(self.refresh_url, {"refresh": str(refresh)}, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
+
+
+class PasswordResetTests(APITestCase):
+    """Test suite for password reset functionality."""
+    
+    def setUp(self):
+        self.forgot_password_url = reverse('user_forgot_password_api')
+        self.reset_password_url_name = 'user_reset_password_api'
+        self.forgot_url = reverse('forgot_password_api')
        
-    # User testing for password reset (2 tests)
     def test_forgot_password_sends_email(self):
         """Ensure forgot password sends reset email"""
         user = unique_user()
@@ -98,7 +114,6 @@ class AuthTests(APITestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password("NewPass123!"))
 
-    # Admin testing password reset (3 tests)
     def test_password_reset_email_sent(self):
         """POST valid email 200 OK"""
         user = unique_user()

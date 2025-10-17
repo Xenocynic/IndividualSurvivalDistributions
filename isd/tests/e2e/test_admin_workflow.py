@@ -1,4 +1,10 @@
-import pytest, time, re
+"""
+End-to-end tests for admin workflow.
+Tests complete user workflows including login, logout, and password reset.
+"""
+
+import time, re
+# Note: This test requires pytest for advanced features, but can run with Django's test runner
 from django.core import mail
 from django.contrib.auth.models import User
 from selenium import webdriver
@@ -12,6 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 @pytest.fixture(scope="function")
 def driver():
+    """Set up Chrome WebDriver for testing."""
     options = Options()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -22,7 +29,7 @@ def driver():
 
 @pytest.fixture
 def admin_user(db):
-    # Create an admin user in the test DB
+    """Create an admin user in the test DB."""
     user = User.objects.create_superuser(
         username="testadmin",
         email="testadmin@example.com",
