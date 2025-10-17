@@ -150,23 +150,52 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
     // AbortController for cleanup if component unmounts or user changes rapidly
-
     const controller = new AbortController();
+
+    // Track whether the fetch finished
+    let didFinish = false; 
+
     setError(null);
 
+    // After 300 ms, show the loading screen
+    const SHOW_LOADING_DELAY = 300;
+
+    // track whether we’ve already fetched data for this tab
+    const isInitialPredictorFetch = predictors.length === 0 && activeTab === "predictors";
+    const isInitialDatasetFetch = datasets.length === 0 && activeTab === "datasets";
+    const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
+
+    // Define loadingTimer
+    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+
+
     async function fetchActive() {
-      setIsLoading(true);
+
+      // Only trigger loader delay if it's the first fetch of the data
+      if (isInitialFetch) {
+      // Only set loading true if fetch has not completed yet
+      loadingTimer = setTimeout(() => {
+        if (!didFinish && mounted) setIsLoading(true);
+      }, SHOW_LOADING_DELAY);
+      } else {
+        // no loader when switching tabs or refetching
+        setIsLoading(false);
+      }
 
       try{
         if (activeTab === "predictors") {
-          const data = await api.get<PredictorItem[]>(`/api/predictors/`);
+
+          const predictorData = await api.get<PredictorItem[]>(`/api/predictors/`);
+
           if (!mounted) return;
+
           const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
-          const mapped = Array.isArray(data)
-            ? data.map((it) => mapApiPredictorToUi(it, currentUserId))
+          const mapped = Array.isArray(predictorData)
+            ? predictorData.map((it) => mapApiPredictorToUi(it, currentUserId))
             : [];
           setPredictors(mapped);
           console.log("mapped predictors:", JSON.parse(JSON.stringify(mapped)));
+
         } else {
           const data = await api.get<DatasetItem[]>(`/api/datasets/`)
           if (!mounted) return;
@@ -186,19 +215,23 @@ export default function Dashboard() {
         } else {
           setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
         }
-        console.error("Fetch err", err);
+        console.error("Fetch error", error);
       } finally {
+        // clear the timeout no matter what
+        didFinish = true;
+        if (loadingTimer) clearTimeout(loadingTimer);
         if (mounted) setIsLoading(false);
       }
     }
 
-    // debounce by 250 ms
+    // debounce fetch start by 250 ms
     const t = window.setTimeout(() => fetchActive(), 250);
 
     return () => {
       mounted = false;
       controller.abort();
       clearTimeout(t);
+      if (loadingTimer) clearTimeout(loadingTimer);
     };
 
 
