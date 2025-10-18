@@ -72,6 +72,30 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
+// Public API function that doesn't send auth headers
+async function publicRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type") && !(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  // Explicitly don't add Authorization header for public endpoints
+
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers,
+  });
+
+  if (!res.ok) {
+    let details: unknown = null;
+    try {
+      details = await res.json();
+    } catch {}
+    throw { status: res.status, statusText: res.statusText, details };
+  }
+
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
 export const api = {
   get: <T>(p: string) => raw<T>(p),
   post: <T>(p: string, body?: unknown) =>
@@ -84,4 +108,9 @@ export const api = {
   patch: <T>(p: string, body?: unknown) =>
     raw<T>(p, { method: "PATCH", body: JSON.stringify(body) }),
   del: <T>(p: string) => raw<T>(p, { method: "DELETE" }),
+};
+
+// Public API that doesn't send authentication headers
+export const publicApi = {
+  get: <T>(p: string) => publicRaw<T>(p),
 };

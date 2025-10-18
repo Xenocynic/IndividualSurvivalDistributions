@@ -10,7 +10,6 @@
  * CORS: already configured 
  */
 import { api } from "./apiClient";
-import {type DatasetItem} from "../components/DatasetCard";
 
 export type Dataset = { 
   dataset_id: number; 
@@ -60,14 +59,6 @@ export async function createDataset(request: CreateDatasetRequest) {
  */
 export async function listMyDatasets() {
   return api.get<Dataset[]>("/api/datasets/");
-}
-
-/**
- * List all public datasets (no authentication required).
- * This endpoint should be accessible to everyone.
- */
-export async function listPublicDatasets() {
-  return api.get<Dataset[]>("/api/datasets/public/");
 }
 
 /**
@@ -135,23 +126,3 @@ export async function downloadDatasetFile(datasetId: number): Promise<{ blob: Bl
   const blob = await response.blob();
   return { blob, filename };
 }
-
-
-
-// Mapper function from Dataset to UI 
-export function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
-  return {
-    id: String(item.dataset_id ?? ""),
-    title: item.dataset_name ??  "Untitled dataset",
-    // If API returns owner as an id, compare with current user id to produce boolean
-    owner:
-      typeof item.owner_id === "number" && currentUserId !== undefined
-        ? item.owner_id === currentUserId
-        : Boolean(item.owner),
-    ownerId: item.owner ?? null,
-    ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
-    notes: item.description ?? item.notes ?? "",
-    __raw: item,
-  };
-  }
