@@ -15,11 +15,14 @@ The DefaultRouter automatically creates the following endpoints:
 - DELETE /api/datasets/permissions/{id}/ - Revoke dataset permission
 """
 
+from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import DatasetViewSet, DatasetPermissionViewSet
+from .views import DatasetViewSet, DatasetPermissionViewSet, list_public_datasets
 
 router = DefaultRouter()
 router.register("", DatasetViewSet, basename="dataset")
 router.register("permissions", DatasetPermissionViewSet, basename="dataset-permission")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("public/", list_public_datasets, name="public-datasets"),
+] + router.urls

@@ -4,7 +4,7 @@ from django.http import HttpResponse, Http404
 from django.core.files.storage import default_storage
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
@@ -331,3 +331,37 @@ class DatasetPermissionViewSet(viewsets.ModelViewSet):
         if instance.dataset.owner != self.request.user:
             raise PermissionDenied("Only the dataset owner can revoke access.")
         instance.delete()
+
+
+# ----------------------------
+# Public Dataset Views
+# ----------------------------
+@extend_schema(
+    summary="List public datasets",
+    description="Retrieve a list of all public datasets. No authentication required.",
+    tags=["Public Datasets"]
+)
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def list_public_datasets(request):
+    """
+    List all public datasets without authentication.
+    Returns only datasets where is_public=True.
+    """
+    try:
+        # Get all public datasets
+        public_datasets = Dataset.objects.filter(is_public=True).order_by('-uploaded_at')
+        
+        # Serialize the data
+        serializer = DatasetSerializer(public_datasets, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {
+                'error': 'Failed to fetch public datasets',
+                'message': str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -13,3 +13,11 @@ export async function grantPredictorViewer(predictorId: number, userId: number) 
 export async function listMyPredictors() {
   return api.get<Predictor[]>("/api/predictors/");
 }
+
+/**
+ * List all public predictors (no authentication required).
+ * This endpoint should be accessible to everyone.
+ */
+export async function listPublicPredictors() {
+  return api.get<Predictor[]>("/api/predictors/public/");
+}
