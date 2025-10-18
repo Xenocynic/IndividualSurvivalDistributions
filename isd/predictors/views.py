@@ -1,4 +1,6 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.response import Response
 from .models import Predictor, PredictorPermission
 from rest_framework.exceptions import PermissionDenied
 from .serializers import PredictorSerializer, PredictorPermissionSerializer
@@ -30,11 +32,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     serializer_class = PredictorSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        # Show all public & user-owned predictors
-        return Predictor.objects.filter(Q(is_private=False) | Q(owner=user)).order_by("name")
 
     def get_queryset(self):
         """
@@ -119,3 +116,33 @@ class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
         """
         user = self.request.user
         return Predictor.objects.filter(pinned_by__user=user).order_by("-pinned_by__pinned_at")
+
+
+# ----------------------------
+# Public Predictor Views
+# ----------------------------
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([permissions.AllowAny])
+def list_public_predictors(request):
+    """
+    List all public predictors without authentication.
+    Returns only predictors where is_private=False.
+    """
+    try:
+        # Get all public predictors (where is_private=False)
+        public_predictors = Predictor.objects.filter(is_private=False).order_by('name')
+        
+        # Serialize the data
+        serializer = PredictorSerializer(public_predictors, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {
+                'error': 'Failed to fetch public predictors',
+                'message': str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

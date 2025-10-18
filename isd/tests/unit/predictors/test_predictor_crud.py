@@ -1,3 +1,8 @@
+"""
+Predictor CRUD operations unit tests.
+Tests for predictor creation, reading, updating, and deletion with proper permissions.
+"""
+
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -6,7 +11,9 @@ from dataset.models import Dataset
 from predictors.models import Predictor, PredictorPermission
 
 
-class PredictorTests(APITestCase):
+class PredictorCRUDTests(APITestCase):
+    """Test suite for predictor CRUD operations."""
+    
     def setUp(self):
         """Set up test users, dataset, and auth tokens."""
         self.owner = User.objects.create_user(username="owner", password="password123")
@@ -20,9 +27,6 @@ class PredictorTests(APITestCase):
         self.owner_token = str(AccessToken.for_user(self.owner))
         self.other_token = str(AccessToken.for_user(self.other_user))
 
-    # -----------------------
-    # Owner tests
-    # -----------------------
     def test_create_predictor(self):
         """Owner can create a predictor."""
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.owner_token}")
@@ -50,9 +54,23 @@ class PredictorTests(APITestCase):
         response = self.client.delete(f"{self.url}{predictor.predictor_id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    # -----------------------
-    # Non-Owner tests
-    # -----------------------
+
+class PredictorPermissionTests(APITestCase):
+    """Test suite for predictor permission system."""
+    
+    def setUp(self):
+        """Set up test users, dataset, and auth tokens."""
+        self.owner = User.objects.create_user(username="owner", password="password123")
+        self.other_user = User.objects.create_user(username="other", password="password123")
+        self.dataset = Dataset.objects.create(dataset_name="Dataset A", owner=self.owner)
+
+        # URLs
+        self.url = "/api/predictors/"
+
+        # Tokens
+        self.owner_token = str(AccessToken.for_user(self.owner))
+        self.other_token = str(AccessToken.for_user(self.other_user))
+
     def test_non_owner_cannot_update(self):
         """Non-owner cannot update a predictor."""
         predictor = Predictor.objects.create(name="Initial", description="Desc", dataset=self.dataset, owner=self.owner)
