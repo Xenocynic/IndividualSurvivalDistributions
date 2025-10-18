@@ -14,6 +14,39 @@ class Predictor(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_predictors')
     is_private = models.BooleanField(default=False)  # False = public, True = private
 
+    # --- Advanced configuration fields ---
+    time_unit = models.CharField(
+        max_length=10,
+        choices=[('day', 'Day'), ('week', 'Week'), ('month', 'Month'), ('year', 'Year')],
+        default='day'
+    )
+
+    num_time_points = models.PositiveIntegerField(blank=True, null=True)
+    regularization = models.CharField(max_length=5, choices=[('l1', 'L1'), ('l2', 'L2')], default='l2')
+    objective_function = models.CharField(max_length=50, default='log-likelihood')
+    marginal_loss_type = models.CharField(max_length=50, default='weighted')
+    c_param_search_scope = models.CharField(max_length=20, default='basic')
+
+    cox_feature_selection = models.BooleanField(default=False)
+    mrmr_feature_selection = models.BooleanField(default=False)
+    mtlr_predictor = models.CharField(max_length=50, default='stable')
+
+    # --- Recommended settings ---
+    standardize_features = models.BooleanField(default=True)
+    run_cross_validation = models.BooleanField(default=True)
+    tune_parameters = models.BooleanField(default=True)
+    use_smoothed_log_likelihood = models.BooleanField(default=False)
+    use_predefined_folds = models.BooleanField(default=False)
+
+    # --- Admin and accessibility ---
+    allow_admin_access = models.BooleanField(default=False)
+
+    # --- System metadata ---
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+
     def __str__(self):
         return self.name
 
@@ -25,6 +58,7 @@ class PinnedPredictor(models.Model):
 
     class Meta:
         unique_together = ("user", "predictor")  # prevent duplicate pins
+        ordering = ['-pinned_at'] # order by most recent
 
     def __str__(self):
         return f"{self.user.username} pinned {self.predictor.name}"

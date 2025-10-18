@@ -1,4 +1,19 @@
+/**
+ * PREDICTORS API HELPERS
+ * -----------------------------------------------------------------------------
+ * Server routes (current backend):
+ *   POST /api/predictors/                 -> create predictor object with corresponding dataset
+ *   GET  /api/predictors/                 -> list predictors (current user scope)
+ *   POST /api/predictors/permissions/     -> grant viewer permission to a user
+ *
+ * Auth: JWT (Authorization: Bearer <access>), handled by apiClient automatically.
+ * CORS: already configured 
+ */
+
+
+
 import { api } from "./apiClient";
+
 
 export type Predictor = { predictor_id: number; name: string; description: string; dataset: number };
 

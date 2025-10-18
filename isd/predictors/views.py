@@ -1,10 +1,12 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from .models import Predictor, PredictorPermission
-from rest_framework.exceptions import PermissionDenied
-from .serializers import PredictorSerializer, PredictorPermissionSerializer
 from django.db.models import Q
+
+from .models import Predictor, PredictorPermission, PinnedPredictor
+from rest_framework.exceptions import PermissionDenied
+from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+
 
 # ----------------------------
 # Custom Permissions
@@ -24,6 +26,7 @@ class CanAccessPredictor(permissions.BasePermission):
         # Other users can access only if a PredictorPermission exists
         return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
 
+
 # ----------------------------
 # Predictor ViewSet
 # ----------------------------
@@ -33,10 +36,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
     serializer_class = PredictorSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        # Show all public & user-owned predictors
-        return Predictor.objects.filter(Q(is_private=False) | Q(owner=user)).order_by("name")
 
     def get_queryset(self):
         """
@@ -48,6 +47,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
         return Predictor.objects.filter(
             Q(owner=user) | Q(permissions__user=user)
         ).distinct().order_by("name")
+
 
     def get_permissions(self):
         """
@@ -62,12 +62,12 @@ class PredictorViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), CanAccessPredictor()]
         return [permissions.IsAuthenticated()]
 
+
     def perform_create(self, serializer):
-        """
-        When creating a new predictor, automatically assign the owner
-        to the currently authenticated user.
-        """
+        """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
+
+
 
 # ----------------------------
 # PredictorPermission ViewSet
@@ -76,6 +76,7 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
     """API viewset for PredictorPermission model with proper access control."""
 
     serializer_class = PredictorPermissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
@@ -108,21 +109,25 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
 # ----------------------------
 class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    API viewset for PinnedPredictor.
-    - Only returns predictors pinned by the current user.
-    - Read-only: users cannot create/delete pins through this viewset.
+    API viewset for managing pinned predictors.
+    - GET: list pinned predictors
+    - POST: pin a predictor
+    - DELETE: unpin a predictor
     """
-    serializer_class = PredictorSerializer
+    serializer_class = PinnedPredictorSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
-        Returns predictors that are pinned by the currently authenticated user.
+        Return predictors pinned by the current user.
         """
-        user = self.request.user
-        return Predictor.objects.filter(pinned_by__user=user).order_by("-pinned_by__pinned_at")
+        return PinnedPredictor.objects.filter(user=self.request.user).order_by("-pinned_at")
 
+    def perform_create(self, serializer):
+        """Automatically assign the current user when pinning"""
+        serializer.save(user=self.request.user)
 
+        
 # ----------------------------
 # Public Predictor Views
 # ----------------------------
