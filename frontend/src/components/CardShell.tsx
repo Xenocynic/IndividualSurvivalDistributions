@@ -84,7 +84,7 @@ export default function CardShell({
     >
       <div className="flex min-h-[168px] flex-col gap-3">
         {/* Title */}
-        <h3 className="pr-20 text-sm font-medium leading-snug break-words hyphens-auto">
+        <h3 className="pr-20 text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
           {title}
         </h3>
 
@@ -110,7 +110,7 @@ export default function CardShell({
       {/* Action area (absolute, top-right) */}
       {children ? (
         <div
-          className={`absolute right-3 top-3 flex gap-2 ${actionClass}`}
+          className={`absolute right-3 top-3 flex gap-2 bg-white rounded-md px-2 py-1 shadow-sm ${actionClass}`}
           onClick={onActionAreaClick as any}
         >
           {children}

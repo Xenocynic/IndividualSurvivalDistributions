@@ -27,6 +27,8 @@ export type DatasetItem = {
   notes?: string;
   rows?: number;
   sizeMB?: number;
+  hasFile?: boolean;     // whether dataset has an associated file
+  originalFilename?: string; // original filename for display
   __raw?: any;           // keep the raw API object if you need it later
 };
 
@@ -37,6 +39,7 @@ export default function DatasetCard({
   onEdit,
   onDelete,
   onView,
+  onDownload,
 }: {
   item: DatasetItem;
   selected?: boolean;
@@ -44,6 +47,7 @@ export default function DatasetCard({
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
+  onDownload?: (id: string) => void;
 }) {
   return (
     <CardShell
@@ -51,10 +55,13 @@ export default function DatasetCard({
       description={item.notes}
       footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
       footerRight={
-        <>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
           {item.rows !== undefined && <span>{item.rows.toLocaleString()} rows</span>}
           {item.sizeMB !== undefined && <span>{item.sizeMB} MB</span>}
-        </>
+          {item.hasFile && item.originalFilename && (
+            <span title={`File: ${item.originalFilename}`}>📄</span>
+          )}
+        </div>
       }
       selected={selected}
       onSelect={() => onToggleSelect?.(item.id)}
@@ -75,14 +82,34 @@ export default function DatasetCard({
             >
               Delete
             </button>
+            {item.hasFile && onDownload && (
+              <button
+                onClick={() => onDownload(item.id)}
+                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                title="Download file"
+              >
+                Download
+              </button>
+            )}
           </>
         ) : (
-          <button
-            onClick={() => onView?.(item.id)}
-            className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
-          >
-            View
-          </button>
+          <>
+            <button
+              onClick={() => onView?.(item.id)}
+              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+            >
+              View
+            </button>
+            {item.hasFile && onDownload && (
+              <button
+                onClick={() => onDownload(item.id)}
+                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                title="Download file"
+              >
+                Download
+              </button>
+            )}
+          </>
         ))}
     </CardShell>
   );
