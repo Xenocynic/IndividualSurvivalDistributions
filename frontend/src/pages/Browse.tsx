@@ -3,8 +3,8 @@ import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
-import { listMyPredictors } from "../lib/predictors";
-import { listMyDatasets } from "../lib/datasets";
+import { listMyPredictors, listPublicPredictors } from "../lib/predictors";
+import { listMyDatasets, listPublicDatasets } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadDatasetFile } from "../lib/datasets";
@@ -75,7 +75,8 @@ export default function Browse() {
 
       try {
         if (activeTab === "predictors") {
-          const apiPreds = await listMyPredictors();
+          // Use public endpoint if user is not authenticated, otherwise use user-specific endpoint
+          const apiPreds = user ? await listMyPredictors() : await listPublicPredictors();
           
           if (!mounted) return;
 
@@ -87,7 +88,7 @@ export default function Browse() {
               title: ui.title,
               updatedAt: ui.updatedAt ?? "",
               isPublic: !!ui.isPublic,
-              ownerName: "Owner",
+              ownerName: (p as any).owner_name || "Owner",
               notes: ui.notes,
             };
             return item;
@@ -95,7 +96,8 @@ export default function Browse() {
 
           setPredictors(uiPreds);
         } else {
-          const apiDsets = await listMyDatasets();
+          // Use public endpoint if user is not authenticated, otherwise use user-specific endpoint
+          const apiDsets = user ? await listMyDatasets() : await listPublicDatasets();
           
           if (!mounted) return;
 
@@ -108,7 +110,7 @@ export default function Browse() {
               title: ui.title,
               updatedAt: ui.updatedAt ?? "",
               isPublic: !!(d as any).is_public,
-              ownerName: ui.ownerName || "Owner",
+              ownerName: ui.ownerName || (d as any).owner_name || "Owner",
               notes: ui.notes,
               hasFile: ui.hasFile,
               originalFilename: ui.originalFilename,
@@ -312,8 +314,25 @@ export default function Browse() {
 
         {/* Grid of cards */}
         {!isLoading && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((it) => {
+          <>
+            {filtered.length === 0 && !error ? (
+              <div className="text-center py-12">
+                <div className="text-gray-500 text-lg">
+                  {user ? 
+                    `No ${activeTab} found` : 
+                    `No public ${activeTab} available`
+                  }
+                </div>
+                <div className="text-gray-400 text-sm mt-2">
+                  {user ? 
+                    `Try adjusting your search or visibility filter` :
+                    `Public ${activeTab} will appear here when available`
+                  }
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filtered.map((it) => {
               const isPinned = pinnedSet.has(it.id);
               return (
                 <CardShell
@@ -384,7 +403,9 @@ export default function Browse() {
                 </CardShell>
               );
             })}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

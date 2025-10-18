@@ -39,14 +39,18 @@ export default function DatasetEdit() {
   const [error, setError] = useState<string | null>(null);
 
   // local detection to decide whether to warn 
-  const dirtyRef = useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
   useEffect(() => {
-    if (!dataset) return;
-    dirtyRef.current =
+    if (!dataset) {
+      setIsDirty(false);
+      return;
+    }
+    const hasChanges =
       name.trim() !== dataset.dataset_name ||
       notes.trim() !== (dataset.notes || "") ||
       timeUnit !== dataset.time_unit ||
       isPublic !== dataset.is_public;
+    setIsDirty(hasChanges);
   }, [name, notes, timeUnit, isPublic, dataset]);
 
   // Load dataset data
@@ -119,9 +123,9 @@ export default function DatasetEdit() {
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
     if (nameTaken) return false;
-    if (!dirtyRef.current) return false; // No changes made
+    if (!isDirty) return false; // No changes made
     return true;
-  }, [name, nameTaken, dirtyRef.current]);
+  }, [name, nameTaken, isDirty]);
 
   // Save - update dataset
   const onSave = async () => {
@@ -162,7 +166,7 @@ export default function DatasetEdit() {
   };
 
   const onBack = () => {
-    if (dirtyRef.current) {
+    if (isDirty) {
       setShowLeavePrompt(true);
     } else {
       navigate("/dashboard", { state: { tab: "datasets" } });
@@ -225,20 +229,30 @@ export default function DatasetEdit() {
           <label className="block text-xs font-medium text-gray-700">Name</label>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= 50) {
+                setName(e.target.value);
+              }
+            }}
+            maxLength={50}
             className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
             placeholder="A concise dataset name"
           />
-          <div className="min-h-[1.25rem] text-xs">
-            {name && name.trim() !== originalName
-              ? checking
-                ? <span className="text-gray-500">Checking availability…</span>
-                : nameTaken === true
-                  ? <span className="text-red-600">This name is already taken.</span>
-                  : nameTaken === false
-                    ? <span className="text-green-600">Name is available. Proceed!</span>
-                    : <span className="text-gray-500">Could not verify name; you can still proceed.</span>
-              : <span className="text-gray-500">This maps to <code>dataset_name</code>.</span>}
+          <div className="flex justify-between items-start min-h-[1.25rem] text-xs">
+            <div>
+              {name && name.trim() !== originalName
+                ? checking
+                  ? <span className="text-gray-500">Checking availability…</span>
+                  : nameTaken === true
+                    ? <span className="text-red-600">This name is already taken.</span>
+                    : nameTaken === false
+                      ? <span className="text-green-600">Name is available. Proceed!</span>
+                      : <span className="text-gray-500">Could not verify name; you can still proceed.</span>
+                : <span className="text-gray-500">This maps to <code>dataset_name</code>.</span>}
+            </div>
+            <span className={`text-xs ${name.length > 40 ? 'text-orange-600' : name.length > 45 ? 'text-red-600' : 'text-gray-400'}`}>
+              {name.length}/50
+            </span>
           </div>
         </section>
 
@@ -247,11 +261,21 @@ export default function DatasetEdit() {
           <label className="block text-xs font-medium text-gray-700">Notes</label>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= 200) {
+                setNotes(e.target.value);
+              }
+            }}
+            maxLength={200}
             rows={4}
             className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            placeholder="Optional notes for collaborators about this dataset."
+            placeholder="Optional notes for collaborators about this dataset (max 2 sentences)."
           />
+          <div className="flex justify-end">
+            <span className={`text-xs ${notes.length > 160 ? 'text-orange-600' : notes.length > 180 ? 'text-red-600' : 'text-gray-400'}`}>
+              {notes.length}/200
+            </span>
+          </div>
         </section>
 
         {/* Current File Info */}

@@ -63,6 +63,14 @@ export async function listMyDatasets() {
 }
 
 /**
+ * List all public datasets (no authentication required).
+ * This endpoint should be accessible to everyone.
+ */
+export async function listPublicDatasets() {
+  return api.get<Dataset[]>("/api/datasets/public/");
+}
+
+/**
  * Grant a user viewer access (permissions are "viewer" only for datasets).
  */
 export async function grantDatasetViewer(dataset: number, user: number) {
