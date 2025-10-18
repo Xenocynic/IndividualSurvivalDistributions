@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from dataset.models import Dataset
 from django.conf import settings
+from django.utils import timezone
+
 
 
 class Predictor(models.Model):
@@ -42,7 +44,7 @@ class Predictor(models.Model):
     allow_admin_access = models.BooleanField(default=False)
 
     # --- System metadata ---
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
 
