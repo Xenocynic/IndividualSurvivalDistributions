@@ -9,9 +9,14 @@
  * - Save updates the dataset metadata
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getDataset, updateDataset, listMyDatasets, type Dataset } from "../lib/datasets";
+import {
+  getDataset,
+  updateDataset,
+  listMyDatasets,
+  type Dataset,
+} from "../lib/datasets";
 
 type TimeUnit = "year" | "month" | "day" | "hour";
 
@@ -38,7 +43,7 @@ export default function DatasetEdit() {
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // local detection to decide whether to warn 
+  // local detection to decide whether to warn
   const [isDirty, setIsDirty] = useState(false);
   useEffect(() => {
     if (!dataset) {
@@ -100,9 +105,10 @@ export default function DatasetEdit() {
       try {
         const mine = await listMyDatasets();
         // Check if name exists (excluding current dataset)
-        const exists = mine.some((d) => 
-          d.dataset_name.toLowerCase() === trimmed.toLowerCase() && 
-          d.dataset_id !== datasetId
+        const exists = mine.some(
+          (d) =>
+            d.dataset_name.toLowerCase() === trimmed.toLowerCase() &&
+            d.dataset_id !== datasetId
         );
         if (!cancelled) setNameTaken(exists);
       } catch {
@@ -136,7 +142,7 @@ export default function DatasetEdit() {
         dataset_name: name.trim(),
         notes: notes.trim() || undefined,
         time_unit: timeUnit,
-        is_public: isPublic
+        is_public: isPublic,
       };
 
       await updateDataset(datasetId, updateData);
@@ -145,20 +151,25 @@ export default function DatasetEdit() {
       navigate("/dashboard", { state: { tab: "datasets" } });
     } catch (err: any) {
       let errorMessage = "Failed to update dataset. Please try again.";
-      
+
       if (err?.details) {
-        if (typeof err.details === 'object') {
+        if (typeof err.details === "object") {
           const errors = Object.entries(err.details)
-            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-            .join('\n');
+            .map(
+              ([field, messages]) =>
+                `${field}: ${
+                  Array.isArray(messages) ? messages.join(", ") : messages
+                }`
+            )
+            .join("\n");
           errorMessage = `Validation errors:\n${errors}`;
-        } else if (typeof err.details === 'string') {
+        } else if (typeof err.details === "string") {
           errorMessage = err.details;
         }
       } else if (err?.message) {
         errorMessage = err.message;
       }
-      
+
       alert(errorMessage);
     } finally {
       setSaving(false);
@@ -175,10 +186,10 @@ export default function DatasetEdit() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-700 mx-auto"></div>
-          <div className="mt-2 text-sm text-gray-600">Loading dataset...</div>
+      <div className='min-h-[60vh] flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-700 mx-auto'></div>
+          <div className='mt-2 text-sm text-gray-600'>Loading dataset...</div>
         </div>
       </div>
     );
@@ -186,12 +197,14 @@ export default function DatasetEdit() {
 
   if (error) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-lg font-semibold">{error}</div>
+      <div className='min-h-[60vh] flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='text-red-600 text-lg font-semibold'>{error}</div>
           <button
-            onClick={() => navigate("/dashboard", { state: { tab: "datasets" } })}
-            className="mt-4 rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
+            onClick={() =>
+              navigate("/dashboard", { state: { tab: "datasets" } })
+            }
+            className='mt-4 rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800'
           >
             Back to Dashboard
           </button>
@@ -201,21 +214,21 @@ export default function DatasetEdit() {
   }
 
   return (
-    <div className="min-h-[60vh]">
+    <div className='min-h-[60vh]'>
       {/* Sticky header */}
-      <div className="sticky top-14 md:top-16 z-40 border-b border-black/10 bg-gray-400">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-3">
+      <div className='sticky top-14 md:top-16 z-40 border-b border-black/10 bg-gray-400'>
+        <div className='mx-auto flex max-w-4xl items-center justify-between px-3 py-3'>
           <button
             onClick={onBack}
-            className="rounded border border-black/10 bg-white px-3 py-1.5 text-sm hover:bg-gray-100"
+            className='rounded border border-black/10 bg-white px-3 py-1.5 text-sm hover:bg-gray-100'
           >
             Back
           </button>
-          <div className="font-semibold">Edit Dataset</div>
+          <div className='font-semibold'>Edit Dataset</div>
           <button
             onClick={onSave}
             disabled={!canSave || saving}
-            className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            className='rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50'
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -223,10 +236,12 @@ export default function DatasetEdit() {
       </div>
 
       {/* Body */}
-      <div className="mx-auto max-w-4xl space-y-8 p-4">
+      <div className='mx-auto max-w-4xl space-y-8 p-4'>
         {/* Name */}
-        <section className="space-y-2">
-          <label className="block text-xs font-medium text-gray-700">Name</label>
+        <section className='space-y-2'>
+          <label className='block text-xs font-medium text-gray-700'>
+            Name
+          </label>
           <input
             value={name}
             onChange={(e) => {
@@ -235,30 +250,52 @@ export default function DatasetEdit() {
               }
             }}
             maxLength={50}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            placeholder="A concise dataset name"
+            className='w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
+            placeholder='A concise dataset name'
           />
-          <div className="flex justify-between items-start min-h-[1.25rem] text-xs">
+          <div className='flex justify-between items-start min-h-[1.25rem] text-xs'>
             <div>
-              {name && name.trim() !== originalName
-                ? checking
-                  ? <span className="text-gray-500">Checking availability…</span>
-                  : nameTaken === true
-                    ? <span className="text-red-600">This name is already taken.</span>
-                    : nameTaken === false
-                      ? <span className="text-green-600">Name is available. Proceed!</span>
-                      : <span className="text-gray-500">Could not verify name; you can still proceed.</span>
-                : <span className="text-gray-500">This maps to <code>dataset_name</code>.</span>}
+              {name && name.trim() !== originalName ? (
+                checking ? (
+                  <span className='text-gray-500'>Checking availability…</span>
+                ) : nameTaken === true ? (
+                  <span className='text-red-600'>
+                    This name is already taken.
+                  </span>
+                ) : nameTaken === false ? (
+                  <span className='text-green-600'>
+                    Name is available. Proceed!
+                  </span>
+                ) : (
+                  <span className='text-gray-500'>
+                    Could not verify name; you can still proceed.
+                  </span>
+                )
+              ) : (
+                <span className='text-gray-500'>
+                  This maps to <code>dataset_name</code>.
+                </span>
+              )}
             </div>
-            <span className={`text-xs ${name.length > 40 ? 'text-orange-600' : name.length > 45 ? 'text-red-600' : 'text-gray-400'}`}>
+            <span
+              className={`text-xs ${
+                name.length > 40
+                  ? "text-orange-600"
+                  : name.length > 45
+                  ? "text-red-600"
+                  : "text-gray-400"
+              }`}
+            >
               {name.length}/50
             </span>
           </div>
         </section>
 
         {/* Notes */}
-        <section className="space-y-2">
-          <label className="block text-xs font-medium text-gray-700">Notes</label>
+        <section className='space-y-2'>
+          <label className='block text-xs font-medium text-gray-700'>
+            Notes
+          </label>
           <textarea
             value={notes}
             onChange={(e) => {
@@ -268,77 +305,96 @@ export default function DatasetEdit() {
             }}
             maxLength={200}
             rows={4}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            placeholder="Optional notes for collaborators about this dataset (max 2 sentences)."
+            className='w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
+            placeholder='Optional notes for collaborators about this dataset (max 2 sentences).'
           />
-          <div className="flex justify-end">
-            <span className={`text-xs ${notes.length > 160 ? 'text-orange-600' : notes.length > 180 ? 'text-red-600' : 'text-gray-400'}`}>
+          <div className='flex justify-end'>
+            <span
+              className={`text-xs ${
+                notes.length > 160
+                  ? "text-orange-600"
+                  : notes.length > 180
+                  ? "text-red-600"
+                  : "text-gray-400"
+              }`}
+            >
               {notes.length}/200
             </span>
           </div>
         </section>
 
         {/* Current File Info */}
-        <section className="space-y-3">
-          <div className="text-xs font-semibold text-gray-700">Current File</div>
-          <div className="rounded-md border border-black/10 bg-gray-50 p-3">
+        <section className='space-y-3'>
+          <div className='text-xs font-semibold text-gray-700'>
+            Current File
+          </div>
+          <div className='rounded-md border border-black/10 bg-gray-50 p-3'>
             {dataset?.has_file ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">📄</span>
+              <div className='space-y-2'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-2xl'>📄</span>
                   <div>
-                    <div className="text-sm font-medium">{dataset.file_display_name || dataset.original_filename}</div>
-                    <div className="text-xs text-gray-500">
-                      {dataset.file_size_display} • Uploaded {new Date(dataset.uploaded_at).toLocaleDateString()}
+                    <div className='text-sm font-medium'>
+                      {dataset.file_display_name || dataset.original_filename}
+                    </div>
+                    <div className='text-xs text-gray-500'>
+                      {dataset.file_size_display} • Uploaded{" "}
+                      {new Date(dataset.uploaded_at).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                  Note: Files cannot be changed after upload. To use a different file, create a new dataset.
+                <div className='text-xs text-gray-600'>
+                  Note: Files cannot be changed after upload. To use a different
+                  file, create a new dataset.
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-gray-600">No file associated with this dataset.</div>
+              <div className='text-sm text-gray-600'>
+                No file associated with this dataset.
+              </div>
             )}
           </div>
         </section>
 
         {/* Time Unit */}
-        <section className="space-y-2">
-          <div className="text-xs font-semibold text-gray-700">Time Unit</div>
-          <div className="inline-flex overflow-hidden rounded-md border border-black/10 bg-white">
+        <section className='space-y-2'>
+          <div className='text-xs font-semibold text-gray-700'>Time Unit</div>
+          <div className='inline-flex overflow-hidden rounded-md border border-black/10 bg-white'>
             {(["year", "month", "day", "hour"] as TimeUnit[]).map((unit) => (
               <button
                 key={unit}
                 onClick={() => setTimeUnit(unit)}
                 className={`px-3 py-1.5 text-sm capitalize ${
-                  timeUnit === unit ? "bg-black text-white" : "hover:bg-gray-100"
+                  timeUnit === unit
+                    ? "bg-black text-white"
+                    : "hover:bg-gray-100"
                 }`}
               >
                 {unit}
               </button>
             ))}
           </div>
-          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
-            Specify the time scale used by this dataset (e.g., survival durations recorded in months).
+          <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
+            Specify the time scale used by this dataset (e.g., survival
+            durations recorded in months).
           </div>
         </section>
 
         {/* Visibility */}
-        <section className="space-y-2">
-          <div className="text-xs font-semibold text-gray-700">Visibility</div>
-          <label className="flex items-center gap-3">
+        <section className='space-y-2'>
+          <div className='text-xs font-semibold text-gray-700'>Visibility</div>
+          <label className='flex items-center gap-3'>
             <input
-              type="checkbox"
+              type='checkbox'
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="h-4 w-4 accent-black"
+              className='h-4 w-4 accent-black'
             />
-            <span className="text-sm">Make Dataset Public</span>
+            <span className='text-sm'>Make Dataset Public</span>
           </label>
-          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
-            If enabled, other users can discover and view this dataset. (Viewers can use datasets,
-            but only the owner can modify or delete.)
+          <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
+            If enabled, other users can discover and view this dataset. (Viewers
+            can use datasets, but only the owner can modify or delete.)
           </div>
         </section>
       </div>
@@ -347,7 +403,9 @@ export default function DatasetEdit() {
       {showLeavePrompt && (
         <ConfirmLeave
           onCancel={() => setShowLeavePrompt(false)}
-          onContinue={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+          onContinue={() =>
+            navigate("/dashboard", { state: { tab: "datasets" } })
+          }
         />
       )}
     </div>
@@ -363,22 +421,22 @@ function ConfirmLeave({
   onContinue: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg">
-        <h3 className="text-base font-semibold">Leave without saving?</h3>
-        <p className="mt-1 text-sm text-gray-600">
+    <div className='fixed inset-0 z-50 grid place-items-center bg-black/40 p-4'>
+      <div className='w-full max-w-sm rounded-lg bg-white p-4 shadow-lg'>
+        <h3 className='text-base font-semibold'>Leave without saving?</h3>
+        <p className='mt-1 text-sm text-gray-600'>
           Your changes will not be saved if you return to the Dashboard.
         </p>
-        <div className="mt-4 flex justify-end gap-2">
+        <div className='mt-4 flex justify-end gap-2'>
           <button
             onClick={onCancel}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+            className='rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50'
           >
             Cancel
           </button>
           <button
             onClick={onContinue}
-            className="rounded-md bg-black px-3 py-1.5 text-sm text-white"
+            className='rounded-md bg-black px-3 py-1.5 text-sm text-white'
           >
             Continue
           </button>

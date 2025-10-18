@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from .models import Predictor, PredictorPermission
 from rest_framework.exceptions import PermissionDenied
@@ -32,11 +32,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     serializer_class = PredictorSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        # Show all public & user-owned predictors
-        return Predictor.objects.filter(Q(is_private=False) | Q(owner=user)).order_by("name")
 
     def get_queryset(self):
         """
@@ -127,6 +122,7 @@ class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
 # Public Predictor Views
 # ----------------------------
 @api_view(['GET'])
+@authentication_classes([])
 @permission_classes([permissions.AllowAny])
 def list_public_predictors(request):
     """
