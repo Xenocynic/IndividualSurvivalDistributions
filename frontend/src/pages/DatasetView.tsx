@@ -71,6 +71,8 @@ export default function DatasetView() {
     }
   };
 
+
+
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -202,6 +204,27 @@ export default function DatasetView() {
             </div>
           </section>
         )}
+
+        {/* Data Processing Info */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Data Processing</h2>
+          
+          <div className="rounded-md border border-black/10 bg-green-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-green-600 text-xl">✅</div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-green-900 mb-2">
+                  Automatic Feature Imputation
+                </h3>
+                <p className="text-sm text-green-800">
+                  This dataset was automatically processed during upload. Any missing values 
+                  were replaced with column means (for numeric data) or most frequent values 
+                  (for categorical data). The data is ready for analysis.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

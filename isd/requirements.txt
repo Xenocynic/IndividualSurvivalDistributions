@@ -6,3 +6,5 @@ psycopg2-binary>=2.9,<3.0        # Compatibility for packages that still use psy
 djangorestframework-simplejwt>=5.3      # For JWT tokens
 drf-spectacular>=0.27.0          # For automatic API documentation
 python-dotenv                    # For loading environment variables from .env file
+pandas>=2.0,<3.0                 # For data processing and feature imputation
+numpy>=1.24,<2.0                 # Required by pandas
