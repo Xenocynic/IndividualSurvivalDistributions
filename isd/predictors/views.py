@@ -47,6 +47,25 @@ class PredictorViewSet(viewsets.ModelViewSet):
             .order_by("name")
         )
 
+    def get_object(self):
+        """
+        Override to run permission checks first, so unauthorized users get 403 instead of 404.
+        (Basically sends 403 to let us know object exists, user just doesn't have access)
+        """
+        # Get the object from all predictors, not just the filtered queryset
+        queryset = Predictor.objects.all()
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        
+        try:
+            obj = queryset.get(**filter_kwargs)
+        except Predictor.DoesNotExist:
+            from django.http import Http404
+            raise Http404("No Predictor matches the given query.")
+        
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def get_permissions(self):
         """
         Assign permissions based on the action being performed:
@@ -115,6 +134,7 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
         predictor = serializer.validated_data["predictor"]
         if predictor.owner != self.request.user:
             raise PermissionDenied("Only the predictor owner can grant access.")
+        # Save without modifying the user field - it should come from the request data
         serializer.save()
 
     def perform_destroy(self, instance):

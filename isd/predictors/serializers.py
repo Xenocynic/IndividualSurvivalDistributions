@@ -30,6 +30,3 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PredictorPermission
         fields = ["id", "predictor", "user"]
-        extra_kwargs = {
-            "user": {"read_only": True}
-        }
