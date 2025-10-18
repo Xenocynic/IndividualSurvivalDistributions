@@ -260,6 +260,43 @@ class FileStorageManager:
         except Exception:
             return None
     
+    def get_full_path(self, relative_path):
+        """
+        Get the full file system path for a relative path.
+        
+        Args:
+            relative_path (str): Relative path from storage root
+            
+        Returns:
+            str: Full file system path
+        """
+        return default_storage.path(relative_path)
+    
+    def copy_file(self, source_path, destination_path):
+        """
+        Copy a file within the storage system.
+        
+        Args:
+            source_path (str): Relative path to source file
+            destination_path (str): Relative path for destination file
+            
+        Returns:
+            bool: True if file was copied successfully
+        """
+        try:
+            if not default_storage.exists(source_path):
+                return False
+            
+            # Read source file
+            with default_storage.open(source_path, 'rb') as source_file:
+                # Save to destination
+                default_storage.save(destination_path, source_file)
+            
+            return True
+        except Exception as e:
+            print(f"Error copying file from {source_path} to {destination_path}: {str(e)}")
+            return False
+    
     def cleanup_orphaned_files(self, existing_file_paths):
         """
         Remove files that are not referenced by any dataset.

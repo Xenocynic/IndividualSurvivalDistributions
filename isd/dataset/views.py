@@ -4,13 +4,14 @@ from django.http import HttpResponse, Http404
 from django.core.files.storage import default_storage
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
 from .models import Dataset, DatasetPermission
 from .serializers import DatasetSerializer, DatasetPermissionSerializer
 from .file_utils import FileStorageManager
+from .tasks import process_feature_imputation
 import os
 import mimetypes
 
@@ -123,6 +124,7 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Create a new dataset with file upload support.
+        Automatically performs feature imputation on the uploaded data.
         
         Handles multipart form data and implements transaction management
         for atomic operations with proper error handling and rollback.
@@ -138,10 +140,43 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 # The serializer's create method handles file processing
                 dataset = serializer.save()
                 
+                # Automatically perform feature imputation
+                imputation_result = None
+                if dataset.file_path:
+                    try:
+                        imputation_result = process_feature_imputation(dataset.dataset_id)
+                        if imputation_result['success']:
+                            # Update the dataset with new file size after imputation
+                            storage_manager = FileStorageManager()
+                            new_size = storage_manager.get_file_size(dataset.file_path)
+                            if new_size:
+                                dataset.file_size = new_size
+                                dataset.save()
+                    except Exception as imputation_error:
+                        # Log the error but don't fail the dataset creation
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"Auto-imputation failed for dataset {dataset.dataset_id}: {str(imputation_error)}")
+                
+                # Prepare response data
+                response_data = serializer.data
+                
+                # Add imputation results to response if available
+                if imputation_result and imputation_result['success']:
+                    response_data['imputation'] = {
+                        'performed': True,
+                        'details': imputation_result['details']
+                    }
+                else:
+                    response_data['imputation'] = {
+                        'performed': False,
+                        'reason': 'No missing values found or imputation failed'
+                    }
+                
                 # Return success response
-                headers = self.get_success_headers(serializer.data)
+                headers = self.get_success_headers(response_data)
                 return Response(
-                    serializer.data,
+                    response_data,
                     status=status.HTTP_201_CREATED,
                     headers=headers
                 )
@@ -274,6 +309,8 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+
+
     def perform_create(self, serializer):
         """Automatically assign the authenticated user as the dataset owner."""
         serializer.save(owner=self.request.user)
@@ -342,6 +379,7 @@ class DatasetPermissionViewSet(viewsets.ModelViewSet):
     tags=["Public Datasets"]
 )
 @api_view(['GET'])
+@authentication_classes([])
 @permission_classes([permissions.AllowAny])
 def list_public_datasets(request):
     """

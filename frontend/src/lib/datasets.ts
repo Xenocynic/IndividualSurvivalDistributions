@@ -9,7 +9,7 @@
  * Auth: JWT (Authorization: Bearer <access>), handled by apiClient automatically.
  * CORS: already configured 
  */
-import { api } from "./apiClient";
+import { api, publicApi } from "./apiClient";
 import {type DatasetItem} from "../components/DatasetCard";
 
 export type Dataset = { 
@@ -67,7 +67,7 @@ export async function listMyDatasets() {
  * This endpoint should be accessible to everyone.
  */
 export async function listPublicDatasets() {
-  return api.get<Dataset[]>("/api/datasets/public/");
+  return publicApi.get<Dataset[]>("/api/datasets/public/");
 }
 
 /**
@@ -136,20 +136,40 @@ export async function downloadDatasetFile(datasetId: number): Promise<{ blob: Bl
   return { blob, filename };
 }
 
-// Mapper function from Dataset to UI 
+
+
+/**
+ * Mapper function from API Dataset to UI DatasetItem
+ */
 export function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
+  // Format the uploaded date for display
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString();
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Convert file size from bytes to MB
+  const fileSizeMB = item.file_size ? Math.round(item.file_size / (1024 * 1024) * 10) / 10 : undefined;
+
   return {
-    id: String(item.dataset_id ?? ""),
-    title: item.dataset_name ??  "Untitled dataset",
+    id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
+    title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
     // If API returns owner as an id, compare with current user id to produce boolean
     owner:
-      typeof item.owner_id === "number" && currentUserId !== undefined
-        ? item.owner_id === currentUserId
+      typeof item.owner === "number" && currentUserId !== undefined
+        ? item.owner === currentUserId
         : Boolean(item.owner),
     ownerId: item.owner ?? null,
     ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
-    notes: item.description ?? item.notes ?? "",
+    updatedAt: item.uploaded_at ? formatDate(item.uploaded_at) : (item.updated_at ?? item.updatedAt ?? item.modified ?? undefined),
+    notes: item.notes ?? item.description ?? "",
+    sizeMB: fileSizeMB,
+    hasFile: item.has_file ?? Boolean(item.file_path),
+    originalFilename: item.original_filename ?? item.originalFilename,
     __raw: item,
   };
-  }
+}

@@ -12,7 +12,7 @@ export function toPredictorItem(p: Predictor): PredictorItem {
     owner: true,          // map real ownership from backend 
     // updatedAt:    , // when backend provides a timestamp
     // status:   ,        // when backend provides status
-    isPublic: (p as any).is_public ?? false,  // update
+    isPublic: !(p as any).is_private,  // Predictor uses is_private (inverted logic)
     pinned: (p as any).pinned ?? false,  // update
   };
 }

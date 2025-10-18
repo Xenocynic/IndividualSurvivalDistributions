@@ -3,8 +3,8 @@ import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
-import { listMyPredictors, listPublicPredictors } from "../lib/predictors";
-import { listMyDatasets, listPublicDatasets } from "../lib/datasets";
+import { listPublicPredictors } from "../lib/predictors";
+import { listPublicDatasets } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadDatasetFile } from "../lib/datasets";
@@ -75,8 +75,8 @@ export default function Browse() {
 
       try {
         if (activeTab === "predictors") {
-          // Use public endpoint if user is not authenticated, otherwise use user-specific endpoint
-          const apiPreds = user ? await listMyPredictors() : await listPublicPredictors();
+          // Always use public endpoint on Browse page - only show public predictors
+          const apiPreds = await listPublicPredictors();
           
           if (!mounted) return;
 
@@ -96,8 +96,8 @@ export default function Browse() {
 
           setPredictors(uiPreds);
         } else {
-          // Use public endpoint if user is not authenticated, otherwise use user-specific endpoint
-          const apiDsets = user ? await listMyDatasets() : await listPublicDatasets();
+          // Always use public endpoint on Browse page - only show public datasets
+          const apiDsets = await listPublicDatasets();
           
           if (!mounted) return;
 
@@ -318,16 +318,10 @@ export default function Browse() {
             {filtered.length === 0 && !error ? (
               <div className="text-center py-12">
                 <div className="text-gray-500 text-lg">
-                  {user ? 
-                    `No ${activeTab} found` : 
-                    `No public ${activeTab} available`
-                  }
+                  No public {activeTab} available
                 </div>
                 <div className="text-gray-400 text-sm mt-2">
-                  {user ? 
-                    `Try adjusting your search or visibility filter` :
-                    `Public ${activeTab} will appear here when available`
-                  }
+                  Public {activeTab} will appear here when available
                 </div>
               </div>
             ) : (
