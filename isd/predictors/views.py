@@ -18,12 +18,17 @@ class IsPredictorOwner(permissions.BasePermission):
 
 
 class CanAccessPredictor(permissions.BasePermission):
-    """Allow view if owner or has permission"""
+    """Allow view if owner, has permission, or predictor is public"""
     def has_object_permission(self, request, view, obj):
+        # Owner always has access
         if obj.owner == request.user:
             return True
-
-        # Other users can access only if a PredictorPermission exists
+        
+        # Public predictors are accessible to everyone
+        if not obj.is_private:
+            return True
+        
+        # Private predictors: check if user has explicit permission
         return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
 
 
@@ -39,13 +44,14 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns predictors the user owns or has been granted access to.
+        Returns predictors the user owns, has been granted access to, or are public.
         - Owned predictors: user is the owner
         - Shared predictors: user has PredictorPermission
+        - Public predictors: is_private=False
         """
         user = self.request.user
         return Predictor.objects.filter(
-            Q(owner=user) | Q(permissions__user=user)
+            Q(owner=user) | Q(permissions__user=user) | Q(is_private=False)
         ).distinct().order_by("name")
 
 
@@ -107,7 +113,7 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
 # ----------------------------
 # PinnedPredictor ViewSet
 # ----------------------------
-class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
+class PinnedPredictorViewSet(viewsets.ModelViewSet):
     """
     API viewset for managing pinned predictors.
     - GET: list pinned predictors
