@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
 class DatasetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dataset
-        fields = ["id", "dataset_name"]  
+        fields = ["dataset_id", "dataset_name"]  
 
 # ----------------------------
 # Predictor Serializer
@@ -26,6 +26,11 @@ class DatasetSerializer(serializers.ModelSerializer):
 class PredictorSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     dataset = DatasetSerializer(read_only=True)
+    dataset_id = serializers.PrimaryKeyRelatedField(
+        queryset=Dataset.objects.all(),
+        source='dataset',
+        write_only=True # This means it will not appear in responses (get, etc)
+    )
 
 
     class Meta:
@@ -34,7 +39,8 @@ class PredictorSerializer(serializers.ModelSerializer):
             "predictor_id",
             "name",
             "description",
-            "dataset",
+            "dataset", # Read-only, appears in responses like GET
+            "dataset_id", # Write-only, For POST/PATCH
             "owner",
             "is_private",
             "time_unit",
