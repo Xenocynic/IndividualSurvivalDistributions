@@ -1,3 +1,8 @@
+"""
+User account management unit tests.
+Tests for user profile operations and password change functionality.
+"""
+
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -5,7 +10,7 @@ from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
 
 
-class UserAccountTests(APITestCase):
+class UserProfileTests(APITestCase):
     """
     Tests for user profile operations (/me/) and password change (/change-password/).
     """
@@ -52,9 +57,24 @@ class UserAccountTests(APITestCase):
         response = self.client.get(self.me_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    # -------------------------------
-    # /change-password/ Endpoint Tests
-    # -------------------------------
+
+class PasswordChangeTests(APITestCase):
+    """Tests for password change functionality."""
+    
+    def setUp(self):
+        # Create test user
+        self.user = User.objects.create_user(
+            username="john",
+            email="john@example.com",
+            password="OldPass123!"
+        )
+
+        # Authenticate via JWT
+        token = AccessToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Endpoint URLs
+        self.change_password_url = reverse("user-change-password")  # /api/accounts/users/change-password/
 
     def test_change_password_success(self):
         """User can change password with correct old password."""

@@ -1,4 +1,6 @@
 site/
+media/
+.vscode/
 
 # Python bytecode
 __pycache__/
