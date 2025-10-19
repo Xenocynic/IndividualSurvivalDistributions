@@ -320,7 +320,6 @@ export default function DatasetUpload() {
                       onChange={(e) => updateRow(r.id, { role: e.target.value as PermRow["role"] })}
                       className="w-40 rounded-md border border-black/10 px-2 py-1 text-sm"
                     >
-                      <option value="owner">Owner</option>
                       <option value="viewer">Viewer</option>
                     </select>
                   </div>
@@ -337,12 +336,20 @@ export default function DatasetUpload() {
                 + Add
               </button>
               <div className="text-[11px] text-gray-600">
-                Owners can edit modify or delete datasets. Viewers can use the dataset for predictors only.
+                Viewers can use the dataset for predictor training.
                 {/* TODO[backend]: implement user search, then POST role grants after create. */}
               </div>
             </div>
           </div>
         </section>
+
+      {/* Leave prompt */}
+      {showLeavePrompt && (
+        <ConfirmLeave
+          onCancel={() => setShowLeavePrompt(false)}
+          onContinue={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+        />
+      )}
       </div>
     </div>
   );
