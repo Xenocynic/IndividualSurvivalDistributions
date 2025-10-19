@@ -24,6 +24,9 @@ class CanAccessPredictor(permissions.BasePermission):
         # Owner always has access
         if obj.owner == request.user:
             return True
+        # Users can access public predictors
+        if obj.is_private == False:
+            return True
         # Other users can access only if a PredictorPermission exists
         return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
 
