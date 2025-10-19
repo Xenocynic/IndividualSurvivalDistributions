@@ -17,6 +17,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createDataset, listMyDatasets } from "../lib/datasets";
 
+type PermRow = {
+  id: number;              // local row id
+  username: string;        // text the user typed (later - lookup user id)
+  role: "owner" | "viewer"; // UI role
+};
+
 type TimeUnit = "year" | "month" | "day" | "hour";
 
 export default function DatasetUpload() {
@@ -29,6 +35,11 @@ export default function DatasetUpload() {
   const [showFormatHelp, setShowFormatHelp] = useState(true);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("month");
   const [isPublic, setIsPublic] = useState(false);
+
+  // permissions rows (UI-only for now)
+  const [rows, setRows] = useState<PermRow[]>([
+    { id: 1, username: "", role: "owner" }, // example empty line to start
+  ]);
 
   // meta state
   const [checking, setChecking] = useState(false);
@@ -112,6 +123,17 @@ export default function DatasetUpload() {
       navigate("/dashboard", { state: { tab: "datasets" } });
     }
   };
+
+  // manage-permissions table handlers
+  function addRow() {
+    setRows((r) => [...r, { id: (r.at(-1)?.id ?? 0) + 1, username: "", role: "viewer" }]);
+  }
+  function removeRow(id: number) {
+    setRows((r) => r.filter((x) => x.id !== id));
+  }
+  function updateRow(id: number, patch: Partial<PermRow>) {
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }
 
   // simple drop handler (visual only)
   const onDrop: React.DragEventHandler<HTMLLabelElement> = (e) => {
@@ -263,15 +285,65 @@ export default function DatasetUpload() {
             but only the owner can modify or delete.)
           </div>
         </section>
-      </div>
 
-      {/* Leave prompt */}
-      {showLeavePrompt && (
-        <ConfirmLeave
-          onCancel={() => setShowLeavePrompt(false)}
-          onContinue={() => navigate("/dashboard", { state: { tab: "datasets" } })}
-        />
-      )}
+        {/* Manage permissions */}
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold">Customize visibility and permissions</h3>
+          <div className="rounded-md border border-black/10">
+            <div className="grid grid-cols-2 border-b border-black/10 bg-gray-50 px-3 py-2 text-xs font-semibold">
+              <div>Users</div>
+              <div>Permissions</div>
+            </div>
+
+            {/* rows */}
+            <div className="divide-y divide-black/5">
+              {rows.map((r) => (
+                <div key={r.id} className="grid grid-cols-2 items-center gap-2 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50"
+                      title="Remove"
+                      onClick={() => removeRow(r.id)}
+                    >
+                      ✕
+                    </button>
+                    <input
+                      value={r.username}
+                      onChange={(e) => updateRow(r.id, { username: e.target.value })}
+                      placeholder="Username"
+                      className="w-full rounded-md border border-black/10 px-2 py-1 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+                    />
+                  </div>
+                  <div>
+                    <select
+                      value={r.role}
+                      onChange={(e) => updateRow(r.id, { role: e.target.value as PermRow["role"] })}
+                      className="w-40 rounded-md border border-black/10 px-2 py-1 text-sm"
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* add row */}
+            <div className="flex items-center justify-between border-t border-black/10 bg-gray-50 px-3 py-2">
+              <button
+                onClick={addRow}
+                className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50"
+              >
+                + Add
+              </button>
+              <div className="text-[11px] text-gray-600">
+                Owners can edit modify or delete datasets. Viewers can use the dataset for predictors only.
+                {/* TODO[backend]: implement user search, then POST role grants after create. */}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
