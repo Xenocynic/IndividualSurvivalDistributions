@@ -19,12 +19,9 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 
 export default function ProtectedRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const loc = useLocation();
 
-  // Not authenticated: bounce to login, keeping where we came from
-  if (!user) return <Navigate to="/login" replace state={{ from: loc }} />;
-
-  // Authenticated: render the nested routes or route
-  return <Outlet />;
+  if (loading) return <div className="p-6">Loading…</div>; // ← add this
+  return user ? <Outlet /> : <Navigate to="/login" replace state={{ from: loc }} />;
 }

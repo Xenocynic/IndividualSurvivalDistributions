@@ -1,9 +1,11 @@
-const BASE = import.meta.env.VITE_API_BASE_URL;
+const BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 
-export function setTokens(tokens: { access?: string; refresh?: string } | null) {
+export function setTokens(
+  tokens: { access?: string; refresh?: string } | null
+) {
   if (!tokens) {
     accessToken = null;
     refreshToken = null;
@@ -13,7 +15,10 @@ export function setTokens(tokens: { access?: string; refresh?: string } | null) 
   if (tokens.access) accessToken = tokens.access;
   if (tokens.refresh) refreshToken = tokens.refresh;
 
-  localStorage.setItem("auth_tokens", JSON.stringify({ access: accessToken, refresh: refreshToken }));
+  localStorage.setItem(
+    "auth_tokens",
+    JSON.stringify({ access: accessToken, refresh: refreshToken })
+  );
 }
 
 export function loadTokensFromStorage() {
@@ -58,7 +63,33 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     let details: unknown = null;
-    try { details = await res.json(); } catch {}
+    try {
+      details = await res.json();
+    } catch {}
+    throw { status: res.status, statusText: res.statusText, details };
+  }
+
+  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+}
+
+// Public API function that doesn't send auth headers
+async function publicRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type") && !(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+  // Explicitly don't add Authorization header for public endpoints
+
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers,
+  });
+
+  if (!res.ok) {
+    let details: unknown = null;
+    try {
+      details = await res.json();
+    } catch {}
     throw { status: res.status, statusText: res.statusText, details };
   }
 
@@ -68,10 +99,18 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   get: <T>(p: string) => raw<T>(p),
   post: <T>(p: string, body?: unknown) =>
-    raw<T>(p, { method: "POST", body: body instanceof FormData ? body : JSON.stringify(body) }),
+    raw<T>(p, {
+      method: "POST",
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    }),
   put: <T>(p: string, body?: unknown) =>
     raw<T>(p, { method: "PUT", body: JSON.stringify(body) }),
   patch: <T>(p: string, body?: unknown) =>
     raw<T>(p, { method: "PATCH", body: JSON.stringify(body) }),
   del: <T>(p: string) => raw<T>(p, { method: "DELETE" }),
+};
+
+// Public API that doesn't send authentication headers
+export const publicApi = {
+  get: <T>(p: string) => publicRaw<T>(p),
 };
