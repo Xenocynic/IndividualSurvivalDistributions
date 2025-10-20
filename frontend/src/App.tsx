@@ -16,6 +16,7 @@ import DatasetUpload from "./pages/DatasetUpload";
 import DatasetEdit from "./pages/DatasetEdit";
 import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
+import PredictorDetailPage from "./pages/PredictorDetailPage";
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
           <Route path='datasets/:id/edit' element={<DatasetEdit />} />
           <Route path='datasets/:id/view' element={<DatasetView />} />
           <Route path='predictors/new' element={<PredictorCreate />} />
+          <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
         </Route>
 
         {/* Fallback */}

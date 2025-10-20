@@ -6,6 +6,7 @@ from django.db.models import Q
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from rest_framework.exceptions import PermissionDenied
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+import pandas as pd
 
 
 # ----------------------------
@@ -72,6 +73,30 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Custom retrieve method to add dataset features to the response.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # Read the features (column headers) from the associated dataset's file
+        try:
+            if instance.dataset and instance.dataset.file:
+                with instance.dataset.file.open('r') as f:
+                    # Use pandas to efficiently read only the header row
+                    df = pd.read_csv(f, nrows=0)
+                data['features'] = df.columns.tolist()
+            else:
+                data['features'] = []
+        except Exception as e:
+            # If the file is missing or invalid, return an empty list for features
+            print(f"Could not read features for predictor {instance.predictor_id}: {e}")
+            data['features'] = []
+        
+        return Response(data)
 
 
 
