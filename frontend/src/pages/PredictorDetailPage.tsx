@@ -24,8 +24,8 @@ interface PredictorDetail {
   marginal_loss_type: string;
   c_param_search_scope: string;
   cox_feature_selection: boolean;
-  mrmr_feature_selection: boolean; // Assuming this will be added to the model
-  mtlr_predictor: string;          // Assuming this will be added to the model
+  mrmr_feature_selection: boolean;
+  mtlr_predictor: string;
   created_at: string;
   updated_at: string;
   features: string[];
