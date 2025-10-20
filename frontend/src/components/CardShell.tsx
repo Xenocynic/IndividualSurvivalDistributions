@@ -34,6 +34,7 @@ type CardShellProps = {
   footerRight?: ReactNode;
   selected?: boolean;
   onSelect?: () => void;
+  onDoubleClick?: () => void;
   onActionAreaClick?: (e: MouseEvent) => void;
   /** when to reveal the action buttons (children) */
   actionVisibility?: "hover" | "selected" | "always";
@@ -53,6 +54,7 @@ export default function CardShell({
   footerRight,
   selected = false,
   onSelect,
+  onDoubleClick,
   onActionAreaClick,
   actionVisibility = "hover",
   children,
@@ -73,6 +75,7 @@ export default function CardShell({
       tabIndex={0}
       aria-pressed={selected}
       onClick={onSelect}
+      onDoubleClick={onDoubleClick}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
