@@ -4,7 +4,7 @@ from .views import PredictorViewSet, PredictorPermissionViewSet, PinnedPredictor
 
 router = DefaultRouter()
 router.register(r"permissions", PredictorPermissionViewSet, basename="predictor-permission")
-router.register(r"pins", PinnedPredictorViewSet, basename="pinned-predictor")
+router.register(r"pinned", PinnedPredictorViewSet, basename="pinned-predictor")
 router.register(r"", PredictorViewSet, basename="predictor")
 
 urlpatterns = [
