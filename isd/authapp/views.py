@@ -67,9 +67,7 @@ class UserForgotPasswordView(APIView):
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        reset_url = request.build_absolute_uri(f"/api/auth/user/password/reset/{uidb64}/{token}/")
-        # after backend is deployed, change to frontend URL
-        # reset_url = f"{settings.FRONTEND_URL}/reset-password/{uidb64}/{token}/"
+        reset_url = f"{settings.FRONTEND_URL}/reset/confirm/{uidb64}/{token}/"
 
         # send email 
         subject = "Password Reset Request"
@@ -136,7 +134,14 @@ class UserResetPasswordView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def post(self, request, uidb64, token, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
+        uidb64 = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not uidb64 or not token or not new_password:
+            return Response({'error': 'Missing fields'}, status=400)
+        
         try:
             uid = urlsafe_base64_decode(uidb64).decode()
             user = get_user_model().objects.get(pk=uid)
@@ -145,10 +150,6 @@ class UserResetPasswordView(APIView):
 
         if not default_token_generator.check_token(user, token):
             return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
-
-        new_password = request.data.get("password")
-        if not new_password:
-            return Response({"error": "Password is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         user.set_password(new_password)
         user.save()
