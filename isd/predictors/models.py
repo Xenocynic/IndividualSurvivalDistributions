@@ -22,8 +22,6 @@ class Predictor(models.Model):
     # Stores reference to trained model (file, URI, etc.)
     model_artifact = models.FileField(upload_to="models/", blank=True, null=True)
 
-
-
     def __str__(self):
         return self.name
 

@@ -1,8 +1,59 @@
 from celery import shared_task
 from django.core.files import File
 from .models import Predictor
+from django.contrib.auth.models import User
+from dataset.models import Dataset
 import time
-import os
+
+@shared_task
+def train_predictor_task(dataset_id, owner_id, name, description, settings=None, features=None):
+    """Train a new predictor asynchronously and create a Predictor object."""
+    settings = settings or {}
+    features = features or []
+
+    try:
+        dataset = Dataset.objects.get(id=dataset_id)
+        owner = User.objects.get(id=owner_id)
+    except (Dataset.DoesNotExist, User.DoesNotExist):
+        return {"status": "failed", "reason": "Invalid dataset or owner"}
+
+    # --- Simulate heavy model training ---
+    time.sleep(5)  # Placeholder for real model training
+
+    accuracy = 0.90  # Placeholder for actual computed metric
+
+    # --- Create Predictor object ---
+    predictor = Predictor.objects.create(
+        name=name,
+        description=description,
+        dataset=dataset,
+        owner=owner,
+        metrics={"accuracy": accuracy},
+        is_private=settings.get("is_private", False)
+    )
+
+    model_name = f"predictor_{predictor.predictor_id}_trained.pkl"
+    output_path = f"/tmp/{model_name}"
+
+    with open(output_path, "wb") as f:
+        f.write(b"dummy trained model data")
+
+    # --- Step 3: Attach model artifact ---
+    with open(output_path, "rb") as f:
+        predictor.model_artifact.save(model_name, File(f))
+
+    predictor.save()
+
+    # TODO: store 'features' somewhere if your schema supports it
+
+    return {
+        "status": "completed",
+        "predictor_id": predictor.predictor_id,
+        "name": predictor.name,
+        "action": "created",
+        "accuracy": accuracy,
+    }
+
 
 @shared_task
 def retrain_predictor_task(predictor_id, settings, features, replace=False):
