@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'dataset',
     'predictors',
     'core'  # main app
+    'tasks'
 ]
 
 MIDDLEWARE = [

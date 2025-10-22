@@ -5,6 +5,8 @@ from .models import Predictor, PredictorPermission
 from rest_framework.exceptions import PermissionDenied
 from .serializers import PredictorSerializer, PredictorPermissionSerializer
 from django.db.models import Q
+from predictors.tasks import retrain_predictor_task
+
 
 # ----------------------------
 # Custom Permissions

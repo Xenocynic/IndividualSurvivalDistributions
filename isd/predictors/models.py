@@ -13,10 +13,15 @@ class Predictor(models.Model):
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='predictors')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_predictors')
     is_private = models.BooleanField(default=False)  # False = public, True = private
+    # Links retrained models to their original
     base_predictor = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="derived_predictors"
     )
+    # Training accuracy, loss, etc is stored here
     metrics = models.JSONField(blank=True, null=True)
+    # Stores reference to trained model (file, URI, etc.)
+    model_artifact = models.FileField(upload_to="models/", blank=True, null=True)
+
 
 
     def __str__(self):

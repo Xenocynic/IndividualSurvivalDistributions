@@ -39,6 +39,9 @@ urlpatterns = [
     # Profile and user management
     path('api/accounts/', include('accounts.urls')),
 
+    # Progress report for background tasks
+    path("api/tasks/", include("tasks.urls")),
+
     # Main application modules
     path('api/datasets/', include('dataset.urls')),
     path('api/predictors/', include('predictors.urls')),
