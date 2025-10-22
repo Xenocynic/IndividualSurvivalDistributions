@@ -218,3 +218,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
     "http://localhost:5174",
 ]
+
+# Asynchronous Model Training/Retraining
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"

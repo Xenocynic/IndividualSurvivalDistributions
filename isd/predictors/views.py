@@ -63,6 +63,44 @@ class PredictorViewSet(viewsets.ModelViewSet):
         to the currently authenticated user.
         """
         serializer.save(owner=self.request.user)
+    
+    @action(detail=True, methods=["post"], url_path="retrain")
+    @transaction.atomic
+    def retrain(self, request, pk=None):
+        """
+        Re-train the predictor.
+        - If settings/features are unchanged → replace existing predictor.
+        - If modified → create a new predictor referencing the original as base.
+        """
+        predictor = self.get_object()
+        
+        # Only the owner should be able to re-train
+        if not IsPredictorOwner():
+            return Response({"detail": "You are not allowed to retrain this predictor."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get new configuration (or fallback to current settings)
+        new_settings = request.data.get("settings", predictor.settings)
+        new_features = request.data.get("features", predictor.features)
+
+        # Compare configurations
+        config_changed = (
+            new_settings != predictor.settings or
+            new_features != predictor.features
+        )
+
+        # Kick off Celery task for async model retraining
+        task = retrain_predictor_task.delay(
+            predictor.id,
+            new_settings,
+            new_features,
+            replace=not config_changed
+        )
+
+        return Response({
+            "status": "queued",
+            "task_id": task.id,
+            "action": "replace" if not config_changed else "create"
+        }, status=status.HTTP_202_ACCEPTED)
 
 # ----------------------------
 # PredictorPermission ViewSet

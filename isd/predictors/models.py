@@ -13,6 +13,11 @@ class Predictor(models.Model):
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='predictors')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_predictors')
     is_private = models.BooleanField(default=False)  # False = public, True = private
+    base_predictor = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="derived_predictors"
+    )
+    metrics = models.JSONField(blank=True, null=True)
+
 
     def __str__(self):
         return self.name
