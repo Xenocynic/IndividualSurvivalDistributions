@@ -107,6 +107,7 @@ class PinnedPredictorSerializer(serializers.ModelSerializer):
     class Meta:
         model = PinnedPredictor
         fields = ["id", "predictor", "predictor_id", "name", "pinned_at"]
+        read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
         """Prevent duplicate pins for same user."""

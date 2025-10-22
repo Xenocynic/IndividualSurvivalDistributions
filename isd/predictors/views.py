@@ -8,6 +8,26 @@ from rest_framework.exceptions import PermissionDenied
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
 
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def list_pinned_predictors(request):
+    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
+    # Only return the predictor info that your frontend expects
+    data = [
+        {
+            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
+            "title": p.predictor.name,
+            "owner_name": p.predictor.owner.username,
+            "isPublic": not p.predictor.is_private,
+            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
+        }
+        for p in pinned
+    ]
+    user = request.user
+    print("User requesting pinned:", user)
+    print("Pinned predictors returned:", pinned)
+    return Response(data)
+
 
 # ----------------------------
 # Custom Permissions
@@ -119,6 +139,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this predictor.")
         PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
+    
 
 # ----------------------------
 # PredictorPermission ViewSet

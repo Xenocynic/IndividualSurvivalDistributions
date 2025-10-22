@@ -43,14 +43,13 @@ export default function ResetConfirm() {
     setSaving(true);
     try {
       // Choose a default backend path; UPDATE THIS, THIS IS WRONG
-      const RESET_CONFIRM_PATH = "/api/auth/user/password/reset/${uid}/${token}/";
+      const RESET_CONFIRM_PATH = `/api/auth/user/password/reset/${uid}/${token}/`;
 
       // payload shape varied for use - FIX THIS TO MATCH
       const body: Record<string, unknown> = {
+        uid,
+        token,
         new_password: pwd1,
-        password: pwd1, // for backends that expect "password"
-        token,          // single token (query pattern) - remove this probably
-        uid,            // uid (path pattern)
       };
 
       await api.post(RESET_CONFIRM_PATH, body);
