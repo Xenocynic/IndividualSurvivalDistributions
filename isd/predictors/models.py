@@ -72,6 +72,7 @@ class PinnedPredictor(models.Model):
     pinned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "predictors_pinnedpredictor"
         unique_together = ("user", "predictor")  # prevent duplicate pins
         indexes = [
             models.Index(fields=["user"]),
