@@ -15,11 +15,36 @@ import { Link } from "react-router-dom";
 
 export default function ResetPassword() {
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    // TODO: call backend to send reset link
-    alert(`Reset link sent to ${email}`);
+    setMessage("");
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/auth/user/password/forgot/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setMessage(`Reset link sent to ${email}`);
+      } else {
+        const data = await response.json();
+        setError(data.detail || "Failed to send reset link. Please try again.");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -51,6 +76,10 @@ export default function ResetPassword() {
               </button>
             </div>
           </form>
+
+          {message && <p className="text-xs text-green-600">{message}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+
         </div>
       </div>
     </section>

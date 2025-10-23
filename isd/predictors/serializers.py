@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from dataset.models import Dataset
+from rest_framework.exceptions import PermissionDenied
 
 
 # ----------------------------
@@ -94,7 +95,7 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         predictor = validated_data["predictor"]
         if predictor.owner != request.user:
-            raise serializers.ValidationError("You can only grant access to predictors you own.")
+            raise PermissionDenied("You can only grant access to predictors you own.")
         return super().create(validated_data)
 
 
@@ -106,10 +107,12 @@ class PinnedPredictorSerializer(serializers.ModelSerializer):
     predictor_id = serializers.PrimaryKeyRelatedField(
         queryset=Predictor.objects.all(), source="predictor", write_only=True
     )
+    name = serializers.CharField(source="predictor.name", read_only=True)
 
     class Meta:
         model = PinnedPredictor
-        fields = ["id", "predictor", "predictor_id", "pinned_at"]
+        fields = ["id", "predictor", "predictor_id", "name", "pinned_at"]
+        read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
         """Prevent duplicate pins for same user."""
