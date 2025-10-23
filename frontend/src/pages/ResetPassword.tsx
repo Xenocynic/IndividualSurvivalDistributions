@@ -34,8 +34,12 @@ export default function ResetPassword() {
         body: JSON.stringify({ email }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         setMessage(`Reset link sent to ${email}`);
+      } else if (response.status === 404 || data.detail?.includes("not found")) {
+        setError("No account exists with this email.");
       } else {
         const data = await response.json();
         setError(data.detail || "Failed to send reset link. Please try again.");
@@ -72,7 +76,7 @@ export default function ResetPassword() {
                 type="submit"
                 className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
               >
-                Send link
+                {loading ? "Sending..." : "Send link"}
               </button>
             </div>
           </form>

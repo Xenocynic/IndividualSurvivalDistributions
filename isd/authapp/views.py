@@ -62,7 +62,7 @@ class UserForgotPasswordView(APIView):
         try:
             user = UserModel.objects.get(email=email)
         except UserModel.DoesNotExist:
-            return Response({"error": "User does not exist"}, status=status.HTTP_200_OK)
+            return Response({"error": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
