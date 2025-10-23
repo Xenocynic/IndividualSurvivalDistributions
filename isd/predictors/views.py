@@ -139,7 +139,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
 
-<<<<<<< HEAD
     def retrieve(self, request, *args, **kwargs):
         """
         Custom retrieve method to add dataset features to the response.
@@ -169,7 +168,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         
         return Response(data)
 
-=======
     @action(detail=True, methods=["post"])
     def pin(self, request, pk=None):
         """
@@ -181,7 +179,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to pin this predictor.")
         PinnedPredictor.objects.get_or_create(user=request.user, predictor=predictor)
         return Response({"status": "pinned"}, status=status.HTTP_200_OK)
->>>>>>> 136a5cb1a6096c6f683b16ece79c6ce5b4ae62d1
 
     @action(detail=True, methods=["post"])
     def unpin(self, request, pk=None):
