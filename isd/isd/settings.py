@@ -193,11 +193,14 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
+FRONTEND_URL = "http://localhost:5173" 
+
 # Frontend dev origin
-# Frontend dev origin
-#CORS_ALLOWED_ORIGINS = [
-#    "http://localhost:5173",
-#]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -217,4 +220,5 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
     "http://localhost:5174",
+    "http://localhost:5173",
 ]
