@@ -58,7 +58,6 @@ class PredictorSerializer(serializers.ModelSerializer):
             "tune_parameters",
             "use_smoothed_log_likelihood",
             "use_predefined_folds",
-            "allow_admin_access",
             "created_at",
             "updated_at",
         ]
@@ -69,7 +68,6 @@ class PredictorSerializer(serializers.ModelSerializer):
         if request and hasattr(request, "user"):
             validated_data["owner"] = request.user
         return super().create(validated_data)
-
 
 # ----------------------------
 # Predictor Permission Serializer
