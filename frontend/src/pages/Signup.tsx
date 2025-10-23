@@ -27,9 +27,13 @@ export default function Signup() {
   const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setErrorMsg(null);
+    setMsg(null);
+
     setErrorMsg(null);
     if (pw1 !== pw2) {
       setErrorMsg("Passwords do not match");
@@ -37,14 +41,30 @@ export default function Signup() {
     }
     setSubmitting(true);
     try {
-      await signup({
+      const res = await fetch("/api/auth/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           username,
           email,
           password: pw1,
           password2: pw2,
           first_name: firstName,
           last_name: lastName,
-        });
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Signup error:", data);
+        throw { details: data };
+      }
+
+      console.log("Signup success:", data);
+      setMsg("Account created successfully!");
     } catch (err: any) {
       const d = err?.details;
       // DRF often returns field dict: { username: ["…"], email: ["…"], password: ["…"] }
@@ -167,6 +187,9 @@ export default function Signup() {
               </button>
             </div>
           </form>
+
+          {errorMsg && <div className="text-red-500">{errorMsg}</div>}
+          {msg && <div className="text-green-500">{msg}</div>}
         </div>
       </div>
     </section>
