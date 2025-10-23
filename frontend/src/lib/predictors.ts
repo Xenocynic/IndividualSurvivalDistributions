@@ -15,6 +15,20 @@ export async function listMyPredictors() {
   return api.get<Predictor[]>("/api/predictors/");
 }
 
+// Pin a predictor
+export async function pinPredictor(id: string) {
+  return api.post(`/api/predictors/${id}/pin/`);
+}
+
+// Unpin a predictor
+export async function unpinPredictor(id: string) {
+  return api.post(`/api/predictors/${id}/unpin/`);
+}
+
+export async function listPinnedPredictors() {
+  return api.get<any[]>(`/api/predictors/pins/`);
+}
+
 /**
  * List all public predictors (no authentication required).
  * This endpoint should be accessible to everyone.
