@@ -162,7 +162,7 @@ export default function PredictorCreate() {
       const created = await createPredictor({
         name: name.trim(),
         description: notes.trim(),
-        dataset: Number(selectedDatasetId),
+        dataset_id: Number(selectedDatasetId),
       });
 
       // (Later) apply permissions
