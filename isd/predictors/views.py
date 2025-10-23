@@ -1,15 +1,38 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.response import Response
-from .models import Predictor, PredictorPermission
-from rest_framework.exceptions import PermissionDenied
-from .serializers import PredictorSerializer, PredictorPermissionSerializer
 from django.db.models import Q
 from predictors.tasks import retrain_predictor_task
 from rest_framework.decorators import action
 from django.db import transaction
 
 
+
+
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
+from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+
+from .models import Predictor, PredictorPermission, PinnedPredictor
+from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def list_pinned_predictors(request):
+    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
+    # Only return the predictor info that your frontend expects
+    data = [
+        {
+            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
+            "title": p.predictor.name,
+            "owner_name": p.predictor.owner.username,
+            "isPublic": not p.predictor.is_private,
+            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
+        }
+        for p in pinned
+    ]
+    user = request.user
+    print("User requesting pinned:", user)
+    print("Pinned predictors returned:", pinned)
+    return Response(data)
 
 
 # ----------------------------
@@ -22,13 +45,17 @@ class IsPredictorOwner(permissions.BasePermission):
 
 
 class CanAccessPredictor(permissions.BasePermission):
-    """Allow view if owner or has permission"""
+    """Allow view if owner, has permission, or predictor is public"""
     def has_object_permission(self, request, view, obj):
+        # Owner always has access
         if obj.owner == request.user:
             return True
-
+        # Users can access public predictors
+        if obj.is_private == False:
+            return True
         # Other users can access only if a PredictorPermission exists
         return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
+
 
 # ----------------------------
 # Predictor ViewSet
@@ -41,14 +68,41 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Returns predictors the user owns or has been granted access to.
+        Returns predictors the user owns, has been granted access to, or are public.
         - Owned predictors: user is the owner
         - Shared predictors: user has PredictorPermission
+        - Public predictors: is_private=False
         """
         user = self.request.user
+        return (
+            Predictor.objects.filter(Q(owner=user) | Q(permissions__user=user))
+            .distinct()
+            .prefetch_related("permissions", "pinned_by")
+            .order_by("name")
+        )
+
+    def get_object(self):
+        """
+        Override to run permission checks first, so unauthorized users get 403 instead of 404.
+        (Basically sends 403 to let us know object exists, user just doesn't have access)
+        """
+        # Get the object from all predictors, not just the filtered queryset
+        queryset = Predictor.objects.all()
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        
+        try:
+            obj = queryset.get(**filter_kwargs)
+        except Predictor.DoesNotExist:
+            from django.http import Http404
+            raise Http404("No Predictor matches the given query.")
+        
+        self.check_object_permissions(self.request, obj)
+        return obj
         return Predictor.objects.filter(
-            Q(owner=user) | Q(permissions__user=user)
+            Q(owner=user) | Q(permissions__user=user) | Q(is_private=False)
         ).distinct().order_by("name")
+
 
     def get_permissions(self):
         """
@@ -58,16 +112,14 @@ class PredictorViewSet(viewsets.ModelViewSet):
         - list/create: any authenticated user
         """
         if self.action in ["update", "partial_update", "destroy"]:
-            return [permissions.IsAuthenticated(), IsPredictorOwner()]
+            return [IsPredictorOwner()]
         elif self.action == "retrieve":
-            return [permissions.IsAuthenticated(), CanAccessPredictor()]
-        return [permissions.IsAuthenticated()]
+            return [CanAccessPredictor()]
+        return super().get_permissions()
+
 
     def perform_create(self, serializer):
-        """
-        When creating a new predictor, automatically assign the owner
-        to the currently authenticated user.
-        """
+        """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
     
     @action(detail=True, methods=["post"], url_path="retrain")
@@ -108,6 +160,31 @@ class PredictorViewSet(viewsets.ModelViewSet):
             "action": "replace" if not config_changed else "create"
         }, status=status.HTTP_202_ACCEPTED)
 
+    @action(detail=True, methods=["post"])
+    def pin(self, request, pk=None):
+        """
+        Pin a predictor for quick access.
+        Only allowed if the user can access the predictor.
+        """
+        predictor = self.get_object()
+        if not CanAccessPredictor().has_object_permission(request, self, predictor):
+            raise PermissionDenied("You do not have permission to pin this predictor.")
+        PinnedPredictor.objects.get_or_create(user=request.user, predictor=predictor)
+        return Response({"status": "pinned"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def unpin(self, request, pk=None):
+        """
+        Unpin a predictor.
+        Only allowed if the user can access the predictor.
+        """
+        predictor = self.get_object()
+        if not CanAccessPredictor().has_object_permission(request, self, predictor):
+            raise PermissionDenied("You do not have permission to unpin this predictor.")
+        PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
+        return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
+    
+
 # ----------------------------
 # PredictorPermission ViewSet
 # ----------------------------
@@ -115,6 +192,7 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
     """API viewset for PredictorPermission model with proper access control."""
 
     serializer_class = PredictorPermissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
@@ -131,6 +209,7 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
         predictor = serializer.validated_data["predictor"]
         if predictor.owner != self.request.user:
             raise PermissionDenied("Only the predictor owner can grant access.")
+        # Save without modifying the user field - it should come from the request data
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -145,23 +224,27 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
 # ----------------------------
 # PinnedPredictor ViewSet
 # ----------------------------
-class PinnedPredictorViewSet(viewsets.ReadOnlyModelViewSet):
+class PinnedPredictorViewSet(viewsets.ModelViewSet):
     """
-    API viewset for PinnedPredictor.
-    - Only returns predictors pinned by the current user.
-    - Read-only: users cannot create/delete pins through this viewset.
+    API viewset for managing pinned predictors.
+    - GET: list pinned predictors
+    - POST: pin a predictor
+    - DELETE: unpin a predictor
     """
-    serializer_class = PredictorSerializer
+    serializer_class = PinnedPredictorSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
-        Returns predictors that are pinned by the currently authenticated user.
+        Return predictors pinned by the current user.
         """
-        user = self.request.user
-        return Predictor.objects.filter(pinned_by__user=user).order_by("-pinned_by__pinned_at")
+        return PinnedPredictor.objects.filter(user=self.request.user).order_by("-pinned_at")
 
+    def perform_create(self, serializer):
+        """Automatically assign the current user when pinning"""
+        serializer.save(user=self.request.user)
 
+        
 # ----------------------------
 # Public Predictor Views
 # ----------------------------

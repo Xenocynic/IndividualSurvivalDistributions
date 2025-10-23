@@ -158,13 +158,11 @@ export default function PredictorCreate() {
     if (!canSave) return;
     setSaving(true);
     try {
-      // TODO[backend]: add is_public once supported by backend 
-
+      // 1. Create predictor via your existing API
       const created = await createPredictor({
         name: name.trim(),
         description: notes.trim(),
-        dataset: Number(selectedDatasetId),
-        // is_public: isPublic, // TODO[backend]: uncomment once backend supports
+        dataset_id: Number(selectedDatasetId),
       });
 
       // (Later) apply permissions
@@ -308,9 +306,8 @@ export default function PredictorCreate() {
                       <button
                         type="button"
                         onClick={() => setSelectedDatasetId(ds.id)}
-                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                          selected ? "bg-gray-100" : ""
-                        }`}
+                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${selected ? "bg-gray-100" : ""
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{ds.title}</div>

@@ -3,7 +3,7 @@ import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
-import { listPublicPredictors } from "../lib/predictors";
+import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor, } from "../lib/predictors";
 import { listPublicDatasets } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
@@ -46,6 +46,30 @@ export default function Browse() {
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
 
+  // Fetch pinned predictors from your backend API
+  async function fetchPinnedPredictors() {
+    if (!user) {
+      console.log("No user yet; not fetching pins");
+      return;
+    }
+    console.log("Fetching pinned predictors...");
+    try {
+      const pinned = await listPinnedPredictors(); // call your API
+      console.log("Pinned response:", pinned);
+      const pinnedSet = new Set(pinned.map((p) => String(p.predictor.predictor_id)));
+      setPinnedPredictorIds(pinnedSet);
+      console.log("Pinned predictor IDs set:", pinnedSet);
+    } catch (err) {
+      console.error("Failed to fetch pinned predictors:", err);
+    }
+  }
+
+  // Load pinned predictors from backend on mount
+  // Call on mount or whenever the active tab is "predictors"
+  useEffect(() => {
+    if (activeTab === "predictors") fetchPinnedPredictors();
+  }, [user, activeTab]);
+
   // Fetch & map once on mount or when tab changes
   useEffect(() => {
     let mounted = true;
@@ -77,7 +101,7 @@ export default function Browse() {
         if (activeTab === "predictors") {
           // Always use public endpoint on Browse page - only show public predictors
           const apiPreds = await listPublicPredictors();
-          
+
           if (!mounted) return;
 
           // Map API → UI (predictors)
@@ -95,10 +119,11 @@ export default function Browse() {
           });
 
           setPredictors(uiPreds);
+
         } else {
           // Always use public endpoint on Browse page - only show public datasets
           const apiDsets = await listPublicDatasets();
-          
+
           if (!mounted) return;
 
           // Map API → UI (datasets)
@@ -158,29 +183,56 @@ export default function Browse() {
   const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
   const pinned = list.filter((it) => pinnedSet.has(it.id));
 
-  // Pin / unpin (Browse-only interaction)
-  function togglePin(id: string) {
+  // Pin / unpin (Browse + supabase interaction)
+  // Toggle pin
+  async function togglePin(id: string) {
+    if (!user) return;
+
     if (activeTab === "predictors") {
+      const isPinned = pinnedPredictorIds.has(id);
+
+      // Optimistic update
       setPinnedPredictorIds((prev) => {
         const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
+        if (isPinned) next.delete(id);
+        else next.add(id);
         return next;
       });
-    } else {
+
+      try {
+        if (isPinned) {
+          await unpinPredictor(id);
+        } else {
+          await pinPredictor(id);
+        }
+      } catch (err) {
+        console.error("Failed to toggle pin:", err);
+        // Rollback
+        setPinnedPredictorIds((prev) => {
+          const next = new Set(prev);
+          if (isPinned) next.add(id);
+          else next.delete(id);
+          return next;
+        });
+      }
+    } else if (activeTab === "datasets") {
+      // Local pin/unpin for datasets
       setPinnedDatasetIds((prev) => {
         const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
         return next;
       });
     }
   }
+
 
   // download dataset file
   async function downloadDataset(id: string) {
     try {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
-      
+
       // Create download link and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -249,17 +301,15 @@ export default function Browse() {
             <div className="flex w-full items-center gap-2">
               <div className="inline-flex h-9 overflow-hidden rounded-md border border-black/10 bg-white">
                 <button
-                  className={`px-3 text-sm ${
-                    activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
+                    }`}
                   onClick={() => setActiveTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${
-                    activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
+                    }`}
                   onClick={() => setActiveTab("datasets")}
                 >
                   Datasets
@@ -327,76 +377,74 @@ export default function Browse() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((it) => {
-              const isPinned = pinnedSet.has(it.id);
-              return (
-                <CardShell
-                  key={it.id}
-                  actionVisibility="hover"
-                  title={
-                    <div>
-                      <div className="-mb-1">
-                        <UsernameTag name={it.ownerName} />
-                      </div>
-                      <div className="mt-1 text-sm font-medium">{it.title}</div>
-                    </div>
-                  }
-                  description={<span>{it.notes}</span>}
-                  footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
-                  footerRight={
-                    <div className="flex items-center gap-2">
-                      {activeTab === "datasets" && it.hasFile && it.originalFilename && (
-                        <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
-                      )}
-                      {it.isPublic ? (
-                        <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
-                      ) : (
-                        <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
-                      )}
-                    </div>
-                  }
-                >
-                  {/* Hover actions (top-right) */}
-                  <button
-                    className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (activeTab === "datasets") {
-                        window.open(`/datasets/${it.id}/view`, '_blank');
-                      } else {
-                        // TODO: Add predictor view when available
-                        alert(`View predictor ${it.id} - not yet implemented`);
+                  const isPinned = pinnedSet.has(it.id);
+                  return (
+                    <CardShell
+                      key={it.id}
+                      actionVisibility="hover"
+                      title={
+                        <div>
+                          <div className="-mb-1">
+                            <UsernameTag name={it.ownerName} />
+                          </div>
+                          <div className="mt-1 text-sm font-medium">{it.title}</div>
+                        </div>
                       }
-                    }}
-                  >
-                    View
-                  </button>
-                  {activeTab === "datasets" && it.hasFile && (
-                    <button
-                      className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                      title="Download file"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        downloadDataset(it.id);
-                      }}
+                      description={<span>{it.notes}</span>}
+                      footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
+                      footerRight={
+                        <div className="flex items-center gap-2">
+                          {activeTab === "datasets" && it.hasFile && it.originalFilename && (
+                            <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
+                          )}
+                          {it.isPublic ? (
+                            <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
+                          ) : (
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
+                          )}
+                        </div>
+                      }
                     >
-                      📥
-                    </button>
-                  )}
-                  <button
-                    className={`rounded-md border border-black/10 px-2 py-1 text-xs ${
-                      isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
-                    }`}
-                    title={isPinned ? "Unpin" : "Pin"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePin(it.id);
-                    }}
-                  >
-                    📌
-                  </button>
-                </CardShell>
-              );
-            })}
+                      {/* Hover actions (top-right) */}
+                      <button
+                        className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (activeTab === "datasets") {
+                            window.open(`/datasets/${it.id}/view`, '_blank');
+                          } else {
+                            window.open(`/predictors/${it.id}/view`, '_blank');
+                          }
+                        }}
+                      >
+                        View
+                      </button>
+                      {activeTab === "datasets" && it.hasFile && (
+                        <button
+                          className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                          title="Download file"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadDataset(it.id);
+                          }}
+                        >
+                          📥
+                        </button>
+                      )}
+                      <button
+                        className={`rounded-md border border-black/10 px-2 py-1 text-xs ${isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
+                          }`}
+                        title={isPinned ? "Unpin" : "Pin"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePin(it.id);
+                        }}
+                      >
+                        📌
+                      </button>
+                    </CardShell>
+                  );
+                })}
               </div>
             )}
           </>

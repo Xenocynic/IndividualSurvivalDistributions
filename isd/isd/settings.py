@@ -218,6 +218,7 @@ CORS_ALLOW_HEADERS = [
 CSRF_TRUSTED_ORIGINS = [
     "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
     "http://localhost:5174",
+    "http://localhost:5173",
 ]
 
 # Asynchronous Model Training/Retraining

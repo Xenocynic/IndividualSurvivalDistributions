@@ -1,18 +1,47 @@
 import { api, publicApi } from "./apiClient";
 import type { PredictorItem } from "../components/PredictorCard";
 
-export type Predictor = { predictor_id: number; name: string; description: string; dataset: number };
+export type Predictor = {
+  predictor_id: number;
+  name: string;
+  description: string;
+  dataset: number;
+};
 
-export async function createPredictor(body: { name: string; description: string; dataset: number }) {
+export async function createPredictor(body: {
+  name: string;
+  description: string;
+  dataset_id: number;
+}) {
   return api.post<Predictor>("/api/predictors/", body);
 }
 
-export async function grantPredictorViewer(predictorId: number, userId: number) {
-  return api.post("/api/predictors/permissions/", { predictor: predictorId, user: userId });
+export async function grantPredictorViewer(
+  predictorId: number,
+  userId: number
+) {
+  return api.post("/api/predictors/permissions/", {
+    predictor: predictorId,
+    user: userId,
+  });
 }
 
 export async function listMyPredictors() {
   return api.get<Predictor[]>("/api/predictors/");
+}
+
+// Pin a predictor
+export async function pinPredictor(id: string) {
+  return api.post(`/api/predictors/${id}/pin/`);
+}
+
+// Unpin a predictor
+export async function unpinPredictor(id: string) {
+  return api.post(`/api/predictors/${id}/unpin/`);
+}
+
+export async function listPinnedPredictors() {
+  return api.get<any[]>(`/api/predictors/pins/`);
 }
 
 /**
