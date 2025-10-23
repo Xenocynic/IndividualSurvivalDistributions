@@ -72,7 +72,7 @@ INSTALLED_APPS = [
     'authapp',
     'dataset',
     'predictors',
-    'core'  # main app
+    'core',  # main app
     'tasks'
 ]
 
