@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/apiClient"; // Assuming your API client is configured
+import { api } from "../lib/apiClient";
 
 // --- Type Definitions ---
-// This interface matches the enhanced PredictorSerializer response from your backend
 interface PredictorDetail {
   predictor_id: number;
   name: string;
@@ -17,18 +16,25 @@ interface PredictorDetail {
     username: string;
   };
   is_private: boolean;
-  time_unit: string;
+  time_unit: 'hour' | 'day' | 'month' | 'year';
   num_time_points: number | null;
-  regularization: "l1" | "l2";
-  objective_function: string;
-  marginal_loss_type: string;
-  c_param_search_scope: string;
+  regularization: 'l1' | 'l2';
+  objective_function: 'log-likelihood' | 'l2 marginal loss' | 'log-likelihood & L2ML';
+  marginal_loss_type: 'weighted' | 'unweighted';
+  c_param_search_scope: 'basic' | 'fine' | 'extremely fine';
   cox_feature_selection: boolean;
   mrmr_feature_selection: boolean;
-  mtlr_predictor: string;
+  mtlr_predictor: 'stable' | 'testing1';
+  tune_parameters: boolean;
+  use_smoothed_log_likelihood: boolean;
+  use_predefined_folds: boolean;
+  allow_admin_access: boolean; // Assuming this might be relevant?
   created_at: string;
   updated_at: string;
   features: string[];
+  // Add any fields potentially missing from your backend model if needed
+  run_cross_validation: boolean;
+  standardize_features: boolean;
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
@@ -211,20 +217,33 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
 }
 
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
-  // State for feature selection
+  // --- State for Features ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
     new Set(predictor.features)
   );
-  
-  // State for editable model parameters
-  const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points || '');
-  const [regularization, setRegularization] = useState(predictor.regularization);
-  const [coxFeatureSelection, setCoxFeatureSelection] = useState(predictor.cox_feature_selection);
-  // ... add state for other editable parameters ...
 
+  // --- State for Advanced Settings ---
+  const [showAdvanced, setShowAdvanced] = useState(false); // Collapsible section state
+  const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points ?? ''); // Handle null
+  const [regularization, setRegularization] = useState(predictor.regularization);
+  const [objectiveFunction, setObjectiveFunction] = useState(predictor.objective_function);
+  const [marginalLossType, setMarginalLossType] = useState(predictor.marginal_loss_type);
+  const [cParamSearchScope, setCParamSearchScope] = useState(predictor.c_param_search_scope);
+  const [coxFeatureSelection, setCoxFeatureSelection] = useState(predictor.cox_feature_selection);
+  const [mrmrFeatureSelection, setMrmrFeatureSelection] = useState(predictor.mrmr_feature_selection);
+  const [mtlrPredictor, setMtlrPredictor] = useState(predictor.mtlr_predictor);
+  const [tuneParameters, setTuneParameters] = useState(predictor.tune_parameters);
+  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] = useState(predictor.use_smoothed_log_likelihood);
+  const [usePredefinedFolds, setUsePredefinedFolds] = useState(predictor.use_predefined_folds);
+  // Add state for standardize_features and run_cross_validation if needed
+  const [runCrossValidation, setRunCrossValidation] = useState(true); // Example default
+  const [standardizeFeatures, setStandardizeFeatures] = useState(true); // Example default
+
+  // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
 
+  // --- Feature Filtering Logic ---
   const filteredFeatures = useMemo(() => {
     if (!searchQuery) return predictor.features;
     return predictor.features.filter((f) =>
@@ -232,64 +251,48 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     );
   }, [searchQuery, predictor.features]);
 
+  // --- Feature Selection Handlers ---
   const handleToggleFeature = (feature: string) => {
     const newSelected = new Set(selectedFeatures);
     if (newSelected.has(feature)) newSelected.delete(feature);
     else newSelected.add(feature);
     setSelectedFeatures(newSelected);
   };
-
   const handleSelectAll = () => setSelectedFeatures(new Set(predictor.features));
   const handleDeselectAll = () => setSelectedFeatures(new Set());
 
+  // --- Retrain Handler ---
   const handleRetrain = async () => {
     setIsRetraining(true);
     const retrainingConfig = {
       features: Array.from(selectedFeatures),
       parameters: {
-        num_time_points: numTimePoints,
+        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty
         regularization,
+        objective_function: objectiveFunction,
+        marginal_loss_type: marginalLossType,
+        c_param_search_scope: cParamSearchScope,
         cox_feature_selection: coxFeatureSelection,
-        // ... include other parameters
+        mrmr_feature_selection: mrmrFeatureSelection,
+        mtlr_predictor: mtlrPredictor,
+        tune_parameters: tuneParameters,
+        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+        use_predefined_folds: usePredefinedFolds,
+        run_cross_validation: runCrossValidation,
+        standardize_features: standardizeFeatures,
       },
     };
     console.log("TODO: Start retraining with config:", retrainingConfig);
     // TODO: Replace with actual API call to the backend retraining endpoint
-    await new Promise((res) => setTimeout(res, 2000));
+    // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
+    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay
     setIsRetraining(false);
-    alert("Retraining job started!");
+    alert("Retraining job started! (See console for config)");
   };
 
   return (
     <div className="space-y-8">
-      {/* Model Parameters Section */}
-      <section>
-        <h3 className="text-lg font-semibold">Model Parameters</h3>
-        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div>
-                <label htmlFor="num_time_points" className="block text-sm font-medium text-gray-700">Number of Time Points</label>
-                <input type="number" id="num_time_points" value={numTimePoints} onChange={e => setNumTimePoints(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" />
-            </div>
-            <div>
-                <label htmlFor="regularization" className="block text-sm font-medium text-gray-700">Regularization</label>
-                <select id="regularization" value={regularization} onChange={e => setRegularization(e.target.value as 'l1' | 'l2')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-                    <option value="l1">L1</option>
-                    <option value="l2">L2</option>
-                </select>
-            </div>
-            {/* Read-only fields for now */}
-            <InfoItem label="Objective Function" value={predictor.objective_function} />
-            <InfoItem label="Marginal Loss Type" value={predictor.marginal_loss_type} />
-            <InfoItem label="C-Param Search Scope" value={predictor.c_param_search_scope} />
-             {/* Checkbox for boolean fields */}
-            <div className="flex items-center">
-                 <input type="checkbox" id="cox_feature_selection" checked={coxFeatureSelection} onChange={e => setCoxFeatureSelection(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black" />
-                 <label htmlFor="cox_feature_selection" className="ml-2 block text-sm text-gray-900">Use Cox Feature Selection</label>
-            </div>
-        </div>
-      </section>
-
-      {/* Feature Selection Section */}
+      {/* --- Feature Selection Section --- */}
       <section>
         <h3 className="text-lg font-semibold">Select Features for Retraining</h3>
         <p className="mt-1 text-sm text-gray-600">
@@ -304,25 +307,13 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               className="flex-1 rounded-md border border-gray-300 p-2 text-sm"
               placeholder="Search for features..."
             />
-            <button
-              onClick={handleSelectAll}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Select All
-            </button>
-            <button
-              onClick={handleDeselectAll}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Deselect All
-            </button>
+            <button onClick={handleSelectAll} className="text-sm text-blue-600 hover:underline">Select All</button>
+            <button onClick={handleDeselectAll} className="text-sm text-blue-600 hover:underline">Deselect All</button>
           </div>
           <div className="max-h-72 overflow-y-auto">
+            {/* Feature List Rendering */}
             {filteredFeatures.map((feature) => (
-              <label
-                key={feature}
-                className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-gray-50"
-              >
+              <label key={feature} className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-gray-50">
                 <input
                   type="checkbox"
                   checked={selectedFeatures.has(feature)}
@@ -333,15 +324,109 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               </label>
             ))}
             {filteredFeatures.length === 0 && (
-              <p className="p-4 text-center text-sm text-gray-500">
-                No features found.
-              </p>
+              <p className="p-4 text-center text-sm text-gray-500">No features found.</p>
             )}
           </div>
         </div>
       </section>
 
-      {/* Action Button */}
+      {/* --- Advanced Settings Section (Collapsible) --- */}
+      <section>
+        <div className="rounded-md border">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex w-full items-center justify-between bg-gray-50 p-3 text-left text-base font-semibold"
+            >
+              Advanced Settings
+              <span className={`transform transition-transform ${showAdvanced ? "rotate-180" : ""}`}>
+                ▼
+              </span>
+            </button>
+            {showAdvanced && (
+                <div className="grid grid-cols-1 gap-6 p-4 sm:grid-cols-2">
+                    {/* --- Parameter Inputs --- */}
+                      <div>
+                        <label htmlFor="num_time_points" className="block text-sm font-medium text-gray-700">
+                          Number of Time Points
+                        </label>
+                        <input
+                          type="number"
+                          id="num_time_points"
+                          value={numTimePoints}
+                          onChange={e => setNumTimePoints(e.target.value)}
+                          placeholder="Optional" // Changed placeholder
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Leave blank to use default (sqrt of sample size).
+                        </p>
+                      </div>
+                    {/* Select Dropdown */}
+                    <div>
+                        <label htmlFor="regularization" className="block text-sm font-medium text-gray-700">Regularization</label>
+                        <select id="regularization" value={regularization} onChange={e => setRegularization(e.target.value as 'l1' | 'l2')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <option value="l1">L1</option>
+                            <option value="l2">L2</option>
+                        </select>
+                    </div>
+                    {/* Select Dropdown */}
+                     <div>
+                        <label htmlFor="objective_function" className="block text-sm font-medium text-gray-700">Objective Function</label>
+                        <select id="objective_function" value={objectiveFunction} onChange={e => setObjectiveFunction(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <option value="log-likelihood">Log-Likelihood</option>
+                            <option value="L2 marginal loss">L2 Marginal Loss</option>
+                            <option value="log-likelihood & L2ML">Log-Likelihood & L2ML</option>
+                        </select>
+                    </div>
+                     {/* Select Dropdown */}
+                    <div>
+                        <label htmlFor="marginal_loss_type" className="block text-sm font-medium text-gray-700">Marginal Loss Type</label>
+                        <select id="marginal_loss_type" value={marginalLossType} onChange={e => setMarginalLossType(e.target.value as 'weighted' | 'unweighted')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <option value="weighted">Weighted</option>
+                            <option value="unweighted">Unweighted</option>
+                        </select>
+                    </div>
+                    {/* Select Dropdown */}
+                    <div>
+                        <label htmlFor="c_param_search_scope" className="block text-sm font-medium text-gray-700">C-Param Search Scope</label>
+                        <select id="c_param_search_scope" value={cParamSearchScope} onChange={e => setCParamSearchScope(e.target.value as 'basic' | 'fine' | 'extremely fine')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <option value="basic">Basic</option>
+                            <option value="fine">Fine</option>
+                            <option value="extremely fine">Extremely Fine</option>
+                        </select>
+                    </div>
+                     {/* Select Dropdown */}
+                    <div>
+                        <label htmlFor="mtlr_predictor" className="block text-sm font-medium text-gray-700">MTLR Predictor</label>
+                        <select id="mtlr_predictor" value={mtlrPredictor} onChange={e => setMtlrPredictor(e.target.value as 'stable' | 'testing1')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                            <option value="stable">Stable</option>
+                            <option value="testing1">Testing1</option>
+                        </select>
+                    </div>
+
+                    {/* Checkboxes for Boolean Fields */}
+                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                            { state: coxFeatureSelection, setState: setCoxFeatureSelection, label: "Use Cox Feature Selection", id: "cox_feature_selection" },
+                            { state: mrmrFeatureSelection, setState: setMrmrFeatureSelection, label: "Use MRMR Feature Selection", id: "mrmr_feature_selection" },
+                            { state: tuneParameters, setState: setTuneParameters, label: "Tune Parameters", id: "tune_parameters" },
+                            { state: useSmoothedLogLikelihood, setState: setUseSmoothedLogLikelihood, label: "Use Smoothed Log-Likelihood", id: "use_smoothed_log_likelihood" },
+                            { state: usePredefinedFolds, setState: setUsePredefinedFolds, label: "Use Predefined Folds", id: "use_predefined_folds" },
+                            { state: runCrossValidation, setState: setRunCrossValidation, label: "Run Cross Validation", id: "run_cross_validation" },
+                            { state: standardizeFeatures, setState: setStandardizeFeatures, label: "Standardize Features", id: "standardize_features" },
+                        ].map(cb => (
+                            <div className="flex items-center" key={cb.id}>
+                                <input type="checkbox" id={cb.id} checked={cb.state} onChange={e => cb.setState(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black" />
+                                <label htmlFor={cb.id} className="ml-2 block text-sm text-gray-900">{cb.label}</label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+      </section>
+
+      {/* --- Action Button --- */}
       <div className="flex justify-end border-t pt-6">
         <button
           onClick={handleRetrain}
