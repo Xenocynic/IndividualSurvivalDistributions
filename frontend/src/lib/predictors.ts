@@ -1,9 +1,9 @@
 import { api, publicApi } from "./apiClient";
 import type { PredictorItem } from "../components/PredictorCard";
 
-export type Predictor = { predictor_id: number; name: string; description: string; dataset: number };
+export type Predictor = { predictor_id: number; name: string; description: string; dataset_id: number };
 
-export async function createPredictor(body: { name: string; description: string; dataset: number }) {
+export async function createPredictor(body: { name: string; description: string; dataset_id: number }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
 
