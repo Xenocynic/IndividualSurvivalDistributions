@@ -28,11 +28,10 @@ interface PredictorDetail {
   tune_parameters: boolean;
   use_smoothed_log_likelihood: boolean;
   use_predefined_folds: boolean;
-  allow_admin_access: boolean; // Assuming this might be relevant?
+  allow_admin_access: boolean;
   created_at: string;
   updated_at: string;
   features: string[];
-  // Add any fields potentially missing from your backend model if needed
   run_cross_validation: boolean;
   standardize_features: boolean;
 }
@@ -225,7 +224,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   // --- State for Advanced Settings ---
   const [showAdvanced, setShowAdvanced] = useState(false); // Collapsible section state
-  const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points ?? ''); // Handle null
+  const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points ?? '');
   const [regularization, setRegularization] = useState(predictor.regularization);
   const [objectiveFunction, setObjectiveFunction] = useState(predictor.objective_function);
   const [marginalLossType, setMarginalLossType] = useState(predictor.marginal_loss_type);
@@ -236,9 +235,8 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   const [tuneParameters, setTuneParameters] = useState(predictor.tune_parameters);
   const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] = useState(predictor.use_smoothed_log_likelihood);
   const [usePredefinedFolds, setUsePredefinedFolds] = useState(predictor.use_predefined_folds);
-  // Add state for standardize_features and run_cross_validation if needed
-  const [runCrossValidation, setRunCrossValidation] = useState(true); // Example default
-  const [standardizeFeatures, setStandardizeFeatures] = useState(true); // Example default
+  const [runCrossValidation, setRunCrossValidation] = useState(true);
+  const [standardizeFeatures, setStandardizeFeatures] = useState(true);
 
   // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
@@ -267,7 +265,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     const retrainingConfig = {
       features: Array.from(selectedFeatures),
       parameters: {
-        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty
+        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
         regularization,
         objective_function: objectiveFunction,
         marginal_loss_type: marginalLossType,
@@ -285,7 +283,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     console.log("TODO: Start retraining with config:", retrainingConfig);
     // TODO: Replace with actual API call to the backend retraining endpoint
     // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
-    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay
+    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay for when retraining gets added
     setIsRetraining(false);
     alert("Retraining job started! (See console for config)");
   };
@@ -354,7 +352,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                           id="num_time_points"
                           value={numTimePoints}
                           onChange={e => setNumTimePoints(e.target.value)}
-                          placeholder="Optional" // Changed placeholder
+                          placeholder="Optional"
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"
                         />
                         <p className="mt-1 text-xs text-gray-500">
