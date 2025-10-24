@@ -122,7 +122,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
         """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
     
-    @action(detail=True, methods=["post"], url_path="retrain")
+    @action(detail=True, methods=["post"], url_path="retrain", url_name="retrain")
     @transaction.atomic
     def retrain(self, request, pk=None):
         """
@@ -132,26 +132,29 @@ class PredictorViewSet(viewsets.ModelViewSet):
         """
         predictor = self.get_object()
         
-        # Only the owner should be able to re-train
-        if not IsPredictorOwner():
-            return Response({"detail": "You are not allowed to retrain this predictor."}, status=status.HTTP_403_FORBIDDEN)
+       # Only the owner should be able to re-train
+        if predictor.owner != request.user:
+            return Response(
+                {"detail": "You are not allowed to retrain this predictor."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         # Get new configuration (or fallback to current settings)
-        new_settings = request.data.get("settings", predictor.settings)
-        new_features = request.data.get("features", predictor.features)
+        new_settings = request.data.get("settings", {})
+        new_features = request.data.get("features", [])
 
-        # Compare configurations
-        config_changed = (
-            new_settings != predictor.settings or
-            new_features != predictor.features
-        )
+        # Determine if the configuration is "unchanged"
+        # Since we don't have stored settings/features on the model, we only
+        # check if the user is sending empty values → treat as "replace"
+        config_changed = bool(new_settings or new_features)
+
 
         # Kick off Celery task for async model retraining
         task = retrain_predictor_task.delay(
-            predictor.id,
+            predictor.predictor_id,
             new_settings,
             new_features,
-            replace=not config_changed
+            replace=not config_changed # Replace if no changes
         )
 
         return Response({
