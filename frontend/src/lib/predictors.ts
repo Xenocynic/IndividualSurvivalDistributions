@@ -16,6 +16,11 @@ export async function createPredictor(body: {
   return api.post<Predictor>("/api/predictors/", body);
 }
 
+export async function deletePredictor(id: string) {
+  return api.del(`/api/predictors/${id}/`);
+}
+
+
 export async function grantPredictorViewer(
   predictorId: number,
   userId: number
