@@ -75,6 +75,10 @@ class PredictorSerializer(serializers.ModelSerializer):
 # Predictor Permission Serializer
 # ----------------------------
 class PredictorPermissionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for PredictorPermission model.
+    Manages granting access to predictors for specific users.
+    """
     user = UserSerializer(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source="user", write_only=True
@@ -103,6 +107,7 @@ class PinnedPredictorSerializer(serializers.ModelSerializer):
         queryset=Predictor.objects.all(), source="predictor", write_only=True
     )
     name = serializers.CharField(source="predictor.name", read_only=True)
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = PinnedPredictor

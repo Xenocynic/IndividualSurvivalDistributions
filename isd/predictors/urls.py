@@ -8,6 +8,5 @@ router.register("pins", PinnedPredictorViewSet, basename="pinned-predictor")
 router.register("", PredictorViewSet, basename="predictors")
 
 urlpatterns = [
-    path("public/", list_public_predictors, name="public-predictors"),
-    path("predictors/pins/", list_pinned_predictors, name="list-pinned-predictors"), 
+    path("public/", list_public_predictors, name="public-predictors"), 
 ] + router.urls

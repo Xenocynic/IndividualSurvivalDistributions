@@ -1,10 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import User
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
+# ----------------------------
+# Dataset Model
+# ----------------------------
 class Dataset(models.Model):
     """Dataset model for storing dataset information."""
     
@@ -121,6 +123,29 @@ class Dataset(models.Model):
         
         return deleted_count, file_cleanup_errors
 
+# ----------------------------
+# PinnedDataset Model
+# ----------------------------
+class PinnedDataset(models.Model):
+    """Model for users to pin datasets for quick access."""
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='pinned_datasets')
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='pinned_by')
+    pinned_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'dataset_pinneddataset'
+        unique_together = ('user', 'dataset')
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['dataset']),
+        ]
+        verbose_name = "Pinned Dataset"
+        verbose_name_plural = "Pinned Datasets"
+        ordering = ['-pinned_at']   # order by most recent
+    
+    def __str__(self):
+        return f"{self.user.username} pinned {self.dataset.dataset_name}"
 
 class DatasetPermission(models.Model):
     """Permission model for dataset access control."""
@@ -130,6 +155,10 @@ class DatasetPermission(models.Model):
     
     class Meta:
         unique_together = ('dataset', 'user')
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['dataset']),
+        ]
     
     def __str__(self):
         return f"{self.user.username} - {self.dataset.dataset_name}"
