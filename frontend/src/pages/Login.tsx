@@ -77,6 +77,7 @@ export default function Login() {
               <input
                 type="text"
                 required
+                id="current-username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
@@ -89,6 +90,7 @@ export default function Login() {
               <input
                 type="password"
                 required
+                id="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
