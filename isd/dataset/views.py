@@ -101,9 +101,14 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return datasets that the user owns or has permission to access.
+        Superusers can access all datasets.
         Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
+
+        if user.is_superuser:
+            return Dataset.objects.all().order_by("dataset_name")
+        
         return (
             Dataset.objects.filter(
                 Q(owner=user) | Q(permissions__user=user)
