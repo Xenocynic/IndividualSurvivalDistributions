@@ -31,6 +31,7 @@ export default function PredictorCard({
   onEdit,
   onDelete,
   onView,
+  onDoubleClick,
 }: {
   item: PredictorItem;
   selected?: boolean;
@@ -38,6 +39,7 @@ export default function PredictorCard({
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
+  onDoubleClick?: (id: string) => void;
 }) {
   return (
     <CardShell
@@ -53,6 +55,7 @@ export default function PredictorCard({
       }
       selected={selected}
       onSelect={() => onToggleSelect?.(item.id)}
+      onDoubleClick={() => onDoubleClick?.(item.id)}
       onActionAreaClick={(e) => e.stopPropagation()}
     >
       {selected &&
