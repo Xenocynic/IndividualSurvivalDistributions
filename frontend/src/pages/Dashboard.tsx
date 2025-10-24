@@ -271,6 +271,11 @@ export default function Dashboard() {
     }
   }
 
+  // Handle double-click navigation
+  function handleCardDoubleClick(id: string) {
+    navigate(`/predictors/${id}`);
+  }
+
   // download dataset file
   async function downloadItem(id: string) {
     try {
@@ -407,6 +412,7 @@ export default function Dashboard() {
                 item={it}
                 selected={selectedId === it.id}
                 onToggleSelect={toggleSelect}
+                onDoubleClick={handleCardDoubleClick}
                 onEdit={editItem}
                 onDelete={(id) =>
                   setPendingDelete(predictors.find((x) => x.id === id) ?? null)

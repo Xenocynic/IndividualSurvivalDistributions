@@ -7,6 +7,29 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+import pandas as pd
+import os
+from django.conf import settings
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def list_pinned_predictors(request):
+    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
+    # Only return the predictor info that your frontend expects
+    data = [
+        {
+            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
+            "title": p.predictor.name,
+            "owner_name": p.predictor.owner.username,
+            "isPublic": not p.predictor.is_private,
+            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
+        }
+        for p in pinned
+    ]
+    user = request.user
+    print("User requesting pinned:", user)
+    print("Pinned predictors returned:", pinned)
+    return Response(data)
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
@@ -115,6 +138,35 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Assign the logged-in user as the owner."""
         serializer.save(owner=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Custom retrieve method to add dataset features to the response.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        try:
+            if instance.dataset and instance.dataset.file_path:
+                full_file_path = os.path.join(settings.MEDIA_ROOT, instance.dataset.file_path)
+                
+                # Check if the file actually exists before trying to open it
+                if os.path.exists(full_file_path):
+                    # Open the file using its full path
+                    with open(full_file_path, 'rb') as f:
+                        df = pd.read_csv(f, nrows=0)
+                    data['features'] = df.columns.tolist()
+                else:
+                    print(f"File not found at path: {full_file_path}")
+                    data['features'] = []
+            else:
+                data['features'] = []
+        except Exception as e:
+            print(f"Could not read features for predictor {instance.predictor_id}: {e}")
+            data['features'] = []
+        
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def pin(self, request, pk=None):
