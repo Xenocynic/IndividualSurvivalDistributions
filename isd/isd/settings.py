@@ -193,12 +193,15 @@ EMAIL_HOST_USER = 'cmput401survivalprediction@gmail.com'
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+#Frontend URL
+FRONTEND_URL = "http://localhost:5173" 
 
 # Frontend dev origin
-# Frontend dev origin
-#CORS_ALLOWED_ORIGINS = [
-#    "http://localhost:5173",
-#]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -221,7 +224,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
 ]
 
-# Asynchronous Model Training/Retraining
+# For Asynchronous Model Training/Retraining
 CELERY_BROKER_URL = "redis://localhost:6379/0"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
 CELERY_ACCEPT_CONTENT = ["json"]
