@@ -59,30 +59,32 @@ export default function PredictorCard({
       onActionAreaClick={(e) => e.stopPropagation()}
       actionVisibility="selected"   
     >
-      {selected &&
-        (item.owner ? (
-          <>
-            <button
-              onClick={() => onEdit?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => onDelete?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
-            >
-              Delete
-            </button>
-          </>
-        ) : (
+      {selected && (
+        <>
           <button
             onClick={() => onView?.(item.id)}
             className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
           >
             View
           </button>
-        ))}
+          {item.owner ? (
+            <>
+              <button
+                onClick={() => onEdit?.(item.id)}
+                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => onDelete?.(item.id)}
+                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+              >
+                Delete
+              </button>
+            </>
+          ) : null}
+        </>
+      )}
     </CardShell>
   );
 }
