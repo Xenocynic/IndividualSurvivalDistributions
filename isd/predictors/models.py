@@ -90,9 +90,14 @@ class PinnedPredictor(models.Model):
 # ----------------------------
 class PredictorPermission(models.Model):
     """Grants access permissions to predictors for specific users."""
+    ROLE_CHOICES = [
+        ("owner", "Owner"),
+        ("viewer", "Viewer"),
+    ]
 
     predictor = models.ForeignKey(Predictor, on_delete=models.CASCADE, related_name="permissions")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="predictor_permissions")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="viewer")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -105,4 +110,4 @@ class PredictorPermission(models.Model):
         verbose_name_plural = "Predictor Permissions"
 
     def __str__(self):
-        return f"{self.user.username} - {self.predictor.name}"
+        return f"{self.user.username} - {self.predictor.name} ({self.role})"
