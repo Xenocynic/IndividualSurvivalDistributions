@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "http://localhost:8000";
+const BASE = import.meta.env.VITE_API_BASE_URL || "";
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
