@@ -252,8 +252,8 @@ export default function Dashboard() {
   // navigate to edit page
   function editItem(id: string) {
     if (activeTab === "predictors") {
-      // TODO: Add predictor edit page when available
-      alert(`(demo) Edit predictor ${id}`);
+      // Navigate to predictor edit page
+      navigate(`/predictors/${id}/edit`);
     } else {
       // Navigate to dataset edit page
       navigate(`/datasets/${id}/edit`);
