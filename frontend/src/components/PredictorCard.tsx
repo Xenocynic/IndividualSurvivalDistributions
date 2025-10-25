@@ -57,6 +57,7 @@ export default function PredictorCard({
       onSelect={() => onToggleSelect?.(item.id)}
       onDoubleClick={() => onDoubleClick?.(item.id)}
       onActionAreaClick={(e) => e.stopPropagation()}
+      actionVisibility="selected"   
     >
       {selected &&
         (item.owner ? (
