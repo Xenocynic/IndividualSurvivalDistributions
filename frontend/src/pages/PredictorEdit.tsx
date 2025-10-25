@@ -7,7 +7,7 @@
  * - Name field checks availability (excluding current predictor)
  * - Rich text editor for notes/description
  * - Time unit selector
- * - Admin access and public visibility toggles
+ * - Public visibility toggles
  * - Save updates the predictor metadata
  */
 
@@ -27,7 +27,6 @@ export default function PredictorEdit() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("day");
-  const [allowAdminAccess, setAllowAdminAccess] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
 
   // predictor info
@@ -53,10 +52,9 @@ export default function PredictorEdit() {
       name.trim() !== predictor.name ||
       description.trim() !== (predictor.description || "") ||
       timeUnit !== predictor.time_unit ||
-      allowAdminAccess !== predictor.allow_admin_access ||
       isPrivate !== predictor.is_private;
     setIsDirty(hasChanges);
-  }, [name, description, timeUnit, allowAdminAccess, isPrivate, predictor]);
+  }, [name, description, timeUnit, isPrivate, predictor]);
 
   // Load predictor data
   useEffect(() => {
@@ -75,7 +73,6 @@ export default function PredictorEdit() {
         setOriginalName(data.name);
         setDescription(data.description || "");
         setTimeUnit(data.time_unit || "day");
-        setAllowAdminAccess(data.allow_admin_access || false);
         setIsPrivate(data.is_private || false);
       } catch (err: any) {
         if (err?.status === 404) {
@@ -144,7 +141,6 @@ export default function PredictorEdit() {
         name: name.trim(),
         description: description.trim() || undefined,
         time_unit: timeUnit,
-        allow_admin_access: allowAdminAccess,
         is_private: isPrivate,
       };
 
@@ -320,20 +316,59 @@ export default function PredictorEdit() {
           </div>
         </section>
 
-        {/* Admin Access */}
+        {/* Time Unit */}
         <section className='space-y-2'>
-          <label className='flex items-center gap-3'>
-            <input
-              type='checkbox'
-              checked={allowAdminAccess}
-              onChange={(e) => setAllowAdminAccess(e.target.checked)}
-              className='h-4 w-4 accent-black'
-            />
-            <span className='text-sm font-semibold'>Allow Admin Access</span>
+          <label className='block text-sm font-semibold text-gray-900'>
+            Time Unit
           </label>
-          <div className='text-xs text-gray-600 pl-7'>
-            By checking this option, you allow administrators of the system to
-            view your data and results.
+          <div className='flex gap-0 border border-black/10 rounded-md overflow-hidden w-fit'>
+            <button
+              type='button'
+              onClick={() => setTimeUnit('year')}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                timeUnit === 'year'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Year
+            </button>
+            <button
+              type='button'
+              onClick={() => setTimeUnit('month')}
+              className={`px-4 py-2 text-sm font-medium border-l border-black/10 transition-colors ${
+                timeUnit === 'month'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Month
+            </button>
+            <button
+              type='button'
+              onClick={() => setTimeUnit('day')}
+              className={`px-4 py-2 text-sm font-medium border-l border-black/10 transition-colors ${
+                timeUnit === 'day'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              type='button'
+              onClick={() => setTimeUnit('hour')}
+              className={`px-4 py-2 text-sm font-medium border-l border-black/10 transition-colors ${
+                timeUnit === 'hour'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Hour
+            </button>
+          </div>
+          <div className='text-xs text-gray-600'>
+            Specify the time scale used by this predictor (e.g., survival durations recorded in months).
           </div>
         </section>
 
@@ -342,8 +377,8 @@ export default function PredictorEdit() {
           <label className='flex items-center gap-3'>
             <input
               type='checkbox'
-              checked={isPrivate}
-              onChange={(e) => setIsPrivate(e.target.checked)}
+              checked={!isPrivate}
+              onChange={(e) => setIsPrivate(!e.target.checked)}
               className='h-4 w-4 accent-black'
             />
             <span className='text-sm font-semibold'>Make Predictor Public</span>
@@ -353,26 +388,6 @@ export default function PredictorEdit() {
             Also, the results of training (including access to your dataset)
             will be publicly accessible. Do not check this option if you want
             your data or predictor to remain private.
-          </div>
-        </section>
-
-        {/* Time Unit */}
-        <section className='space-y-2'>
-          <label className='block text-sm font-semibold text-gray-900'>
-            Time Unit:
-          </label>
-          <select
-            value={timeUnit}
-            onChange={(e) => setTimeUnit(e.target.value as TimeUnit)}
-            className='rounded-md border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
-          >
-            <option value='day'>Day</option>
-            <option value='month'>Month</option>
-            <option value='year'>Year</option>
-            <option value='hour'>Hour</option>
-          </select>
-          <div className='text-xs text-gray-600'>
-            Specify the time unit for the dataset.
           </div>
         </section>
       </div>

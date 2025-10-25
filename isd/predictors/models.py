@@ -28,7 +28,7 @@ class Predictor(models.Model):
     # --- Advanced configuration fields ---
     time_unit = models.CharField(
         max_length=10,
-        choices=[('day', 'Day'), ('week', 'Week'), ('month', 'Month'), ('year', 'Year')],
+        choices=[('day', 'Day'), ('hour', 'Hour'), ('month', 'Month'), ('year', 'Year')],
         default='day'
     )
 
@@ -49,8 +49,6 @@ class Predictor(models.Model):
     use_smoothed_log_likelihood = models.BooleanField(default=False)
     use_predefined_folds = models.BooleanField(default=False)
 
-    # --- Admin and accessibility ---
-    allow_admin_access = models.BooleanField(default=False)
 
     # --- System metadata ---
     created_at = models.DateTimeField(default=timezone.now)
