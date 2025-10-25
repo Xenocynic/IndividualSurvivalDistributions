@@ -6,12 +6,14 @@ export type Predictor = {
   name: string;
   description: string;
   dataset: number;
+  is_private?: boolean;
 };
 
 export async function createPredictor(body: {
   name: string;
   description: string;
   dataset_id: number;
+  is_private: boolean;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
