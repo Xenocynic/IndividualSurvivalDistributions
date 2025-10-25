@@ -14,18 +14,31 @@ export async function createPredictor(body: {
   description: string;
   dataset_id: number;
   is_private: boolean;
+  permissions?: { username: string; role: "owner" | "viewer" }[];
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
 
 export async function grantPredictorViewer(
   predictorId: number,
-  userId: number
+  userId: number,
+  role: "owner" | "viewer"
 ) {
   return api.post("/api/predictors/permissions/", {
     predictor: predictorId,
-    user: userId,
+    user_id: userId,
+    role: role,
   });
+}
+
+export async function resolveUsernameToId(username: string): Promise<number | null> {
+  try {
+    const res = await api.get<{ id: number }>(`/api/accounts/resolve/?username=${encodeURIComponent(username)}`);
+    return res.id;
+  } catch (err) {
+    console.warn("Could not resolve username:", username);
+    return null;
+  }
 }
 
 export async function listMyPredictors() {
