@@ -29,8 +29,9 @@ import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
 // TODO[backend]: createPredictor() should accept fields listed below
 // TODO[backend]: listMyPredictors() is used for client-side "name exists" check - maybe make a dedicated exists endpoint?
-import { createPredictor, listMyPredictors, grantPredictorViewer } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer, resolveUsernameToId } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
+import { api } from "../lib/apiClient";
 
 type PermRow = {
   id: number;              // local row id
@@ -166,13 +167,25 @@ export default function PredictorCreate() {
         is_private: !isPublic,
       });
 
-      // (Later) apply permissions
-      // TODO[backend]: After creating predictor, process rows:
-      //   1) Resolve each username -> user_id
-      //   2) Then for roles
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
 
-      // Build a PredictorItem from the API response
-      // TODO[backend]: API returns is_public, updated_at / created_at, status, map them here
+        // Resolve user_id
+        const userId = await resolveUsernameToId(username);
+        if (!userId) {
+          console.warn(`User not found: ${username}`);
+          continue;
+        }
+
+        try {
+          const resp = await grantPredictorViewer(created.predictor_id, userId, row.role);
+          console.log("Granted permission:", username, row.role, resp);
+        } catch (err) {
+          console.error("Failed to grant permission:", username, err);
+        }
+      }
+
       const justCreated: PredictorItem = {
         id: String(created.predictor_id),
         title: created.name ?? name.trim(),
