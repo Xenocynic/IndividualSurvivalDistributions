@@ -223,7 +223,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   );
 
   // --- State for Advanced Settings ---
-  const [showAdvanced, setShowAdvanced] = useState(false); // Collapsible section state
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points ?? '');
   const [regularization, setRegularization] = useState(predictor.regularization);
   const [objectiveFunction, setObjectiveFunction] = useState(predictor.objective_function);
@@ -240,6 +240,63 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
+
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  const navigate = useNavigate();
+
+  type RetrainResp = {
+    new_predictor_id?: number;
+    overwrote?: number | null;
+    seed?: {
+      from_predictor_id: number;
+      dataset_id?: number | null;
+      settings?: any;
+    };
+  };
+
+  // --- Retraining Logic --- 
+  const submitRetrain = async (mode: "overwrite" | "new") => {    
+    setIsRetraining(true);
+    try {
+      const body = {
+        mode,
+        features: Array.from(selectedFeatures),
+        parameters: {
+          num_time_points: numTimePoints === '' ? null : Number(numTimePoints),
+          regularization,
+          objective_function: objectiveFunction,
+          marginal_loss_type: marginalLossType,
+          c_param_search_scope: cParamSearchScope,
+          cox_feature_selection: coxFeatureSelection,
+          mrmr_feature_selection: mrmrFeatureSelection,
+          mtlr_predictor: mtlrPredictor,
+          tune_parameters: tuneParameters,
+          use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+          use_predefined_folds: usePredefinedFolds,
+          run_cross_validation: runCrossValidation,
+          standardize_features: standardizeFeatures,
+        },
+      };
+
+      const res = await api.post<RetrainResp>(
+        `/api/predictors/${predictor.predictor_id}/retrain/`,
+        body
+      );
+
+      if (mode === "overwrite") {
+        if (!res.new_predictor_id) throw new Error("Missing new_predictor_id");
+        navigate(`/predictors/${res.new_predictor_id}`);
+      } else {
+        // Pass the seed via navigation state; do NOT create anything yet.
+        navigate("/predictors/new", { state: { seed: res.seed } });
+      }
+    } catch {
+      alert("Retrain failed. Please try again.");
+    } finally {
+      setIsRetraining(false);
+      setChoiceOpen(false);
+    }
+  };
 
   // --- Feature Filtering Logic ---
   const filteredFeatures = useMemo(() => {
@@ -260,32 +317,9 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   const handleDeselectAll = () => setSelectedFeatures(new Set());
 
   // --- Retrain Handler ---
-  const handleRetrain = async () => {
-    setIsRetraining(true);
-    const retrainingConfig = {
-      features: Array.from(selectedFeatures),
-      parameters: {
-        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      },
-    };
-    console.log("TODO: Start retraining with config:", retrainingConfig);
-    // TODO: Replace with actual API call to the backend retraining endpoint
-    // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
-    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay for when retraining gets added
-    setIsRetraining(false);
-    alert("Retraining job started! (See console for config)");
+  // direct call to the rtrain logic block
+  const handleRetrain = () => {
+    setChoiceOpen(true);
   };
 
   return (
@@ -434,6 +468,20 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
           {isRetraining ? "Retraining..." : "Start Retraining Job"}
         </button>
       </div>
+
+      {choiceOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg">
+            <h3 className="text-base font-semibold">After retraining, what would you like to do?</h3>
+            <p className="mt-1 text-sm text-gray-600">You can overwrite the existing predictor or create a new one.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setChoiceOpen(false)} className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">Cancel</button>
+              <button onClick={() => submitRetrain("new")} className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">Create New</button>
+              <button onClick={() => submitRetrain("overwrite")} className="rounded-md bg-black px-3 py-1.5 text-sm text-white">Overwrite</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

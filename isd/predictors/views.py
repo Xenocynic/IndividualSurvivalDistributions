@@ -191,7 +191,87 @@ class PredictorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this predictor.")
         PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
-    
+
+    @action(detail=True, methods=["post"])
+    def retrain(self, request, pk=None):
+        """
+        Basically do a 'retrain'.
+        - mode="overwrite": create a new Predictor, delete the old, return new id
+        - mode="new": DO NOT create a DB object; return a seed payload the Create page will use
+        """
+        predictor = self.get_object()
+
+        if predictor.owner != request.user:
+            raise PermissionDenied("Only the predictor owner can retrain this predictor.")
+
+        mode = (request.data.get("mode") or "").lower()
+        if mode not in ("overwrite", "new"):
+            return Response(
+                {"detail": "Invalid mode. Use 'overwrite' or 'new'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # We would train here and produce 'artifacts' as needed - for now its just a copy
+        # For our web flow:
+        # - overwrite => create new DB object now
+        # - new => return a "seed" payload only (no DB writes)
+
+        if mode == "overwrite":
+            new_pred = Predictor.objects.create(
+                name=predictor.name,
+                description=predictor.description,
+                dataset=predictor.dataset,
+                owner=predictor.owner,
+                is_private=predictor.is_private,
+                time_unit=predictor.time_unit,
+                num_time_points=predictor.num_time_points,
+                regularization=predictor.regularization,
+                objective_function=predictor.objective_function,
+                marginal_loss_type=predictor.marginal_loss_type,
+                c_param_search_scope=predictor.c_param_search_scope,
+                cox_feature_selection=predictor.cox_feature_selection,
+                mrmr_feature_selection=predictor.mrmr_feature_selection,
+                mtlr_predictor=predictor.mtlr_predictor,
+                standardize_features=predictor.standardize_features,
+                run_cross_validation=predictor.run_cross_validation,
+                tune_parameters=predictor.tune_parameters,
+                use_smoothed_log_likelihood=predictor.use_smoothed_log_likelihood,
+                use_predefined_folds=predictor.use_predefined_folds,
+                allow_admin_access=predictor.allow_admin_access,
+            )
+            old_id = predictor.predictor_id
+            predictor.delete()
+            return Response(
+                {"new_predictor_id": new_pred.predictor_id, "overwrote": old_id},
+                status=status.HTTP_201_CREATED,
+            )
+
+        # mode == "new" => build a seed payload (no DB writes)
+        seed = {
+            "from_predictor_id": predictor.predictor_id,
+            "dataset_id": predictor.dataset_id if predictor.dataset else None,
+            # carry settings so Create page could preselect / display if needed 
+            # THESE WILL LIKELY BE UPDATED I JUST COPIED THEM FOR NOW
+            "settings": {
+                "time_unit": predictor.time_unit,
+                "num_time_points": predictor.num_time_points,
+                "regularization": predictor.regularization,
+                "objective_function": predictor.objective_function,
+                "marginal_loss_type": predictor.marginal_loss_type,
+                "c_param_search_scope": predictor.c_param_search_scope,
+                "cox_feature_selection": predictor.cox_feature_selection,
+                "mrmr_feature_selection": predictor.mrmr_feature_selection,
+                "mtlr_predictor": predictor.mtlr_predictor,
+                "standardize_features": predictor.standardize_features,
+                "run_cross_validation": predictor.run_cross_validation,
+                "tune_parameters": predictor.tune_parameters,
+                "use_smoothed_log_likelihood": predictor.use_smoothed_log_likelihood,
+                "use_predefined_folds": predictor.use_predefined_folds,
+                "allow_admin_access": predictor.allow_admin_access,
+            },
+        }
+        return Response({"seed": seed}, status=status.HTTP_200_OK)
+
 
 # ----------------------------
 # PredictorPermission ViewSet

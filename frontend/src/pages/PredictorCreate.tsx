@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 // TODO[backend]: listMyDatasets() should return datasets the current user can see (owner or viewer)
 import { listMyDatasets } from "../lib/datasets";
@@ -40,6 +40,7 @@ type PermRow = {
 
 export default function PredictorCreate() {
   const navigate = useNavigate();
+  const location = useLocation() as { state?: { seed?: { dataset_id?: number | null } } };
 
   // form state
   const [name, setName] = useState("");
@@ -143,6 +144,14 @@ export default function PredictorCreate() {
       cancelled = true;
     };
   }, []);
+
+  // preselect dataset if a seed was provided via navigation state (no DB writes here)
+  useEffect(() => {
+    const dsId = location.state?.seed?.dataset_id;
+    if (dsId != null) {
+      setSelectedDatasetId(String(dsId));
+    }
+  }, [location.state]);
 
   // filter by search query
   const filtered = useMemo(() => {
@@ -381,7 +390,7 @@ export default function PredictorCreate() {
                   <div>
                     <select
                       value={r.role}
-                      onChange={(e) => updateRow(r.id, { role: e.target.value as PermRow["role"] })}
+                      onChange={(e) => updateRow(r.id, { role: (e.target.value as PermRow["role"]) })}
                       className="w-40 rounded-md border border-black/10 px-2 py-1 text-sm"
                     >
                       <option value="owner">Owner</option>
