@@ -137,9 +137,14 @@ class DatasetViewSet(viewsets.ModelViewSet):
         Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
-        # Include datasets owned by the user OR public datasets
+
+        # Superusers can see all datasets
+        if user.is_superuser:
+            return Dataset.objects.all()
+        
+        # Include datasets owned by the user
         return Dataset.objects.filter(
-            Q(owner=user) | Q(is_public=True)
+            Q(owner=user)
         )
 
     def get_permissions(self):

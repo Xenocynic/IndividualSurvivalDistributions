@@ -5,7 +5,8 @@ psycopg2-binary>=2.9,<3.0               # PostgreSQL driver
 djangorestframework-simplejwt>=5.3      # For JWT tokens
 drf-spectacular                         # For API documentation
 python-dotenv                           # For environment variable management
-pytest
-pytest-django
-selenium
-webdriver-manager
+pytest                                  # for testing
+pytest-django                           # for testing Django applications
+selenium                                # for browser automation in tests
+webdriver-manager                       # for browser automation in tests
+django-extensions                       # for additional management commands
