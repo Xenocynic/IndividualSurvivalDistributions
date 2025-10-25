@@ -59,7 +59,6 @@ class PredictorSerializer(serializers.ModelSerializer):
             "tune_parameters",
             "use_smoothed_log_likelihood",
             "use_predefined_folds",
-            "allow_admin_access",
             "created_at",
             "updated_at",
             "features",
