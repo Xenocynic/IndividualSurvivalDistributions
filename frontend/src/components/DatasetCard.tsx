@@ -51,6 +51,7 @@ export default function DatasetCard({
 }) {
   return (
     <CardShell
+      actionVisibility="selected"
       title={item.title}
       description={item.notes}
       footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
