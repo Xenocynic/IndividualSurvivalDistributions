@@ -85,10 +85,11 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(), source="user", write_only=True
     )
     predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
+    role = serializers.ChoiceField(choices=PredictorPermission.ROLE_CHOICES, default="viewer")
 
     class Meta:
         model = PredictorPermission
-        fields = ["id", "predictor", "user", "user_id"]
+        fields = ["id", "predictor", "user", "user_id", "role"]
 
     def create(self, validated_data):
         """Ensure only predictor owners can grant permission."""
