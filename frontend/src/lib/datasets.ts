@@ -10,10 +10,10 @@
  * CORS: already configured 
  */
 import { api, publicApi } from "./apiClient";
-import {type DatasetItem} from "../components/DatasetCard";
+import { type DatasetItem } from "../components/DatasetCard";
 
-export type Dataset = { 
-  dataset_id: number; 
+export type Dataset = {
+  dataset_id: number;
   dataset_name: string;
   owner: number;
   owner_name: string;
@@ -47,11 +47,11 @@ export async function createDataset(request: CreateDatasetRequest) {
   formData.append('file', request.file);
   formData.append('time_unit', request.time_unit);
   formData.append('is_public', request.is_public.toString());
-  
+
   if (request.notes) {
     formData.append('notes', request.notes);
   }
-  
+
   return api.post<Dataset>("/api/datasets/", formData);
 }
 
@@ -60,6 +60,20 @@ export async function createDataset(request: CreateDatasetRequest) {
  */
 export async function listMyDatasets() {
   return api.get<Dataset[]>("/api/datasets/");
+}
+
+// Pin a dataset
+export async function pinDataset(id: string) {
+  return api.post(`/api/datasets/${id}/pin/`);
+}
+
+// Unpin a dataset
+export async function unpinDataset(id: string) {
+  return api.post(`/api/datasets/${id}/unpin/`);
+}
+
+export async function listPinnedDatasets() {
+  return api.get<any[]>(`/api/datasets/pins/`);
 }
 
 /**
@@ -124,7 +138,7 @@ export async function downloadDatasetFile(datasetId: number): Promise<{ blob: Bl
   // Extract filename from Content-Disposition header
   const contentDisposition = response.headers.get('Content-Disposition');
   let filename = `dataset_${datasetId}.csv`; // fallback filename
-  
+
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
     if (filenameMatch) {

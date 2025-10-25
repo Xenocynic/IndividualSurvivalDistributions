@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ class Dataset(models.Model):
 class PinnedDataset(models.Model):
     """Model for users to pin datasets for quick access."""
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='pinned_datasets')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pinned_datasets')
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='pinned_by')
     pinned_at = models.DateTimeField(auto_now_add=True)
     
