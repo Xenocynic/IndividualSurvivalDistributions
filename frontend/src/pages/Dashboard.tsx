@@ -260,21 +260,18 @@ export default function Dashboard() {
     }
   }
 
-  // navigate to view page
+  // navigate to view page - WIRED
   function viewItem(id: string) {
     if (activeTab === "predictors") {
-      // TODO: Add predictor view page when available
-      alert(`(demo) View predictor ${id}`);
+      navigate(`/predictors/${id}`); 
     } else {
-      // Navigate to dataset view page
       navigate(`/datasets/${id}/view`);
     }
   }
 
   // Handle double-click navigation
-  function handleCardDoubleClick(id: string) {
-    navigate(`/predictors/${id}`);
-  }
+  //function handleCardDoubleClick(id: string) {
+  //}
 
   // download dataset file
   async function downloadItem(id: string) {
@@ -412,7 +409,6 @@ export default function Dashboard() {
                 item={it}
                 selected={selectedId === it.id}
                 onToggleSelect={toggleSelect}
-                onDoubleClick={handleCardDoubleClick}
                 onEdit={editItem}
                 onDelete={(id) =>
                   setPendingDelete(predictors.find((x) => x.id === id) ?? null)
