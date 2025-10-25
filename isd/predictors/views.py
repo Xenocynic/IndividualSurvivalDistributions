@@ -9,13 +9,13 @@ from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
 
 @api_view(['GET'])
-@permission_classes([permissions.AllowAny])
+@permission_classes([permissions.IsAuthenticated])
 def list_pinned_predictors(request):
     pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
     # Only return the predictor info that your frontend expects
     data = [
         {
-            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
+            "id": str(p.predictor.predictor_id),  # note: predictor id, not pinned record id
             "title": p.predictor.name,
             "owner_name": p.predictor.owner.username,
             "isPublic": not p.predictor.is_private,

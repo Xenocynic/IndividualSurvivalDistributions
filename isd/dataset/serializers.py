@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Dataset, DatasetPermission
+from .models import Dataset, DatasetPermission, PinnedDataset
 from .file_utils import FileValidator
 from rest_framework.exceptions import PermissionDenied
 from .models import PinnedDataset
@@ -288,6 +288,7 @@ class DatasetPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetPermission
         fields = ["id", "dataset", "user", "user_id"]
+        read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
         """Ensure only dataset owners can grant permission."""
@@ -302,16 +303,16 @@ class DatasetPermissionSerializer(serializers.ModelSerializer):
 # Pinnned Dataset Serializer
 # ----------------------------
 class PinnedDatasetSerializer(serializers.ModelSerializer):
-    dataset = DatasetSerializer(read_only=True)
-    dataset_id = serializers.PrimaryKeyRelatedField(
-        queryset=Dataset.objects.all(), source="dataset", write_only=True
+    dataset_detail = DatasetSerializer(source="dataset", read_only=True)
+    dataset = serializers.PrimaryKeyRelatedField(
+        queryset=Dataset.objects.all(), write_only=True
     )
     name = serializers.CharField(source="dataset.dataset_name", read_only=True)
     user = UserSerializer(read_only=True)
 
     class Meta:
         model = PinnedDataset
-        fields = ["id", "dataset", "dataset_id", "name", "pinned_at"]
+        fields = ["id", "dataset", "dataset_id", "name", "user", "pinned_at", "dataset_detail"]
         read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
