@@ -429,7 +429,7 @@ export default function Browse() {
                           if (activeTab === "datasets") {
                             navigate(`/datasets/${it.id}/view`);
                           } else {
-                            navigate(`/predictors/${it.id}`);
+                            navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
                           }
                         }}
                       >
