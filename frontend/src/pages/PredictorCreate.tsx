@@ -29,7 +29,7 @@ import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
 // TODO[backend]: createPredictor() should accept fields listed below
 // TODO[backend]: listMyPredictors() is used for client-side "name exists" check - maybe make a dedicated exists endpoint?
-import { createPredictor, listMyPredictors } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 
 type PermRow = {
@@ -163,6 +163,7 @@ export default function PredictorCreate() {
         name: name.trim(),
         description: notes.trim(),
         dataset_id: Number(selectedDatasetId),
+        is_private: !isPublic,
       });
 
       // (Later) apply permissions
@@ -177,7 +178,7 @@ export default function PredictorCreate() {
         title: created.name ?? name.trim(),
         notes: created.description ?? notes.trim(),
         owner: true,
-        isPublic,              // TODO[backend]: replace 
+        isPublic: !created.is_private,              // TODO[backend]: replace 
         status: undefined,     // TODO[backend]: replace
         updatedAt: undefined,  // TODO[backend]: rplace
         // add createdAt i guess
