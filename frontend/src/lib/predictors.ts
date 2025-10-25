@@ -11,7 +11,6 @@ export type Predictor = {
   created_at: string;
   updated_at: string;
   time_unit: "year" | "month" | "day" | "hour";
-  allow_admin_access: boolean;
 };
 
 /**
@@ -59,7 +58,6 @@ export async function updatePredictor(id: number, updatedData: {
   name?: string,
   description?: string,
   time_unit?: string,
-  allow_admin_access?: boolean,
   is_private?: boolean,
   }): Promise<Predictor> {
     return api.patch(`/api/predictors/${id}/`, updatedData);
