@@ -263,13 +263,13 @@ export default function Dashboard() {
   // navigate to view page - WIRED
   function viewItem(id: string) {
     if (activeTab === "predictors") {
-      navigate(`/predictors/${id}`); 
+      navigate(`/predictors/${id}`, { state: { from: "dashboard" } });
     } else {
       navigate(`/datasets/${id}/view`);
     }
   }
 
-  // Handle double-click navigation
+  // Handle double-click navigation - commented ot because its not meant tp do anything now
   //function handleCardDoubleClick(id: string) {
   //}
 
