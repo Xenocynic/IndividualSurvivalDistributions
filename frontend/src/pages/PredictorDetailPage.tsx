@@ -249,6 +249,25 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     );
   }, [searchQuery, predictor.features]);
 
+  // --- Pagination stuff ---
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredFeatures.length / pageSize));
+    if (page > totalPages) setPage(1);
+  }, [filteredFeatures.length, pageSize]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredFeatures.length / pageSize)),
+    [filteredFeatures.length, pageSize]
+  );
+
+  const currentFeatures = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredFeatures.slice(start, start + pageSize);
+  }, [filteredFeatures, page, pageSize]);
+
   // --- Feature Selection Handlers ---
   const handleToggleFeature = (feature: string) => {
     const newSelected = new Set(selectedFeatures);
@@ -290,7 +309,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   return (
     <div className="space-y-8">
-      {/* --- Feature Selection Section --- */}
+      {/* --- Feature Selection Section --- */}      
       <section>
         <h3 className="text-lg font-semibold">Select Features for Retraining</h3>
         <p className="mt-1 text-sm text-gray-600">
@@ -301,7 +320,10 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               className="flex-1 rounded-md border border-gray-300 p-2 text-sm"
               placeholder="Search for features..."
             />
@@ -310,7 +332,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
           </div>
           <div className="max-h-72 overflow-y-auto">
             {/* Feature List Rendering */}
-            {filteredFeatures.map((feature) => (
+            {currentFeatures.map((feature) => (
               <label key={feature} className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-gray-50">
                 <input
                   type="checkbox"
@@ -321,9 +343,54 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                 <span className="text-sm font-mono">{feature}</span>
               </label>
             ))}
-            {filteredFeatures.length === 0 && (
+            {currentFeatures.length === 0 && (
               <p className="p-4 text-center text-sm text-gray-500">No features found.</p>
             )}
+          </div>
+          <div className="flex items-center justify-between border-t p-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span>Entries per page:</span>
+              <select
+                className="rounded-md border border-gray-300 p-1 text-sm"
+                value={pageSize}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setPageSize(v);
+                  setPage(1);
+                }}
+              >
+                {[5, 10, 20, 50].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              {page > 1 && (
+                <button
+                  className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  PREV
+                </button>
+              )}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  className={`rounded-md border px-2 py-1 text-sm ${n === page ? "bg-gray-200" : "hover:bg-gray-50"}`}
+                  onClick={() => setPage(n)}
+                >
+                  {n}
+                </button>
+              ))}
+              {page < totalPages && (
+                <button
+                  className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  NEXT
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -393,7 +460,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                             <option value="extremely fine">Extremely Fine</option>
                         </select>
                     </div>
-                     {/* Select Dropdown */}
+                     {/* Select Dropdown */}        
                     <div>
                         <label htmlFor="mtlr_predictor" className="block text-sm font-medium text-gray-700">MTLR Predictor</label>
                         <select id="mtlr_predictor" value={mtlrPredictor} onChange={e => setMtlrPredictor(e.target.value as 'stable' | 'testing1')} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
@@ -402,7 +469,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                         </select>
                     </div>
 
-                    {/* Checkboxes for Boolean Fields */}
+                    {/* Checkboxes for Boolean Fields */}    
                     <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
                             { state: coxFeatureSelection, setState: setCoxFeatureSelection, label: "Use Cox Feature Selection", id: "cox_feature_selection" },
