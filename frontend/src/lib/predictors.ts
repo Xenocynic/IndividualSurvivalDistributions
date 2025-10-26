@@ -7,7 +7,7 @@ export type Predictor = {
   description: string;
   dataset: number;
   owner: number;
-  is_private: boolean;
+  is_private?: boolean;
   created_at: string;
   updated_at: string;
   time_unit: "year" | "month" | "day" | "hour";
@@ -20,26 +20,37 @@ export async function createPredictor(body: {
   name: string;
   description: string;
   dataset_id: number;
+  is_private: boolean;
+  permissions?: { username: string; role: "owner" | "viewer" }[];
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
 
+export async function grantPredictorViewer(
+  predictorId: number,
+  userId: number,
+  role: "owner" | "viewer"
+) {
+  return api.post("/api/predictors/permissions/", {
+    predictor: predictorId,
+    user_id: userId,
+    role: role,
+  });
+}
+
+export async function resolveUsernameToId(username: string): Promise<number | null> {
+  try {
+    const res = await api.get<{ id: number }>(`/api/accounts/resolve/?username=${encodeURIComponent(username)}`);
+    return res.id;
+  } catch (err) {
+    console.warn("Could not resolve username:", username);
+    return null;
+  }}
 /**
  * Grant user access to predictor.
  */
 export async function deletePredictor(id: string) {
   return api.del(`/api/predictors/${id}/`);
-}
-
-
-export async function grantPredictorViewer(
-  predictorId: number,
-  userId: number
-) {
-  return api.post("/api/predictors/permissions/", {
-    predictor: predictorId,
-    user: userId,
-  });
 }
 
 /**

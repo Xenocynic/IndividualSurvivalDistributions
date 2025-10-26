@@ -1,5 +1,5 @@
 from django.db.models import Q
-
+from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
@@ -17,7 +17,12 @@ from django.conf import settings
 class IsPredictorOwner(permissions.BasePermission):
     """Only predictor owners / superusers can update/delete"""
     def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user or request.user.is_superuser
+        if obj.owner == request.user or request.user.is_superuser:
+            return True
+        # Users assigned as 'owner' in permissions
+        return PredictorPermission.objects.filter(
+            predictor=obj, user=request.user, role='owner'
+        ).exists()
 
 
 class CanAccessPredictor(permissions.BasePermission):
@@ -33,9 +38,11 @@ class CanAccessPredictor(permissions.BasePermission):
         # Users can access public predictors
         if not obj.is_private:
             return True
-
-        # Other users can access only if a PredictorPermission exists
-        return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
+        if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
+            return True
+        if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
+            return True
+        return False
 
 
 # ----------------------------
@@ -99,7 +106,42 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Assign the logged-in user as the owner."""
-        serializer.save(owner=self.request.user)
+        print("RAW request.data:", self.request.data)
+        predictor = serializer.save()
+        # Automatically create 'owner' permission for this user
+        perm = PredictorPermission.objects.create(
+            predictor=predictor,
+            user=self.request.user,
+            role='owner'
+        )
+
+        print("Owner permission added:", perm)
+
+        # Add extra permissions
+        try:
+            permissions_data = self.request.data.get("permissions", [])
+            for perm_data in permissions_data:
+                username = perm_data.get("username")
+                role = perm_data.get("role")
+                if not username or role not in ["owner", "viewer"]:
+                    print("Skipping invalid permission:", perm_data)
+                    continue
+                try:
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    print("User not found:", username)
+                    continue
+                try:
+                    p, created = PredictorPermission.objects.update_or_create(
+                        predictor=predictor,
+                        user=user,
+                        defaults={"role": role}
+                    )
+                    print(f"Added/updated permission for {username}: {p}, created={created}")
+                except Exception as e:
+                    print("Failed to add permission:", perm_data, e)
+        except Exception as e:
+            print("perform_create failed:", e)
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -173,13 +215,16 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Ensure only the predictor owner can grant access to other users.
-        Raises PermissionDenied if the request user is not the owner.
+        Assign the logged-in user as the owner and optionally
+        add extra permissions from the request data.
+        Expects request.data to include 'permissions' key:
+        [
+            {"username": "alice", "role": "owner"},
+            {"username": "bob", "role": "viewer"}
+        ]
         """
-        predictor = serializer.validated_data["predictor"]
-        if predictor.owner != self.request.user:
-            raise PermissionDenied("Only the predictor owner can grant access.")
-        # Save without modifying the user field - it should come from the request data
+        # Save predictor with the creator as owner
+        print("RAW request.data:", self.request.data)
         serializer.save()
 
     def perform_destroy(self, instance):
