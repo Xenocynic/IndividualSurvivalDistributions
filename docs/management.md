@@ -2,7 +2,7 @@
 
 ## Story Map 
 
-[![Storymap](storymap.jpg)](storymap.jpg){target=_blank}
+[![Storymap](storymap.png)](storymap.png){target=_blank}
 View more details in [here](https://www.canva.com/design/DAG0T0_u72A/NvHJ91Rbdcr9bjI9JHdpyw/edit).
 
 ## Project Plan
@@ -32,17 +32,18 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | 10 | Teamwork Document | Sept 24 | Yaatheshini, Selena | 
 | 11 | Belbin Roles | Sept 24 | Yaatheshini | 
 
-##### First Draft of All Deliverables Due: Thursday, Sept 25
-##### Actually Finished: Saturday, Sept 27
-##### Confirm Submission: Sunday, Sept 28
-<br>
----
+* > First Draft of All Deliverables Due: Thursday, Sept 25  
+
+* > Actually Finished: Saturday, Sept 27  
+
+* > Confirm Submission: Sunday, Sept 28  
+
 
 ### Sprint 2
 
 *Due date: 12 Oct 2025*
 
-#### List of user stories to be completed
+**List of user stories to be completed**
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
@@ -62,18 +63,103 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.7 | Landing Page | 2 | Shahmeer | 
 | US 1.8 | About Page | 2 | Shahmeer | 
 | US 4.1 | Instructions Page | 1 | Hoang | 
-| Us 6.1 | Frontend Tests for Sprint 2 | 5 | Yaatheshini
+| US 6.1 | Frontend Tests for Sprint 2 | 5 | Yaatheshini |
 
 **User Stories Marked with an * are incomplete and have been moved to sprint 3**
 
 **Estimated sprint velocity**: 30
 
-##### First Draft of All Deliverables Due: Thursday, Oct 9
-##### Actually Finished: Sunday, Oct 13
-##### Confirm Submission: Sunday, Oct 13
-<br>
+* > First Draft of All Deliverables Due: Thursday, Oct 9
 
----
+* > Actually Finished: Sunday, Oct 13
+
+* > Confirm Submission: Sunday, Oct 13
+
+
+### Sprint 3
+
+*Due date: 26 Oct 2025*
+
+**List of user stories to be completed**
+
+| User Story Number | Description | Story Points | Assignee(s) |
+|-|-|-|-|
+| US 1.2 | Admin Logging In / Out | 1 | Advi, Hoang, Yaatheshini |
+| US 1.3.3.1 | Share Private Predictors | 5 | Alex, Yaatheshini | 
+| US 1.6 | Create Folders | 2 | Hoang, Selena | 
+| US 1.6.1 | Delete Folders | 1 | Hoang, Selena | 
+| US 1.6.2 | Toggle Folder Visibility | 5 | Hoang, Selena | 
+| US 1.6.3 | Move Predictors Between Folders | 5 | Advi, Yaatheshini, Shahmeer |  
+| US 2.1.2 | * Save Predictors After Runs | 3 | Excel, Shahmeer | 
+| US 2.1.3 | * Re-Train Predictors | 2 | Excel, Shahmeer | 
+| US 2.1.3.1 | Search for Features | 2 | Alex, Excel, Selena | 
+| US 2.1.3.2 |  Select and Deselect All Features | 2 | Alex, Excel, Selena | 
+| US 2.1.3.3 | Paginate Features | 2 | Selena |  
+| US 2.2 |  * Implement Learning Tools | 5 | Advi, Alex | 
+| US 6.2 |  Frontend tests for Sprint 3 | 5 | Yaatheshini | 
+
+**User Stories Marked with an * are incomplete and have been moved to sprint 4**
+
+**Estimated sprint velocity**: 40
+
+* > Initial Check-In - **October 19th**
+
+* > Due (for Review) - (tentative) **October 23rd**
+
+* > Due - (tentative) **October 25th**
+
+
+### Sprint 4
+
+*Due date: 9 Nov 2025*
+
+**List of user stories to be completed**
+
+| User Story Number | Description | Story Points | Assignee(s) |
+|-|-|-|-|
+| US 2.1 | Recommendation System | 8 | **TBD** | 
+| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | **TBD** | 
+| US 3.1 | Run Predictors on Unlabeled Data | 2 | **TBD** |
+| US 3.2 | Prediction Display Formats | 5 | **TBD** |
+| US 3.3 | Quality Evaluation of Predictors | 3 | **TBD** | 
+| US 3.4 | Dataset Metrics / Analysis | 3 | **TBD** |
+| US 3.5 | Print Results | 2 | **TBD** | 
+| US 3.6 | Download Results | 2 | **TBD** | 
+| US 3.7 | Superuser-Specific Analysis Tools | 5 | **TBD** | 
+| US 4.2 | Guided Tour / Demo Implementation | 3 | **TBD** | 
+| US 6.3 | Frontend tests for Sprint 4 | 5 | **TBD** | 
+
+**Estimated sprint velocity**: 53
+
+* > Initial Check-In - **November 2nd**
+
+* > Due (for Review) - (tentative) **November 6th**
+
+* > Due - (tentative) **November 8th**
+
+
+### Sprint 5
+
+*Due date: 30 Nov 2025*
+
+**List of user stories to be completed**
+
+| User Story Number | Description | Story Points | Assignee(s) |
+|-|-|-|-|
+| US 1.3.8 | Save My Draft Predictors  | 3 | **TBD** | 
+| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | **TBD** |  
+| US 5.1 | PSSP Package Download | 8 | **TBD** |
+| US 5.2 | Handle Censored Data | 8 | **TBD** | 
+| US 6.4 | Frontend tests for Sprint 5 | 5 | **TBD** | 
+
+**Estimated sprint velocity**: 26
+
+* > Initial Check-In - **November 23th**
+
+* > Due (for Review) - (tentative) **November 27th**
+
+* > Due - (tentative) **November 29th**
+
 
 ## Interfaces (APIs and Modules)
 
@@ -82,9 +168,8 @@ The backend is divided into four main modules: `accounts`, `authapp`, `dataset`,
 Each module is responsible for a distinct part of the system and communicates with others through well-defined interfaces, primarily using REST API endpoints and shared database models.  
 This modular structure keeps the codebase organized and makes it easier to maintain, test, and extend.
 
----
 
-### **Accounts Module**
+#### **Accounts Module**
 - **Purpose:**  
   Handles user profile data such as name, email, and organization. It provides endpoints for retrieving and updating user information.
 
@@ -96,9 +181,8 @@ This modular structure keeps the codebase organized and makes it easier to maint
   - Provides user information and ownership data to the **Dataset** and **Predictors** modules.  
   - Allows the frontend to access and display authenticated user profiles.
 
----
 
-### **AuthApp Module**
+#### **AuthApp Module**
 - **Purpose:**  
   Manages all authentication and authorization processes, including user registration, login, logout, and password resets.
 
@@ -110,9 +194,8 @@ This modular structure keeps the codebase organized and makes it easier to maint
   - Updates and verifies user credentials stored in the shared `User` model used by **Accounts**.  
   - Acts as the main entry point for verifying user identity across all other modules.
 
----
 
-### **Dataset Module**
+#### **Dataset Module**
 - **Purpose:**  
   Manages user-uploaded datasets, including creation, retrieval, and permission control for sharing with other users.
 
@@ -124,9 +207,8 @@ This modular structure keeps the codebase organized and makes it easier to maint
   - Associates each dataset with a user record from **Accounts** to manage ownership.  
   - Provides dataset resources to the **Predictors** module for use in model training and prediction.
 
----
 
-### **Predictors Module**
+#### **Predictors Module**
 - **Purpose:**  
   Handles machine learning predictors, including model configuration, execution, and storage of results.
 
@@ -138,7 +220,6 @@ This modular structure keeps the codebase organized and makes it easier to maint
   - Uses ownership and user data from **Accounts** to associate predictors with specific users.  
   - Depends on **Dataset** for input data during prediction and training tasks.
 
----
 
 ### 2. Data Flow Summary
 1. Users authenticate through **AuthApp**, which issues JWT tokens.  
@@ -147,12 +228,9 @@ This modular structure keeps the codebase organized and makes it easier to maint
 4. The **Predictors** module accesses datasets and performs predictions based on the authenticated user’s data.  
 5. All data exchanged between modules follows standardized REST API contracts using JSON.
 
----
 
+## Requirement Traceability Matrix  
 
-## Requirement Traceability Matrices 
- 
-<br>
 ### Accounts App
 
 | User Story ID | Requirement Description | Test Case(s) | Test File | Coverage Status |
@@ -221,93 +299,4 @@ This modular structure keeps the codebase organized and makes it easier to maint
 | US 1.1.1 | Admin can confirm password reset using UID and token. | `test_admin_login_logout_reset` | `test_admin_login_logout_reset.py` | Covered |
 | US 1.1.1 | Admin can login with the new reset password. | `test_admin_login_logout_reset` | `test_admin_login_logout_reset.py` | Covered |
 
-<br>
----  
 
-### Sprint 3
-
-*Due date: 26 Oct 2025*
-
-#### List of user stories to be completed
-
-| User Story Number | Description | Story Points | Assignee(s) |
-|-|-|-|-|
-| US 1.2 | Admin Logging In / Out | 1 | Advi, Hoang, Yaatheshini |
-| US 1.3.3.1 | Share Private Predictors | 5 | Alex, Yaatheshini | 
-| US 1.6 | Create Folders | 2 | Hoang, Selena | 
-| US 1.6.1 | Delete Folders | 1 | Hoang, Selena | 
-| US 1.6.2 | Toggle Folder Visibility | 5 | Hoang, Selena | 
-| US 1.6.3 | Move Predictors Between Folders | 5 | Advi, Yaatheshini, Shahmeer |  
-| US 2.1.2 | Save Predictors After Runs | 3 | Excel, Shahmeer | 
-| US 2.1.3 | Re-Train Predictors | 2 | Excel, Shahmeer | 
-| US 2.1.3.1 | Search for Features | 2 | Alex, Excel, Selena | 
-| US 2.1.3.2 |  Select and Deselect All Features | 2 | Alex, Excel, Selena | 
-| US 2.1.3.3 | Paginate Features | 2 | Selena |  
-| US 2.2 |  Implement Learning Tools | 5 | Advi, Alex | 
-| US 6.2 |  Frontend tests for Sprint 3 | 5 | Yaatheshini | 
-
-**Estimated sprint velocity**: 45
-
-* > Initial Check-In - **October 19th**
-
-* > Due (for Review) - (tentative) **October 23rd**
-
-* > Due - (tentative) **October 25th**
-
-<br>
----  
-
-### Sprint 4
-
-*Due date: 9 Nov 2025*
-
-#### List of user stories to be completed
-
-| User Story Number | Description | Story Points | Assignee(s) |
-|-|-|-|-|
-| US 2.1 | Recommendation System | 8 | **TBD** | 
-| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | **TBD** | 
-| US 3.1 | Run Predictors on Unlabeled Data | 2 | **TBD** |
-| US 3.2 | Prediction Display Formats | 5 | **TBD** |
-| US 3.3 | Quality Evaluation of Predictors | 3 | **TBD** | 
-| US 3.4 | Dataset Metrics / Analysis | 3 | **TBD** |
-| US 3.5 | Print Results | 2 | **TBD** | 
-| US 3.6 | Download Results | 2 | **TBD** | 
-| US 3.7 | Superuser-Specific Analysis Tools | 5 | **TBD** | 
-| US 4.2 | Guided Tour / Demo Implementation | 3 | **TBD** | 
-| US 6.3 | Frontend tests for Sprint 4 | 5 | **TBD** | 
-
-**Estimated sprint velocity**: 46
-
-* > Initial Check-In - **November 2nd**
-
-* > Due (for Review) - (tentative) **November 6th**
-
-* > Due - (tentative) **November 8th**
-
-<br>
----  
-
-### Sprint 5
-
-*Due date: 30 Nov 2025*
-
-#### List of user stories to be completed
-
-| User Story Number | Description | Story Points | Assignee(s) |
-|-|-|-|-|
-| US 1.3.8 | Save My Draft Predictors  | 3 | **TBD** | 
-| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | **TBD** |  
-| US 5.1 | PSSP Package Download | 8 | **TBD** |
-| US 5.2 | Handle Censored Data | 8 | **TBD** | 
-| US 6.4 | Frontend tests for Sprint 5 | 5 | **TBD** | 
-
-**Estimated sprint velocity**: 26
-
-* > Initial Check-In - **November 23th**
-
-* > Due (for Review) - (tentative) **November 27th**
-
-* > Due - (tentative) **November 29th**
-
-<br><br>

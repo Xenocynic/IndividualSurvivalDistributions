@@ -626,6 +626,7 @@ Integration of all previous frontend Selenium tests to ensure seamless functiona
 ## MoSCoW
 
 ### Must Have
+
 US 1.1 - User Logging in / Out
 
 US 1.2 - Superuser / Admin Logging In / Out
