@@ -38,6 +38,7 @@ import {
   deleteDataset,
   mapApiDatasetToUi,
 } from "../lib/datasets";
+import { deletePredictor } from "../lib/predictors";
 import { mapApiPredictorToUi } from "../lib/predictors";
 
 type Tab = "predictors" | "datasets";
@@ -304,11 +305,16 @@ export default function Dashboard() {
 
     try {
       if (activeTab === "predictors") {
-        // TODO: Add predictor delete API call when available
-        alert("Predictor deletion not yet implemented");
+        // Delete predictor via API
+        const predictorId = pendingDelete.id;
+        await deletePredictor(predictorId);
+
+        // Remove from local state after successful API call
         setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-        if (selectedPredictorId === pendingDelete.id)
+
+        if (selectedPredictorId == predictorId) {
           setSelectedPredictorId(null);
+        }
       } else {
         // Delete dataset via API
         const datasetId = parseInt(pendingDelete.id);
