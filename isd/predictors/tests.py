@@ -5,6 +5,8 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 from .models import Predictor, PinnedPredictor, PredictorPermission
 from dataset.models import Dataset
+from folders.models import Folder, FolderItem
+from django.contrib.contenttypes.models import ContentType
 
 # ----------------------------
 # Helper to authenticate user via JWT
@@ -191,3 +193,179 @@ class PinnedPredictorViewSetTest(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
+
+
+# ----------------------------
+# Predictor Folder Integration Tests
+# ----------------------------
+class PredictorFolderIntegrationTestCase(APITestCase):
+    """Test folder integration with predictor API."""
+    
+    def setUp(self):
+        """Set up test data."""
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.other_user = User.objects.create_user(
+            username='otheruser',
+            email='other@example.com',
+            password='testpass123'
+        )
+        
+        # Create a test dataset
+        self.dataset = Dataset.objects.create(
+            dataset_name='Test Dataset',
+            owner=self.user,
+            time_unit='month'
+        )
+        
+        # Create a test folder
+        self.folder = Folder.objects.create(
+            name='Test Folder',
+            owner=self.user,
+            is_private=False
+        )
+    
+    def test_create_predictor_with_folder_assignment(self):
+        """Test creating a predictor and assigning it to a folder."""
+        authenticate(self.client, self.user)
+        
+        data = {
+            'name': 'Test Predictor',
+            'description': 'Test description',
+            'dataset_id': self.dataset.dataset_id,
+            'folder_id': self.folder.folder_id,
+            'is_private': False
+        }
+        
+        response = self.client.post('/api/predictors/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Check that predictor was created
+        predictor = Predictor.objects.get(name='Test Predictor')
+        self.assertEqual(predictor.owner, self.user)
+        
+        # Check that predictor was added to folder
+        predictor_ct = ContentType.objects.get_for_model(Predictor)
+        folder_item = FolderItem.objects.filter(
+            folder=self.folder,
+            content_type=predictor_ct,
+            object_id=predictor.predictor_id
+        ).first()
+        
+        self.assertIsNotNone(folder_item)
+        self.assertEqual(folder_item.added_by, self.user)
+    
+    def test_create_predictor_with_invalid_folder(self):
+        """Test creating a predictor with invalid folder_id."""
+        authenticate(self.client, self.user)
+        
+        data = {
+            'name': 'Test Predictor',
+            'description': 'Test description',
+            'dataset_id': self.dataset.dataset_id,
+            'folder_id': 99999,  # Non-existent folder
+            'is_private': False
+        }
+        
+        response = self.client.post('/api/predictors/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('folder_id', response.data)
+    
+    def test_create_predictor_with_other_users_folder(self):
+        """Test creating a predictor with another user's folder."""
+        other_folder = Folder.objects.create(
+            name='Other Folder',
+            owner=self.other_user,
+            is_private=False
+        )
+        
+        authenticate(self.client, self.user)
+        
+        data = {
+            'name': 'Test Predictor',
+            'description': 'Test description',
+            'dataset_id': self.dataset.dataset_id,
+            'folder_id': other_folder.folder_id,
+            'is_private': False
+        }
+        
+        response = self.client.post('/api/predictors/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('folder_id', response.data)
+    
+    def test_list_predictors_with_folder_filtering(self):
+        """Test listing predictors with folder filtering."""
+        authenticate(self.client, self.user)
+        
+        # Create predictors - one in folder, one not
+        predictor1 = Predictor.objects.create(
+            name='Predictor 1',
+            description='Description 1',
+            dataset=self.dataset,
+            owner=self.user
+        )
+        
+        predictor2 = Predictor.objects.create(
+            name='Predictor 2',
+            description='Description 2',
+            dataset=self.dataset,
+            owner=self.user
+        )
+        
+        # Add predictor1 to folder
+        predictor_ct = ContentType.objects.get_for_model(Predictor)
+        FolderItem.objects.create(
+            folder=self.folder,
+            content_type=predictor_ct,
+            object_id=predictor1.predictor_id,
+            added_by=self.user
+        )
+        
+        # Test filtering by folder
+        response = self.client.get(f'/api/predictors/?folder_id={self.folder.folder_id}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['predictor_id'], predictor1.predictor_id)
+        
+        # Test filtering for items not in any folder
+        response = self.client.get('/api/predictors/?folder_id=null')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['predictor_id'], predictor2.predictor_id)
+    
+    def test_predictor_serializer_includes_folder_info(self):
+        """Test that predictor serializer includes folder information."""
+        authenticate(self.client, self.user)
+        
+        # Create predictor
+        predictor = Predictor.objects.create(
+            name='Test Predictor',
+            description='Test description',
+            dataset=self.dataset,
+            owner=self.user
+        )
+        
+        # Add to folder
+        predictor_ct = ContentType.objects.get_for_model(Predictor)
+        FolderItem.objects.create(
+            folder=self.folder,
+            content_type=predictor_ct,
+            object_id=predictor.predictor_id,
+            added_by=self.user
+        )
+        
+        # Retrieve predictor
+        response = self.client.get(f'/api/predictors/{predictor.predictor_id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Check folder information is included
+        self.assertIn('folder', response.data)
+        self.assertIsNotNone(response.data['folder'])
+        self.assertEqual(response.data['folder']['folder_id'], self.folder.folder_id)
+        self.assertEqual(response.data['folder']['name'], self.folder.name)

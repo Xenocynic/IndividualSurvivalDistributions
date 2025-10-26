@@ -23,6 +23,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
+import { FolderSelector } from "../components/folder";
 // TODO[backend]: listMyDatasets() should return datasets the current user can see (owner or viewer)
 import { listMyDatasets } from "../lib/datasets";
 // TODO[backend]: mappers should expose fields we show 
@@ -46,6 +47,7 @@ export default function PredictorCreate() {
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [isPublic, setIsPublic] = useState(false); // TODO[backend]: wire into predictor creation
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // dataset selection
   const [query, setQuery] = useState("");
@@ -75,8 +77,9 @@ export default function PredictorCreate() {
       !!notes.trim() ||
       !!selectedDatasetId ||
       isPublic ||
+      !!selectedFolderId ||
       rows.some((r) => r.username.trim());
-  }, [name, notes, selectedDatasetId, isPublic, rows]);
+  }, [name, notes, selectedDatasetId, isPublic, selectedFolderId, rows]);
 
   // check name availability (client-side) — see DatasetUpload for the same pattern
   useEffect(() => {
@@ -164,6 +167,7 @@ export default function PredictorCreate() {
         name: name.trim(),
         description: notes.trim(),
         dataset_id: Number(selectedDatasetId),
+        folder_id: selectedFolderId || undefined,
         is_private: !isPublic,
       });
 
@@ -203,6 +207,8 @@ export default function PredictorCreate() {
           tab: "predictors",
           justCreatedId: created.predictor_id,
           justCreated,
+          folderAssigned: selectedFolderId ? true : false,
+          folderName: selectedFolderId ? "folder" : undefined // We could get the actual folder name if needed
         },
       });
     } catch (err) {
@@ -289,6 +295,20 @@ export default function PredictorCreate() {
             className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
             placeholder="Optional description (maps to backend 'description')."
           />
+        </section>
+
+        {/* Folder Selection */}
+        <section className="space-y-2">
+          <label className="block text-xs font-medium text-gray-700">Organization</label>
+          <FolderSelector
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={setSelectedFolderId}
+            disabled={saving}
+            placeholder="Select a folder (optional)"
+          />
+          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
+            Organize your predictor by adding it to a folder. You can create a new folder or select an existing one.
+          </div>
         </section>
 
         {/* Dataset picker */}

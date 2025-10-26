@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'authapp',
     'dataset',
     'predictors',
+    'folders',  # folder organization
     'core'  # main app
 ]
 

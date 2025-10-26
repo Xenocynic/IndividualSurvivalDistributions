@@ -57,19 +57,56 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns predictors the user owns, has been granted access to, or are public.
-        Superusers can see all predictors.
+        Supports folder filtering via query parameters.
+        - Owned predictors: user is the owner
+        - Shared predictors: user has PredictorPermission
+        - Public predictors: is_private=False
         """
         user = self.request.user
 
         if user.is_superuser:
             return Predictor.objects.all().prefetch_related("permissions", "pinned_by").order_by("name")
 
-        return (
+        queryset = (
             Predictor.objects.filter(Q(owner=user) | Q(permissions__user=user))
             .distinct()
             .prefetch_related("permissions", "pinned_by")
             .order_by("name")
         )
+        
+        # Support folder filtering
+        folder_id = self.request.query_params.get('folder_id')
+        if folder_id is not None:
+            if folder_id == 'null' or folder_id == '':
+                # Filter for items not in any folder
+                from folders.models import FolderItem
+                from django.contrib.contenttypes.models import ContentType
+                
+                predictor_ct = ContentType.objects.get_for_model(Predictor)
+                items_in_folders = FolderItem.objects.filter(
+                    content_type=predictor_ct
+                ).values_list('object_id', flat=True)
+                
+                queryset = queryset.exclude(predictor_id__in=items_in_folders)
+            else:
+                # Filter for items in specific folder
+                try:
+                    folder_id = int(folder_id)
+                    from folders.models import FolderItem
+                    from django.contrib.contenttypes.models import ContentType
+                    
+                    predictor_ct = ContentType.objects.get_for_model(Predictor)
+                    items_in_folder = FolderItem.objects.filter(
+                        folder_id=folder_id,
+                        content_type=predictor_ct
+                    ).values_list('object_id', flat=True)
+                    
+                    queryset = queryset.filter(predictor_id__in=items_in_folder)
+                except (ValueError, TypeError):
+                    # Invalid folder_id, return empty queryset
+                    queryset = queryset.none()
+        
+        return queryset
 
     def get_object(self):
         """
