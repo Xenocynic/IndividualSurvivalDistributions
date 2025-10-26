@@ -48,7 +48,7 @@ export default function Browse() {
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
 
-\
+  
   // Selection state (single-click to reveal actions)
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
