@@ -68,9 +68,6 @@ class CanAccessDataset(permissions.BasePermission):
         # Other users can access only if a DatasetPermission exists
         return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
-        # Other users can access only if a DatasetPermission exists
-        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
-
 # ----------------------------
 # Dataset ViewSet
 # ----------------------------
@@ -162,7 +159,7 @@ class DatasetViewSet(viewsets.ModelViewSet):
         if self.action in ["update", "partial_update", "destroy"]:
             return [IsDatasetOwner()]
         elif self.action == "retrieve":
-            return [IsDatasetOwner()]
+            return [CanAccessDataset()]
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
