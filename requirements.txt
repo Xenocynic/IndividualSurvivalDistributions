@@ -7,5 +7,6 @@ drf-spectacular                         # For API documentation
 python-dotenv                           # For environment variable management
 pytest
 pytest-django
+pandas
 selenium
 webdriver-manager

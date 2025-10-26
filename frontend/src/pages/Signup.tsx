@@ -16,6 +16,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -41,7 +42,7 @@ export default function Signup() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/register/", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -158,6 +159,7 @@ export default function Signup() {
               <input
                 type="password"
                 required
+                id="password"
                 value={pw1}
                 onChange={(e) => setPw1(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
@@ -170,6 +172,7 @@ export default function Signup() {
               <input
                 type="password"
                 required
+                id="confirm-password"
                 value={pw2}
                 onChange={(e) => setPw2(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"

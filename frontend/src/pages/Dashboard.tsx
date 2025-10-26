@@ -38,6 +38,7 @@ import {
   deleteDataset,
   mapApiDatasetToUi,
 } from "../lib/datasets";
+import { deletePredictor } from "../lib/predictors";
 import { mapApiPredictorToUi } from "../lib/predictors";
 
 type Tab = "predictors" | "datasets";
@@ -252,8 +253,8 @@ export default function Dashboard() {
   // navigate to edit page
   function editItem(id: string) {
     if (activeTab === "predictors") {
-      // TODO: Add predictor edit page when available
-      alert(`(demo) Edit predictor ${id}`);
+      // Navigate to predictor edit page
+      navigate(`/predictors/${id}/edit`);
     } else {
       // Navigate to dataset edit page
       navigate(`/datasets/${id}/edit`);
@@ -269,6 +270,11 @@ export default function Dashboard() {
       // Navigate to dataset view page
       navigate(`/datasets/${id}/view`);
     }
+  }
+
+  // Handle double-click navigation
+  function handleCardDoubleClick(id: string) {
+    navigate(`/predictors/${id}`);
   }
 
   // download dataset file
@@ -299,11 +305,16 @@ export default function Dashboard() {
 
     try {
       if (activeTab === "predictors") {
-        // TODO: Add predictor delete API call when available
-        alert("Predictor deletion not yet implemented");
+        // Delete predictor via API
+        const predictorId = pendingDelete.id;
+        await deletePredictor(predictorId);
+
+        // Remove from local state after successful API call
         setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-        if (selectedPredictorId === pendingDelete.id)
+
+        if (selectedPredictorId == predictorId) {
           setSelectedPredictorId(null);
+        }
       } else {
         // Delete dataset via API
         const datasetId = parseInt(pendingDelete.id);
@@ -407,6 +418,7 @@ export default function Dashboard() {
                 item={it}
                 selected={selectedId === it.id}
                 onToggleSelect={toggleSelect}
+                onDoubleClick={handleCardDoubleClick}
                 onEdit={editItem}
                 onDelete={(id) =>
                   setPendingDelete(predictors.find((x) => x.id === id) ?? null)
