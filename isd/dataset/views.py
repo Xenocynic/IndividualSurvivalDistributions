@@ -49,7 +49,7 @@ def list_pinned_datasets(request):
 # Custom Permissions
 # ----------------------------
 class IsDatasetOwner(permissions.BasePermission):
-    """Only dataset owners can update/delete"""
+    """Only dataset owners / superuser can update/delete"""
     def has_object_permission(self, request, view, obj):
         return obj.owner == request.user or request.user.is_superuser
 
@@ -68,6 +68,8 @@ class CanAccessDataset(permissions.BasePermission):
         # Other users can access only if a DatasetPermission exists
         return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
+        # Other users can access only if a DatasetPermission exists
+        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
 # ----------------------------
 # Dataset ViewSet
@@ -134,17 +136,20 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return datasets that the user owns or has permission to access.
+        Superusers can access all datasets.
         Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
 
-        # Superusers can see all datasets
         if user.is_superuser:
-            return Dataset.objects.all()
+            return Dataset.objects.all().order_by("dataset_name")
         
-        # Include datasets owned by the user
-        return Dataset.objects.filter(
-            Q(owner=user)
+        return (
+            Dataset.objects.filter(
+                Q(owner=user) | Q(permissions__user=user)
+            )
+            .distinct()
+            .order_by("dataset_name")
         )
 
     def get_permissions(self):

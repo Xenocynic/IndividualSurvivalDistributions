@@ -10,3 +10,4 @@ pytest-django                           # for testing Django applications
 selenium                                # for browser automation in tests
 webdriver-manager                       # for browser automation in tests
 django-extensions                       # for additional management commands
+pandas

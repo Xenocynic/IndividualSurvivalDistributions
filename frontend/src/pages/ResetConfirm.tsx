@@ -55,8 +55,11 @@ export default function ResetConfirm() {
       await api.post(RESET_CONFIRM_PATH, body);
 
       // Force re-login after a successful reset
-      await logout();
-      navigate("/login", { replace: true, state: { flash: "Password updated. Please sign in." } });
+      setMsg("Password updated. Please sign in.");
+      logout();
+      setTimeout(() => {
+        navigate("/login", { replace: true, state: { flash: "Password updated. Please sign in." } });
+      }, 2000);
     } catch (err: any) {
       const detail =
         err?.details?.detail ||
@@ -81,6 +84,7 @@ export default function ResetConfirm() {
               <input
                 type="password"
                 required
+                id="new-password"
                 value={pwd1}
                 onChange={(e) => setPwd1(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
@@ -92,13 +96,14 @@ export default function ResetConfirm() {
               <input
                 type="password"
                 required
+                id="confirm-password"
                 value={pwd2}
                 onChange={(e) => setPwd2(e.target.value)}
                 className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
               />
             </label>
 
-            {msg && <p className="text-xs text-red-600">{msg}</p>}
+            {msg && <p className="text-xs text-green-600">{msg}</p>}
 
             <div className="flex items-center justify-between pt-1">
               <Link to="/login" className="text-xs text-gray-600 hover:underline">
