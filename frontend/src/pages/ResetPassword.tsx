@@ -75,7 +75,8 @@ export default function ResetPassword() {
               </Link>
               <button
                 type="submit"
-                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+                disabled={loading}
+                className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Sending..." : "Send link"}
               </button>
