@@ -56,20 +56,25 @@ def list_pinned_predictors(request):
 # Custom Permissions
 # ----------------------------
 class IsPredictorOwner(permissions.BasePermission):
-    """Only predictor owners can update/delete"""
+    """Only predictor owners / superusers can update/delete"""
     def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user
+        return obj.owner == request.user or request.user.is_superuser
 
 
 class CanAccessPredictor(permissions.BasePermission):
-    """Allow view if owner, has permission, or predictor is public"""
+    """Allow view if owner / superuser, has permission, or predictor is public"""
     def has_object_permission(self, request, view, obj):
+        # Superusers have access to all predictors
+        if request.user.is_superuser:
+            return True
+        
         # Owner always has access
         if obj.owner == request.user:
             return True
         # Users can access public predictors
-        if obj.is_private == False:
+        if not obj.is_private:
             return True
+
         # Other users can access only if a PredictorPermission exists
         return PredictorPermission.objects.filter(predictor=obj, user=request.user).exists()
 
@@ -86,11 +91,13 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns predictors the user owns, has been granted access to, or are public.
-        - Owned predictors: user is the owner
-        - Shared predictors: user has PredictorPermission
-        - Public predictors: is_private=False
+        Superusers can see all predictors.
         """
         user = self.request.user
+
+        if user.is_superuser:
+            return Predictor.objects.all().prefetch_related("permissions", "pinned_by").order_by("name")
+
         return (
             Predictor.objects.filter(Q(owner=user) | Q(permissions__user=user))
             .distinct()
@@ -116,10 +123,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         
         self.check_object_permissions(self.request, obj)
         return obj
-        return Predictor.objects.filter(
-            Q(owner=user) | Q(permissions__user=user) | Q(is_private=False)
-        ).distinct().order_by("name")
-
 
     def get_permissions(self):
         """

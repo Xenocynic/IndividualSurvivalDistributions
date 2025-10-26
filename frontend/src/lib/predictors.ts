@@ -27,6 +27,11 @@ export async function createPredictor(body: {
 /**
  * Grant user access to predictor.
  */
+export async function deletePredictor(id: string) {
+  return api.del(`/api/predictors/${id}/`);
+}
+
+
 export async function grantPredictorViewer(
   predictorId: number,
   userId: number

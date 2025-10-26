@@ -74,7 +74,6 @@ class PredictorSerializer(serializers.ModelSerializer):
             validated_data["owner"] = request.user
         return super().create(validated_data)
 
-
 # ----------------------------
 # Predictor Permission Serializer
 # ----------------------------
