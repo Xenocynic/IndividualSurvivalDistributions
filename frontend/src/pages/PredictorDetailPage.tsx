@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation} from "react-router-dom";
 import { api } from "../lib/apiClient";
 
 // --- Type Definitions ---
@@ -49,6 +49,10 @@ export default function PredictorDetailPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>("meta");
 
+  // navigation handling - we want it to go the respective page the card was accessed from when 'back' is pressed
+  const location = useLocation();
+  const backTo = location.state?.from === "browse" ? "/browse" : "/dashboard";
+
   // Fetch predictor data when the component mounts
   useEffect(() => {
     if (!predictorId) {
@@ -93,10 +97,10 @@ export default function PredictorDetailPage() {
       <div className="flex h-full flex-col items-center justify-center text-center">
         <p className="text-red-600">{error || "Predictor not found."}</p>
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(backTo)}
           className="mt-4 rounded-md bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200"
         >
-          Back to Dashboard
+          Back
         </button>
       </div>
     );
@@ -121,10 +125,10 @@ export default function PredictorDetailPage() {
     <div className="flex h-full flex-col bg-white">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-gray-50 px-4 py-2">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(backTo)}
           className="text-sm text-gray-700 hover:text-black"
         >
-          &larr; Back to Dashboard
+          &larr; Back
         </button>
         <h1 className="text-base font-semibold">{predictor.name}</h1>
         <div className="w-40"></div>
