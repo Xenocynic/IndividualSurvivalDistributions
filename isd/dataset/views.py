@@ -101,7 +101,7 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return datasets that the user owns or has permission to access.
-        Superusers can access all datasets.
+        Supports folder filtering via query parameters.
         Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
@@ -109,13 +109,47 @@ class DatasetViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Dataset.objects.all().order_by("dataset_name")
         
-        return (
+        queryset = (
             Dataset.objects.filter(
                 Q(owner=user) | Q(permissions__user=user)
             )
             .distinct()
             .order_by("dataset_name")
         )
+        
+        # Support folder filtering
+        folder_id = self.request.query_params.get('folder_id')
+        if folder_id is not None:
+            if folder_id == 'null' or folder_id == '':
+                # Filter for items not in any folder
+                from folders.models import FolderItem
+                from django.contrib.contenttypes.models import ContentType
+                
+                dataset_ct = ContentType.objects.get_for_model(Dataset)
+                items_in_folders = FolderItem.objects.filter(
+                    content_type=dataset_ct
+                ).values_list('object_id', flat=True)
+                
+                queryset = queryset.exclude(dataset_id__in=items_in_folders)
+            else:
+                # Filter for items in specific folder
+                try:
+                    folder_id = int(folder_id)
+                    from folders.models import FolderItem
+                    from django.contrib.contenttypes.models import ContentType
+                    
+                    dataset_ct = ContentType.objects.get_for_model(Dataset)
+                    items_in_folder = FolderItem.objects.filter(
+                        folder_id=folder_id,
+                        content_type=dataset_ct
+                    ).values_list('object_id', flat=True)
+                    
+                    queryset = queryset.filter(dataset_id__in=items_in_folder)
+                except (ValueError, TypeError):
+                    # Invalid folder_id, return empty queryset
+                    queryset = queryset.none()
+        
+        return queryset
 
     def get_permissions(self):
         """

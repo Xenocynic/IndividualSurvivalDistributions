@@ -7,13 +7,13 @@
  *   POST /api/datasets/permissions/     -> grant viewer permission to a user
  *
  * Auth: JWT (Authorization: Bearer <access>), handled by apiClient automatically.
- * CORS: already configured 
+ * CORS: already configured
  */
 import { api, publicApi } from "./apiClient";
-import {type DatasetItem} from "../components/DatasetCard";
+import type { DatasetItem } from "../components/DatasetCard";
 
-export type Dataset = { 
-  dataset_id: number; 
+export type Dataset = {
+  dataset_id: number;
   dataset_name: string;
   owner: number;
   owner_name: string;
@@ -24,17 +24,20 @@ export type Dataset = {
   file_display_name?: string;
   has_file?: boolean;
   notes?: string;
-  time_unit: 'year' | 'month' | 'day' | 'hour';
+  time_unit: "year" | "month" | "day" | "hour";
   is_public: boolean;
   uploaded_at: string;
+  folder_id?: string;
+  folder_name?: string;
 };
 
 export type CreateDatasetRequest = {
   dataset_name: string;
   file: File;
   notes?: string;
-  time_unit: 'year' | 'month' | 'day' | 'hour';
+  time_unit: "year" | "month" | "day" | "hour";
   is_public: boolean;
+  folder_id?: string;
 };
 
 /**
@@ -43,31 +46,39 @@ export type CreateDatasetRequest = {
  */
 export async function createDataset(request: CreateDatasetRequest) {
   const formData = new FormData();
-  formData.append('dataset_name', request.dataset_name);
-  formData.append('file', request.file);
-  formData.append('time_unit', request.time_unit);
-  formData.append('is_public', request.is_public.toString());
-  
+  formData.append("dataset_name", request.dataset_name);
+  formData.append("file", request.file);
+  formData.append("time_unit", request.time_unit);
+  formData.append("is_public", request.is_public.toString());
+
   if (request.notes) {
-    formData.append('notes', request.notes);
+    formData.append("notes", request.notes);
   }
-  
+
+  if (request.folder_id) {
+    formData.append("folder_id", request.folder_id);
+  }
+
   return api.post<Dataset>("/api/datasets/", formData);
 }
 
 /** List the datasets visible to the current user (owner + shared)
  * I thiiiink this is how it works.
  */
-export async function listMyDatasets() {
-  return api.get<Dataset[]>("/api/datasets/");
+export async function listMyDatasets(folderId?: string) {
+  const url = folderId ? `/api/datasets/?folder=${folderId}` : "/api/datasets/";
+  return api.get<Dataset[]>(url);
 }
 
 /**
  * List all public datasets (no authentication required).
  * This endpoint should be accessible to everyone.
  */
-export async function listPublicDatasets() {
-  return publicApi.get<Dataset[]>("/api/datasets/public/");
+export async function listPublicDatasets(folderId?: string) {
+  const url = folderId
+    ? `/api/datasets/public/?folder=${folderId}`
+    : "/api/datasets/public/";
+  return publicApi.get<Dataset[]>(url);
 }
 
 /**
@@ -87,12 +98,16 @@ export async function getDataset(datasetId: number): Promise<Dataset> {
 /**
  * Update a dataset (metadata only - file cannot be changed).
  */
-export async function updateDataset(datasetId: number, data: {
-  dataset_name?: string;
-  notes?: string;
-  time_unit?: 'year' | 'month' | 'day' | 'hour';
-  is_public?: boolean;
-}): Promise<Dataset> {
+export async function updateDataset(
+  datasetId: number,
+  data: {
+    dataset_name?: string;
+    notes?: string;
+    time_unit?: "year" | "month" | "day" | "hour";
+    is_public?: boolean;
+    folder_id?: string;
+  }
+): Promise<Dataset> {
   return api.patch<Dataset>(`/api/datasets/${datasetId}/`, data);
 }
 
@@ -108,23 +123,36 @@ export async function deleteDataset(datasetId: number): Promise<void> {
  * Download a dataset file.
  * Returns a blob that can be used to create a download link.
  */
-export async function downloadDatasetFile(datasetId: number): Promise<{ blob: Blob; filename: string }> {
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/datasets/${datasetId}/download/`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('auth_tokens') ? JSON.parse(localStorage.getItem('auth_tokens')!).access : ''}`,
-    },
-  });
+export async function downloadDatasetFile(
+  datasetId: number
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(
+    `${
+      import.meta.env.VITE_API_BASE_URL || ""
+    }/api/datasets/${datasetId}/download/`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${
+          localStorage.getItem("auth_tokens")
+            ? JSON.parse(localStorage.getItem("auth_tokens")!).access
+            : ""
+        }`,
+      },
+    }
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Download failed: ${response.statusText}`);
+    throw new Error(
+      errorData.error || `Download failed: ${response.statusText}`
+    );
   }
 
   // Extract filename from Content-Disposition header
-  const contentDisposition = response.headers.get('Content-Disposition');
+  const contentDisposition = response.headers.get("Content-Disposition");
   let filename = `dataset_${datasetId}.csv`; // fallback filename
-  
+
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
     if (filenameMatch) {
@@ -136,12 +164,13 @@ export async function downloadDatasetFile(datasetId: number): Promise<{ blob: Bl
   return { blob, filename };
 }
 
-
-
 /**
  * Mapper function from API Dataset to UI DatasetItem
  */
-export function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetItem {
+export function mapApiDatasetToUi(
+  item: any,
+  currentUserId?: number
+): DatasetItem {
   // Format the uploaded date for display
   const formatDate = (dateStr: string) => {
     try {
@@ -153,7 +182,9 @@ export function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetIte
   };
 
   // Convert file size from bytes to MB
-  const fileSizeMB = item.file_size ? Math.round(item.file_size / (1024 * 1024) * 10) / 10 : undefined;
+  const fileSizeMB = item.file_size
+    ? Math.round((item.file_size / (1024 * 1024)) * 10) / 10
+    : undefined;
 
   return {
     id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
@@ -165,11 +196,15 @@ export function mapApiDatasetToUi(item: any, currentUserId?: number): DatasetIte
         : Boolean(item.owner),
     ownerId: item.owner ?? null,
     ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.uploaded_at ? formatDate(item.uploaded_at) : (item.updated_at ?? item.updatedAt ?? item.modified ?? undefined),
+    updatedAt: item.uploaded_at
+      ? formatDate(item.uploaded_at)
+      : item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
     notes: item.notes ?? item.description ?? "",
     sizeMB: fileSizeMB,
     hasFile: item.has_file ?? Boolean(item.file_path),
     originalFilename: item.original_filename ?? item.originalFilename,
+    folderId: item.folder_id ?? undefined,
+    folderName: item.folder_name ?? undefined,
     __raw: item,
   };
 }
