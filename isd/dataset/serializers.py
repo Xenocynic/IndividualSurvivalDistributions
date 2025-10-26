@@ -1,9 +1,21 @@
 from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_field
-from .models import Dataset, DatasetPermission
+from django.contrib.auth.models import User
+from .models import Dataset, DatasetPermission, PinnedDataset
 from .file_utils import FileValidator
+from rest_framework.exceptions import PermissionDenied
+from .models import PinnedDataset
 
+# ----------------------------
+# User Serializer (lightweight)
+# ----------------------------
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]
 
+# ----------------------------
+# Dataset Serializer
+# ----------------------------
 class DatasetSerializer(serializers.ModelSerializer):
     """
     Serializer for Dataset model.
@@ -258,20 +270,60 @@ class DatasetSerializer(serializers.ModelSerializer):
         return instance
 
 
+# ----------------------------
+# Dataset Permission Serializer
+# ----------------------------
 class DatasetPermissionSerializer(serializers.ModelSerializer):
     """
     Serializer for DatasetPermission model.
-    
     Manages user permissions for dataset access.
     """
     
-    dataset_name = serializers.CharField(source='dataset.dataset_name', read_only=True)
-    user_name = serializers.CharField(source='user.username', read_only=True)
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True
+    )
+    dataset = serializers.PrimaryKeyRelatedField(queryset=Dataset.objects.all())
 
     class Meta:
         model = DatasetPermission
-        fields = ["id", "dataset", "dataset_name", "user", "user_name"]
-        extra_kwargs = {
-            'dataset': {'help_text': 'The dataset to grant access to'},
-            'user': {'help_text': 'The user to grant access to'}
-        }
+        fields = ["id", "dataset", "user", "user_id"]
+        read_only_fields = ["id", "pinned_at", "user"]
+
+    def create(self, validated_data):
+        """Ensure only dataset owners can grant permission."""
+        request = self.context.get("request")
+        dataset = validated_data["dataset"]
+        if dataset.owner != request.user:
+            raise PermissionDenied("You can only grant access to datasets you own.")
+        return super().create(validated_data)
+
+
+# ----------------------------
+# Pinnned Dataset Serializer
+# ----------------------------
+class PinnedDatasetSerializer(serializers.ModelSerializer):
+    dataset_detail = DatasetSerializer(source="dataset", read_only=True)
+    dataset = serializers.PrimaryKeyRelatedField(
+        queryset=Dataset.objects.all(), write_only=True
+    )
+    name = serializers.CharField(source="dataset.dataset_name", read_only=True)
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PinnedDataset
+        fields = ["id", "dataset", "dataset_id", "name", "user", "pinned_at", "dataset_detail"]
+        read_only_fields = ["id", "pinned_at", "user"]
+
+    def create(self, validated_data):
+        """Prevent duplicate pins for same user."""
+        request = self.context.get("request")
+        user = request.user
+        dataset = validated_data["dataset"]
+
+        existing_pin = PinnedDataset.objects.filter(user=user, dataset=dataset).first()
+        if existing_pin:
+            raise serializers.ValidationError("This dataset is already pinned.")
+
+        validated_data["user"] = user
+        return super().create(validated_data)
