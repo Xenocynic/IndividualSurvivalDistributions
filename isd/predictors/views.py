@@ -288,3 +288,16 @@ def list_public_predictors(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def resolve_username(request):
+    username = request.query_params.get("username")
+    if not username:
+        return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(username=username)
+        return Response({"id": user.id})
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
