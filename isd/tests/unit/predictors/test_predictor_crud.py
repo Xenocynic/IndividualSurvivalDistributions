@@ -99,7 +99,7 @@ class PredictorCRUDTests(APITestCase):
         response = self.client.patch(
             f"{self.url}{predictor.predictor_id}/",
             {
-                "time_unit": "week",
+                "time_unit": "hour",
                 "regularization": "l1",
                 "standardize_features": False,
                 "tune_parameters": False
@@ -107,7 +107,7 @@ class PredictorCRUDTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         predictor.refresh_from_db()
-        self.assertEqual(predictor.time_unit, "week")
+        self.assertEqual(predictor.time_unit, "hour")
         self.assertEqual(predictor.regularization, "l1")
         self.assertFalse(predictor.standardize_features)
         self.assertFalse(predictor.tune_parameters)

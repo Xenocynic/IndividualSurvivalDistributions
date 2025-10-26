@@ -1,63 +1,97 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || "";
 
+// single source of truth for access token
 let accessToken: string | null = null;
-let refreshToken: string | null = null;
 
-export function setTokens(
-  tokens: { access?: string; refresh?: string } | null
-) {
-  if (!tokens) {
-    accessToken = null;
-    refreshToken = null;
-    localStorage.removeItem("auth_tokens");
-    return;
-  }
-  if (tokens.access) accessToken = tokens.access;
-  if (tokens.refresh) refreshToken = tokens.refresh;
-
-  localStorage.setItem(
-    "auth_tokens",
-    JSON.stringify({ access: accessToken, refresh: refreshToken })
-  );
+// Get current access token (called from AuthContext)
+export function getAccessToken() {
+  return accessToken;
 }
 
-export function loadTokensFromStorage() {
-  const raw = localStorage.getItem("auth_tokens");
-  if (!raw) return;
-  try {
-    const { access, refresh } = JSON.parse(raw);
-    accessToken = access ?? null;
-    refreshToken = refresh ?? null;
-  } catch {}
+// Set access token in memory only
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+
 }
 
-async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Flag to prevent multiple simultaneous refresh requests
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error); // Token refresh failed - reject all waiting requests
+    } else {
+      prom.resolve();     // Token refresh succeeded - allow all requests to retry
+    }
+  });
+  
+  failedQueue = [];       // Clear the queue
+};
+
+// Extends RequestInit and prevents infinite retry loops (we only retry once after 401)
+type RetryableRequestInit = RequestInit & { _isRetry?: boolean };
+
+
+async function raw<T>(path: string, init: RetryableRequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+
+  // Add authorization header if we have a token
+  const currentToken = getAccessToken();
+  if (currentToken) headers.set("Authorization", `Bearer ${currentToken}`);
+
 
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers,
-    // enable if backend sets cookies (CORS must allow it)
-    // credentials: "include",
+    credentials: "include", //Required to send HttpOnly cookies
   });
 
-  // Auto-refresh on 401 once
-  if (res.status === 401 && refreshToken) {
-    const r = await fetch(`${BASE}/api/auth/token/refresh/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh: refreshToken }),
-      // credentials: "include",
-    });
-    if (r.ok) {
-      const data = await r.json(); // { access }
-      setTokens({ access: data.access });
-      // retry original request
-      return raw<T>(path, init);
+  // Auto-refresh on 401 once (prevents infinite loops)
+  if (res.status === 401 && !init._isRetry) {
+    // If already refreshing, queue this request
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then(() => raw<T>(path, { ...init, _isRetry: true }));
+    }
+
+    // Sets flag so other 401s will queue instead of refreshing again
+    isRefreshing = true;
+
+    try {
+      const refreshRes = await fetch(`${BASE}/api/auth/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // Send refresh token cookie
+      });
+
+      if (refreshRes.ok) {
+        const data = await refreshRes.json(); // { access: "new_token_here" }
+        setAccessToken(data.access);          // Store new token in memory
+        processQueue();                       // Tell queued requests to retry
+        isRefreshing = false;                 // Clear the flag
+        return raw<T>(path, { ...init, _isRetry: true });  // Retry original request with new token
+      } else {
+        // Refresh failed - clear token and refresh queue
+        const error = new Error("Token refresh failed");
+        setAccessToken(null);     // Clear the token
+        processQueue(error);      // Reject all queued requests
+        isRefreshing = false;     // Clear the flag
+        throw error;              // Throw error to caller
+      }
+    } catch (error) {
+      setAccessToken(null);
+      processQueue(error);
+      isRefreshing = false;
+      throw error;
     }
   }
 
@@ -113,4 +147,9 @@ export const api = {
 // Public API that doesn't send authentication headers
 export const publicApi = {
   get: <T>(p: string) => publicRaw<T>(p),
+  post: <T>(p: string) => 
+    publicRaw<T>(p, {
+      method: "POST",
+      credentials: "include"
+    })
 };

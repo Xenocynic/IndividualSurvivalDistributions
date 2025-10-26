@@ -48,10 +48,10 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "BLACKLIST_AFTER_ROTATION": True,
-    "ROTATE_REFRESH_TOKENS": True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15), # Short-lived access token
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),    # Longer-lived refresh token
+    "BLACKLIST_AFTER_ROTATION": True,               # Blacklist old refresh tokens
+    "ROTATE_REFRESH_TOKENS": True,                  # Generate new refresh token on refresh
 }
 
 # Application definition
@@ -204,8 +204,9 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# JWT = False. Cookie/CSRF = True
-CORS_ALLOW_CREDENTIALS = False
+
+CORS_ALLOW_CREDENTIALS = True # REQUIRED for cookies to work with CORS
+
 
 # If your requests send Authorization: Bearer ...
 CORS_ALLOW_HEADERS = [

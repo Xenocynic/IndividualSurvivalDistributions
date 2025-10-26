@@ -22,7 +22,7 @@
  */
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, setTokens, loadTokensFromStorage } from "../lib/apiClient";
+import { api, publicApi, setAccessToken } from "../lib/apiClient";
 
 type User = {
   id: number;
@@ -61,56 +61,90 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH = "/api/auth";
 const ACCOUNTS = "/api/accounts"; 
 
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load persisted tokens and prefetch profile on mount
+
+  // Attempt to restore session on mount using refresh token cookie
   useEffect(() => {
-    const hasTokens = !!localStorage.getItem("auth_tokens");
-    try { if (hasTokens) loadTokensFromStorage(); } catch {}
-    const p = hasTokens ? refreshProfile() : Promise.resolve();
-    p.finally(() => setLoading(false));
+    const initializeAuth = async () => {
+      try {
+        // Use publicApi.post since token refresh endpoint doesn't require Authorization header
+        // The refresh token is sent via HttpOnly cookie (credentials: "include" in publicApi)
+        const data = await publicApi.post<{ access: string }>(`${AUTH}/token/refresh`);
+        setAccessToken(data.access)
+        // Now we have a token, fetch user profile with authenticated api.get()
+        await refreshProfile();
+      } catch (e) {
+        // No valid session - user needs to log in
+        console.log("No valid session found");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (username: string, password: string) => {
     setError(null);
-    const res = await api.post<{ access: string; refresh: string }>(`${AUTH}/login/`, {
+    try{
+      const res = await api.post<{ access: string; refresh?: string }>(`${AUTH}/login/`, {
       username,
       password,
     });
-    setTokens({ access: res.access, refresh: res.refresh });
+    // Store access token in memory (refresh token is in HttpOnly cookie) from apiClient
+    setAccessToken(res.access); 
     await refreshProfile();
+    } catch (e: any){
+      const errorMsg = e?.details?.detail || e?.details?.non_field_errors?.[0] || "Login failed";
+      setError(errorMsg);
+      throw e;
+    }
   };
 
   const signup = async (body: SignupBody) => {
     setError(null);
-    // create account
-    await api.post(`${AUTH}/register/`, body);
-    // then login automatically
-    await login(body.username, body.password);
+    try{
+      // create account
+      await api.post(`${AUTH}/register/`, body);
+      // then login automatically
+      await login(body.username, body.password);
+    } catch (e: any) {
+      const errorMsg =  e?.details?.username?.[0] || 
+                        e?.details?.email?.[0] || 
+                        e?.details?.password?.[0] ||
+                        e?.details?.detail || 
+                        "Signup failed";
+      setError(errorMsg);
+      throw e;
+    }
   };
 
   const logout = async () => {
     setError(null);
     try {
-      // If backend supports blacklisting on logout, post refresh token here.
-
-      // We don't have direct access to refresh in this file; store it in context and send it.
-      // For now, best-effort clear server & client:
-      await api.post(`${AUTH}/logout/`, {} as any).catch(() => {});
-    } catch {}
-    setTokens(null);
-    setUser(null);
+      // Backend will read refresh token from the HttpOnly cookie and blacklist it
+      await api.post(`${AUTH}/logout/`, {}).catch(() => {});
+    } catch (e) {
+      console.error("Logout error:", e);
+    } finally {
+        setAccessToken(null); //from apiClient
+        setUser(null);
+    }
   };
 
   const refreshProfile = async () => {
     try {
       const me = await api.get<User>(`${ACCOUNTS}/users/me/`);
       setUser(me);
+      setError(null);
     } catch (e: any) {
       setUser(null);
+      throw e;
     }
   };
 
