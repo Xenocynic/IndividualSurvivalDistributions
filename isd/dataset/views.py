@@ -19,18 +19,24 @@ import mimetypes
 # Custom Permissions
 # ----------------------------
 class IsDatasetOwner(permissions.BasePermission):
-    """Only dataset owners can update/delete"""
+    """Only dataset owners / superuser can update/delete"""
     def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user
+        return obj.owner == request.user or request.user.is_superuser
 
 
 class CanAccessDataset(permissions.BasePermission):
-    """Allow view if owner or has permission"""
+    """Allow view if owner / superuser or has permission"""
     def has_object_permission(self, request, view, obj):
+        # Superusers have access to all datasets
+        if request.user.is_superuser:
+            return True
+        
+        # Owner always has access
         if obj.owner == request.user:
             return True
-        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
+        # Other users can access only if a DatasetPermission exists
+        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
 # ----------------------------
 # Dataset ViewSet
@@ -95,9 +101,14 @@ class DatasetViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Return datasets that the user owns or has permission to access.
+        Superusers can access all datasets.
         Uses Q objects for efficiency and correctness.
         """
         user = self.request.user
+
+        if user.is_superuser:
+            return Dataset.objects.all().order_by("dataset_name")
+        
         return (
             Dataset.objects.filter(
                 Q(owner=user) | Q(permissions__user=user)
