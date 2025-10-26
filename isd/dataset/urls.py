@@ -17,11 +17,13 @@ The DefaultRouter automatically creates the following endpoints:
 
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import DatasetViewSet, DatasetPermissionViewSet, list_public_datasets
+from .views import DatasetViewSet, DatasetPermissionViewSet, PinnedDatasetViewSet, list_public_datasets
 
 router = DefaultRouter()
-router.register("", DatasetViewSet, basename="dataset")
+
 router.register("permissions", DatasetPermissionViewSet, basename="dataset-permission")
+router.register("pins", PinnedDatasetViewSet, basename="pinned-dataset")
+router.register("", DatasetViewSet, basename="dataset")
 
 urlpatterns = [
     path("public/", list_public_datasets, name="public-datasets"),

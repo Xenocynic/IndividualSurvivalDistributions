@@ -187,8 +187,14 @@ class PredictorSerializer(serializers.ModelSerializer):
 # Predictor Permission Serializer
 # ----------------------------
 class PredictorPermissionSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), write_only=True)
-    user_display = UserSerializer(source="user", read_only=True)
+    """
+    Serializer for PredictorPermission model.
+    Manages granting access to predictors for specific users.
+    """
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True
+    )
     predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
     role = serializers.ChoiceField(choices=PredictorPermission.ROLE_CHOICES, default="viewer")
 
@@ -221,10 +227,11 @@ class PinnedPredictorSerializer(serializers.ModelSerializer):
         queryset=Predictor.objects.all(), source="predictor", write_only=True
     )
     name = serializers.CharField(source="predictor.name", read_only=True)
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = PinnedPredictor
-        fields = ["id", "predictor", "predictor_id", "name", "pinned_at"]
+        fields = ["id", "predictor", "predictor_id", "name", "user", "pinned_at"]
         read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):

@@ -11,88 +11,6 @@ import pandas as pd
 import os
 from django.conf import settings
 
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def list_pinned_predictors(request):
-    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
-    # Only return the predictor info that your frontend expects
-    data = [
-        {
-            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
-            "title": p.predictor.name,
-            "owner_name": p.predictor.owner.username,
-            "isPublic": not p.predictor.is_private,
-            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
-        }
-        for p in pinned
-    ]
-    user = request.user
-    print("User requesting pinned:", user)
-    print("Pinned predictors returned:", pinned)
-    return Response(data)
-
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def resolve_username(request):
-    username = request.query_params.get("username")
-    if not username:
-        return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        user = User.objects.get(username=username)
-        return Response({"id": user.id})
-    except User.DoesNotExist:
-        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def grant_predictor_permission(request):
-    predictor_id = request.data.get("predictor")
-    user_id = request.data.get("user")
-    role = request.data.get("permission")
-
-    try:
-        predictor = Predictor.objects.get(pk=predictor_id)
-    except Predictor.DoesNotExist:
-        return Response({"error": "Predictor not found"}, status=404)
-    
-    try:
-        user = User.objects.get(pk=user_id)
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
-
-    if predictor.owner != request.user:
-        return Response({"error": "Only the owner can grant permissions"}, status=403)
-    
-    perm, created = PredictorPermission.objects.update_or_create(
-        predictor=predictor,
-        user=user,
-        defaults={"role": role}
-    )
-    return Response({"success": True, "permission_id": perm.id})
-
-
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def list_pinned_predictors(request):
-    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
-    # Only return the predictor info that your frontend expects
-    data = [
-        {
-            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
-            "title": p.predictor.name,
-            "owner_name": p.predictor.owner.username,
-            "isPublic": not p.predictor.is_private,
-            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
-        }
-        for p in pinned
-    ]
-    user = request.user
-    print("User requesting pinned:", user)
-    print("Pinned predictors returned:", pinned)
-    return Response(data)
-
-
 # ----------------------------
 # Custom Permissions
 # ----------------------------
@@ -407,3 +325,16 @@ def list_public_predictors(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def resolve_username(request):
+    username = request.query_params.get("username")
+    if not username:
+        return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(username=username)
+        return Response({"id": user.id})
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)

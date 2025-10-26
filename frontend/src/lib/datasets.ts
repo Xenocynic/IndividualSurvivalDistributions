@@ -46,10 +46,10 @@ export type CreateDatasetRequest = {
  */
 export async function createDataset(request: CreateDatasetRequest) {
   const formData = new FormData();
-  formData.append("dataset_name", request.dataset_name);
-  formData.append("file", request.file);
-  formData.append("time_unit", request.time_unit);
-  formData.append("is_public", request.is_public.toString());
+  formData.append('dataset_name', request.dataset_name);
+  formData.append('file', request.file);
+  formData.append('time_unit', request.time_unit);
+  formData.append('is_public', request.is_public.toString());
 
   if (request.notes) {
     formData.append("notes", request.notes);
@@ -68,6 +68,20 @@ export async function createDataset(request: CreateDatasetRequest) {
 export async function listMyDatasets(folderId?: string) {
   const url = folderId ? `/api/datasets/?folder=${folderId}` : "/api/datasets/";
   return api.get<Dataset[]>(url);
+}
+
+// Pin a dataset
+export async function pinDataset(id: string) {
+  return api.post(`/api/datasets/${id}/pin/`);
+}
+
+// Unpin a dataset
+export async function unpinDataset(id: string) {
+  return api.post(`/api/datasets/${id}/unpin/`);
+}
+
+export async function listPinnedDatasets() {
+  return api.get<any[]>(`/api/datasets/pins/`);
 }
 
 /**
