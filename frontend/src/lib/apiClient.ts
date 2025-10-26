@@ -28,7 +28,7 @@ export function loadTokensFromStorage() {
     const { access, refresh } = JSON.parse(raw);
     accessToken = access ?? null;
     refreshToken = refresh ?? null;
-  } catch {}
+  } catch { }
 }
 
 async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -65,7 +65,7 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
     let details: unknown = null;
     try {
       details = await res.json();
-    } catch {}
+    } catch { }
     throw { status: res.status, statusText: res.statusText, details };
   }
 
@@ -89,7 +89,7 @@ async function publicRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
     let details: unknown = null;
     try {
       details = await res.json();
-    } catch {}
+    } catch { }
     throw { status: res.status, statusText: res.statusText, details };
   }
 

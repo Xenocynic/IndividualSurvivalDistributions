@@ -4,7 +4,7 @@ import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
 import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor, } from "../lib/predictors";
-import { listPublicDatasets } from "../lib/datasets";
+import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadDatasetFile } from "../lib/datasets";
@@ -48,6 +48,7 @@ export default function Browse() {
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
 
+\
   // Selection state (single-click to reveal actions)
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
@@ -79,11 +80,36 @@ export default function Browse() {
     }
   }
 
+  // ----------------------------
+  // Fetch pinned datasets
+  // ----------------------------
+  async function fetchPinnedDatasets() {
+    if (!user) {
+      console.log("No user yet; not fetching pins");
+      return;
+    }
+    console.log("Fetching pinned datasets...");
+    try {
+      const pinned = await listPinnedDatasets();
+      console.log("Pinned response:", pinned);
+      const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
+      setPinnedDatasetIds(pinnedSet);
+      console.log("Pinned database IDs set:", pinnedSet);
+    } catch (err) {
+      console.error("Failed to fetch pinned datasets:", err);
+    }
+  }
+
   // Load pinned predictors from backend on mount
   // Call on mount or whenever the active tab is "predictors"
   useEffect(() => {
     if (activeTab === "predictors") fetchPinnedPredictors();
+    else if (activeTab === "datasets") fetchPinnedDatasets();
   }, [user, activeTab]);
+
+  // ----------------------------
+  // Fetch data for active tab
+  // ----------------------------
 
   // Fetch & map once on mount or when tab changes
   useEffect(() => {
@@ -132,9 +158,7 @@ export default function Browse() {
             };
             return item;
           });
-
           setPredictors(uiPreds);
-
         } else {
           // Always use public endpoint on Browse page - only show public datasets
           const apiDsets = await listPublicDatasets();
@@ -157,7 +181,6 @@ export default function Browse() {
             };
             return item;
           });
-
           setDatasets(uiDsets);
         }
       } catch (err: any) {
@@ -198,8 +221,12 @@ export default function Browse() {
   const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
   const pinned = list.filter((it) => pinnedSet.has(it.id));
 
+
+  // ----------------------------
+  // Toggle pin (predictors & datasets)
+  // ----------------------------
+
   // Pin / unpin (Browse + supabase interaction)
-  // Toggle pin
   async function togglePin(id: string) {
     if (!user) return;
 
@@ -231,13 +258,26 @@ export default function Browse() {
         });
       }
     } else if (activeTab === "datasets") {
-      // Local pin/unpin for datasets
+      const isPinned = pinnedDatasetIds.has(id);
       setPinnedDatasetIds((prev) => {
         const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
+        if (isPinned) next.delete(id);
         else next.add(id);
         return next;
       });
+
+      try {
+        if (isPinned) await unpinDataset(id);
+        else await pinDataset(id);
+      } catch (err) {
+        console.error("Failed to toggle dataset pin:", err);
+        setPinnedDatasetIds((prev) => {
+          const next = new Set(prev);
+          if (isPinned) next.add(id);
+          else next.delete(id);
+          return next;
+        });
+      }
     }
   }
 

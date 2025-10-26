@@ -8,8 +8,8 @@ from rest_framework.decorators import action, api_view, permission_classes, auth
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
-from .models import Dataset, DatasetPermission
-from .serializers import DatasetSerializer, DatasetPermissionSerializer
+from .models import Dataset, DatasetPermission, PinnedDataset
+from .serializers import DatasetSerializer, DatasetPermissionSerializer, PinnedDatasetSerializer
 from .file_utils import FileStorageManager
 from .tasks import process_feature_imputation
 import os
@@ -25,16 +25,16 @@ class IsDatasetOwner(permissions.BasePermission):
 
 
 class CanAccessDataset(permissions.BasePermission):
-    """Allow view if owner / superuser or has permission"""
+    """Allow view if owner / superuser, has permission or dataset is public"""
     def has_object_permission(self, request, view, obj):
         # Superusers have access to all datasets
         if request.user.is_superuser:
             return True
-        
         # Owner always has access
         if obj.owner == request.user:
             return True
-
+        if obj.is_public:
+            return True
         # Other users can access only if a DatasetPermission exists
         return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
@@ -89,6 +89,7 @@ class CanAccessDataset(permissions.BasePermission):
         }
     ),
 )
+
 class DatasetViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing datasets.
@@ -96,6 +97,7 @@ class DatasetViewSet(viewsets.ModelViewSet):
     Supports file uploads through multipart form data.
     """
     serializer_class = DatasetSerializer
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
@@ -117,6 +119,25 @@ class DatasetViewSet(viewsets.ModelViewSet):
             .order_by("dataset_name")
         )
 
+    def get_object(self):
+        """
+        Override to run permission checks first, so unauthorized users get 403 instead of 404.
+        (Basically sends 403 to let us know object exists, user just doesn't have access)
+        """
+        # Get the object from all datasets, not just the filtered queryset
+        queryset = Dataset.objects.all()
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        
+        try:
+            obj = queryset.get(**filter_kwargs)
+        except Dataset.DoesNotExist:
+            from django.http import Http404
+            raise Http404("No Dataset matches the given query.")
+        
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def get_permissions(self):
         """
         Assign permissions based on the action:
@@ -125,12 +146,10 @@ class DatasetViewSet(viewsets.ModelViewSet):
         - list/create: any authenticated user
         """
         if self.action in ["update", "partial_update", "destroy"]:
-            permission_classes = [permissions.IsAuthenticated, IsDatasetOwner]
+            return [IsDatasetOwner()]
         elif self.action == "retrieve":
-            permission_classes = [permissions.IsAuthenticated, CanAccessDataset]
-        else:
-            permission_classes = [permissions.IsAuthenticated]
-        return [perm() for perm in permission_classes]
+            return [CanAccessDataset()]
+        return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
         """
@@ -320,11 +339,33 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
-
     def perform_create(self, serializer):
         """Automatically assign the authenticated user as the dataset owner."""
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def pin(self, request, pk=None):
+        """
+        Pin a dataset for quick access.
+        Only allowed if the user can access the dataset.
+        """
+        dataset = self.get_object()
+        if not CanAccessDataset().has_object_permission(request, self, dataset):
+            raise PermissionDenied("You do not have permission to pin this dataset.")
+        PinnedDataset.objects.get_or_create(user=request.user, dataset=dataset)
+        return Response({"status": "pinned"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def unpin(self, request, pk=None):
+        """
+        Unpin a dataset.
+        Only allowed if the user can access the dataset.
+        """
+        dataset = self.get_object()
+        if not CanAccessDataset().has_object_permission(request, self, dataset):
+            raise PermissionDenied("You do not have permission to unpin this dataset.")
+        PinnedDataset.objects.filter(user=request.user, dataset=dataset).delete()
+        return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
 
 
 # ----------------------------
@@ -347,12 +388,14 @@ class DatasetViewSet(viewsets.ModelViewSet):
         tags=["Dataset Permissions"]
     ),
 )
+
 class DatasetPermissionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing dataset permissions.
     Allows dataset owners to grant or revoke access to their datasets.
     """
     serializer_class = DatasetPermissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """
@@ -379,6 +422,26 @@ class DatasetPermissionViewSet(viewsets.ModelViewSet):
         if instance.dataset.owner != self.request.user:
             raise PermissionDenied("Only the dataset owner can revoke access.")
         instance.delete()
+
+class PinnedDatasetViewSet(viewsets.ModelViewSet):
+    """
+    API viewset for managing pinned datasets.
+    - GET: list pinned datasets
+    - POST: pin a dataset
+    - DELETE: unpin a dataset
+    """
+    serializer_class = PinnedDatasetSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Return datasets pinned by the current user.
+        """
+        return PinnedDataset.objects.filter(user=self.request.user).order_by("-pinned_at")
+
+    def perform_create(self, serializer):
+        """Automatically assign the current user when pinning"""
+        serializer.save(user=self.request.user)
 
 
 # ----------------------------
