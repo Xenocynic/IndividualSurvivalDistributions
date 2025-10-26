@@ -28,7 +28,7 @@ class Predictor(models.Model):
     # --- Advanced configuration fields ---
     time_unit = models.CharField(
         max_length=10,
-        choices=[('day', 'Day'), ('week', 'Week'), ('month', 'Month'), ('year', 'Year')],
+        choices=[('day', 'Day'), ('hour', 'Hour'), ('month', 'Month'), ('year', 'Year')],
         default='day'
     )
 

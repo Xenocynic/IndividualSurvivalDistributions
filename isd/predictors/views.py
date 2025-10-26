@@ -7,6 +7,29 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+import pandas as pd
+import os
+from django.conf import settings
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def list_pinned_predictors(request):
+    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
+    # Only return the predictor info that your frontend expects
+    data = [
+        {
+            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
+            "title": p.predictor.name,
+            "owner_name": p.predictor.owner.username,
+            "isPublic": not p.predictor.is_private,
+            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
+        }
+        for p in pinned
+    ]
+    user = request.user
+    print("User requesting pinned:", user)
+    print("Pinned predictors returned:", pinned)
+    return Response(data)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -74,9 +97,9 @@ def list_pinned_predictors(request):
 # Custom Permissions
 # ----------------------------
 class IsPredictorOwner(permissions.BasePermission):
-    """Only predictor owners can update/delete"""
+    """Only predictor owners / superusers can update/delete"""
     def has_object_permission(self, request, view, obj):
-        if obj.owner == request.user:
+        if obj.owner == request.user or request.user.is_superuser:
             return True
         # Users assigned as 'owner' in permissions
         return PredictorPermission.objects.filter(
@@ -85,13 +108,17 @@ class IsPredictorOwner(permissions.BasePermission):
 
 
 class CanAccessPredictor(permissions.BasePermission):
-    """Allow view if owner, has permission, or predictor is public"""
+    """Allow view if owner / superuser, has permission, or predictor is public"""
     def has_object_permission(self, request, view, obj):
+        # Superusers have access to all predictors
+        if request.user.is_superuser:
+            return True
+        
         # Owner always has access
         if obj.owner == request.user:
             return True
         # Users can access public predictors
-        if obj.is_private == False:
+        if not obj.is_private:
             return True
         if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
             return True
@@ -110,11 +137,13 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns predictors the user owns, has been granted access to, or are public.
-        - Owned predictors: user is the owner
-        - Shared predictors: user has PredictorPermission
-        - Public predictors: is_private=False
+        Superusers can see all predictors.
         """
         user = self.request.user
+
+        if user.is_superuser:
+            return Predictor.objects.all().prefetch_related("permissions", "pinned_by").order_by("name")
+
         return (
             Predictor.objects.filter(Q(owner=user) | Q(permissions__user=user))
             .distinct()
@@ -140,10 +169,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         
         self.check_object_permissions(self.request, obj)
         return obj
-        return Predictor.objects.filter(
-            Q(owner=user) | Q(permissions__user=user) | Q(is_private=False)
-        ).distinct().order_by("name")
-
 
     def get_permissions(self):
         """
@@ -197,6 +222,35 @@ class PredictorViewSet(viewsets.ModelViewSet):
                     print("Failed to add permission:", perm_data, e)
         except Exception as e:
             print("perform_create failed:", e)
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Custom retrieve method to add dataset features to the response.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        try:
+            if instance.dataset and instance.dataset.file_path:
+                full_file_path = os.path.join(settings.MEDIA_ROOT, instance.dataset.file_path)
+                
+                # Check if the file actually exists before trying to open it
+                if os.path.exists(full_file_path):
+                    # Open the file using its full path
+                    with open(full_file_path, 'rb') as f:
+                        df = pd.read_csv(f, nrows=0)
+                    data['features'] = df.columns.tolist()
+                else:
+                    print(f"File not found at path: {full_file_path}")
+                    data['features'] = []
+            else:
+                data['features'] = []
+        except Exception as e:
+            print(f"Could not read features for predictor {instance.predictor_id}: {e}")
+            data['features'] = []
+        
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def pin(self, request, pk=None):

@@ -1,13 +1,24 @@
-import os, re, time, signal
-import subprocess
-from django.test import LiveServerTestCase
 from django.core import mail
-from django.contrib.auth import get_user_model
 from selenium import webdriver
+import os, re, time, signal, subprocess
+from django.test import override_settings
+from django.test import LiveServerTestCase
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from django.contrib.auth import get_user_model
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 
 User = get_user_model()
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    FRONTEND_URL="http://localhost:5173"
+)
 
 class PasswordResetFlowTest(LiveServerTestCase):
     """
@@ -19,6 +30,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
       - Visit reset link (React page)
       - Set new password
       - Log in again successfully
+      1. Signup
+      2. Forgot password
+      3. Reset password via email link
+      4. Login with new password
     """
 
     @classmethod

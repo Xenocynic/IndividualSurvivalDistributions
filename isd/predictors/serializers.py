@@ -33,6 +33,7 @@ class PredictorSerializer(serializers.ModelSerializer):
         write_only=True # This means it will not appear in responses (get, etc)
     )
 
+    features = serializers.ListField(child=serializers.CharField(), read_only=True, required=False)
 
     class Meta:
         model = Predictor
@@ -60,6 +61,10 @@ class PredictorSerializer(serializers.ModelSerializer):
             "use_predefined_folds",
             "created_at",
             "updated_at",
+            "features",
+        ]
+        read_only_fields = [
+            "predictor_id", "owner", "created_at", "updated_at", "features"
         ]
     
     def create(self, validated_data):
@@ -68,7 +73,6 @@ class PredictorSerializer(serializers.ModelSerializer):
         if request and hasattr(request, "user"):
             validated_data["owner"] = request.user
         return super().create(validated_data)
-
 
 # ----------------------------
 # Predictor Permission Serializer
