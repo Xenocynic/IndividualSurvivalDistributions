@@ -7,7 +7,7 @@ export type Predictor = {
   description: string;
   dataset: number;
   owner: number;
-  is_private: boolean;
+  is_private?: boolean;
   created_at: string;
   updated_at: string;
   time_unit: "year" | "month" | "day" | "hour";

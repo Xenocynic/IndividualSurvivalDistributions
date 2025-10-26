@@ -122,6 +122,8 @@ class CanAccessPredictor(permissions.BasePermission):
             return True
         if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
             return True
+        if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
+            return True
         return False
 
 
