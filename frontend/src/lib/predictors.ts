@@ -45,7 +45,7 @@ export async function resolveUsernameToId(username: string): Promise<number | nu
   } catch (err) {
     console.warn("Could not resolve username:", username);
     return null;
-  }
+  }}
 /**
  * Grant user access to predictor.
  */
