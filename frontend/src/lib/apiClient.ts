@@ -28,7 +28,7 @@ export function loadTokensFromStorage() {
     const { access, refresh } = JSON.parse(raw);
     accessToken = access ?? null;
     refreshToken = refresh ?? null;
-  } catch {}
+  } catch { }
 }
 
 async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -65,7 +65,7 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
     let details: unknown = null;
     try {
       details = await res.json();
-    } catch {}
+    } catch { }
     throw { status: res.status, statusText: res.statusText, details };
   }
 
@@ -89,7 +89,7 @@ async function publicRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
     let details: unknown = null;
     try {
       details = await res.json();
-    } catch {}
+    } catch { }
     throw { status: res.status, statusText: res.statusText, details };
   }
 
@@ -107,10 +107,19 @@ export const api = {
     raw<T>(p, { method: "PUT", body: JSON.stringify(body) }),
   patch: <T>(p: string, body?: unknown) =>
     raw<T>(p, { method: "PATCH", body: JSON.stringify(body) }),
-  del: <T>(p: string) => raw<T>(p, { method: "DELETE" }),
+  del: <T>(p: string, body?: unknown) => 
+    raw<T>(p, { 
+      method: "DELETE", 
+      body: body ? JSON.stringify(body) : undefined 
+    }),
 };
 
 // Public API that doesn't send authentication headers
 export const publicApi = {
   get: <T>(p: string) => publicRaw<T>(p),
+  post: <T>(p: string, body?: unknown) =>
+    publicRaw<T>(p, {
+      method: "POST",
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    }),
 };

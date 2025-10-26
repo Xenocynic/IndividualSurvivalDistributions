@@ -42,6 +42,7 @@ urlpatterns = [
     # Main application modules
     path('api/datasets/', include('dataset.urls')),
     path('api/predictors/', include('predictors.urls')),
+    path('api/folders/', include('folders.urls')),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

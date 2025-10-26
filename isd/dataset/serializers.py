@@ -1,9 +1,30 @@
 from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_field
-from .models import Dataset, DatasetPermission
+from django.contrib.auth.models import User
+from .models import Dataset, DatasetPermission, PinnedDataset
 from .file_utils import FileValidator
+from rest_framework.exceptions import PermissionDenied
+from .models import PinnedDataset
+
+# ----------------------------
+# User Serializer (lightweight)
+# ----------------------------
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]
+
+# ----------------------------
+# Folder Serializer (lightweight)
+# ----------------------------
+class FolderSerializer(serializers.ModelSerializer):
+    class Meta:
+        from folders.models import Folder
+        model = Folder
+        fields = ["folder_id", "name"]
 
 
+# Dataset Serializer
+# ----------------------------
 class DatasetSerializer(serializers.ModelSerializer):
     """
     Serializer for Dataset model.
@@ -16,6 +37,8 @@ class DatasetSerializer(serializers.ModelSerializer):
     file_size_display = serializers.CharField(source='get_file_size_display', read_only=True)
     file_display_name = serializers.CharField(source='get_file_display_name', read_only=True)
     has_file = serializers.BooleanField(read_only=True)
+    folder_id = serializers.IntegerField(write_only=True, required=False, allow_null=True, help_text="ID of folder to add dataset to")
+    folder = FolderSerializer(read_only=True, help_text="Folder containing this dataset")
     
     class Meta:
         model = Dataset
@@ -23,6 +46,7 @@ class DatasetSerializer(serializers.ModelSerializer):
             "dataset_id", "dataset_name", "owner", "owner_name",
             "file", "file_path", "original_filename", "file_size", 
             "file_size_display", "file_display_name", "has_file",
+            "folder", "folder_id",
             "notes", "time_unit", "is_public", "uploaded_at"
         ]
         extra_kwargs = {
@@ -86,6 +110,29 @@ class DatasetSerializer(serializers.ModelSerializer):
             validator.validate_file(value)
         except Exception as e:
             raise serializers.ValidationError(str(e))
+        
+        return value
+    
+    def validate_folder_id(self, value):
+        """Validate folder_id field."""
+        if value is None:
+            return value
+            
+        request = self.context.get("request")
+        if not request or not request.user:
+            raise serializers.ValidationError("User context is required")
+        
+        # Import here to avoid circular imports
+        from folders.models import Folder
+        
+        try:
+            folder = Folder.objects.get(folder_id=value)
+        except Folder.DoesNotExist:
+            raise serializers.ValidationError("Folder does not exist")
+        
+        # Check if user owns the folder
+        if folder.owner != request.user:
+            raise serializers.ValidationError("You can only add datasets to folders you own")
         
         return value
     
@@ -170,6 +217,30 @@ class DatasetSerializer(serializers.ModelSerializer):
         
         return attrs
     
+    def to_representation(self, instance):
+        """Add folder information to the response."""
+        data = super().to_representation(instance)
+        
+        # Get folder information if dataset is in a folder
+        from folders.models import FolderItem
+        from django.contrib.contenttypes.models import ContentType
+        
+        dataset_ct = ContentType.objects.get_for_model(Dataset)
+        folder_item = FolderItem.objects.filter(
+            content_type=dataset_ct,
+            object_id=instance.dataset_id
+        ).select_related('folder').first()
+        
+        if folder_item:
+            data['folder'] = {
+                'folder_id': folder_item.folder.folder_id,
+                'name': folder_item.folder.name
+            }
+        else:
+            data['folder'] = None
+            
+        return data
+    
     def create(self, validated_data):
         """
         Create a new dataset with file upload processing.
@@ -186,8 +257,9 @@ class DatasetSerializer(serializers.ModelSerializer):
         from .file_utils import FileStorageManager
         from django.db import transaction
         
-        # Extract file from validated data
+        # Extract file and folder_id from validated data
         uploaded_file = validated_data.pop('file')
+        folder_id = validated_data.pop('folder_id', None)
         
         # Get the current user from context
         request = self.context.get('request')
@@ -215,6 +287,10 @@ class DatasetSerializer(serializers.ModelSerializer):
                 
                 # Create the dataset instance
                 dataset = Dataset.objects.create(**validated_data)
+                
+                # Add to folder if specified
+                if folder_id:
+                    self._add_to_folder(dataset, folder_id, request.user)
                 
                 return dataset
                 
@@ -256,22 +332,93 @@ class DatasetSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance
+    
+    def _add_to_folder(self, dataset, folder_id, user):
+        """Add dataset to specified folder."""
+        from folders.models import Folder, FolderItem
+        from django.contrib.contenttypes.models import ContentType
+        
+        try:
+            folder = Folder.objects.get(folder_id=folder_id, owner=user)
+            dataset_ct = ContentType.objects.get_for_model(Dataset)
+            
+            # Create folder item
+            FolderItem.objects.create(
+                folder=folder,
+                content_type=dataset_ct,
+                object_id=dataset.dataset_id,
+                added_by=user
+            )
+            
+            # Apply folder permission inheritance
+            folder.apply_permission_inheritance_to_item(
+                FolderItem.objects.get(
+                    folder=folder,
+                    content_type=dataset_ct,
+                    object_id=dataset.dataset_id
+                )
+            )
+        except Exception as e:
+            # Log error but don't fail dataset creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to add dataset {dataset.dataset_id} to folder {folder_id}: {str(e)}")
 
 
+# ----------------------------
+# Dataset Permission Serializer
+# ----------------------------
 class DatasetPermissionSerializer(serializers.ModelSerializer):
     """
     Serializer for DatasetPermission model.
-    
     Manages user permissions for dataset access.
     """
     
-    dataset_name = serializers.CharField(source='dataset.dataset_name', read_only=True)
-    user_name = serializers.CharField(source='user.username', read_only=True)
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True
+    )
+    dataset = serializers.PrimaryKeyRelatedField(queryset=Dataset.objects.all())
 
     class Meta:
         model = DatasetPermission
-        fields = ["id", "dataset", "dataset_name", "user", "user_name"]
-        extra_kwargs = {
-            'dataset': {'help_text': 'The dataset to grant access to'},
-            'user': {'help_text': 'The user to grant access to'}
-        }
+        fields = ["id", "dataset", "user", "user_id"]
+        read_only_fields = ["id", "pinned_at", "user"]
+
+    def create(self, validated_data):
+        """Ensure only dataset owners can grant permission."""
+        request = self.context.get("request")
+        dataset = validated_data["dataset"]
+        if dataset.owner != request.user:
+            raise PermissionDenied("You can only grant access to datasets you own.")
+        return super().create(validated_data)
+
+
+# ----------------------------
+# Pinnned Dataset Serializer
+# ----------------------------
+class PinnedDatasetSerializer(serializers.ModelSerializer):
+    dataset_detail = DatasetSerializer(source="dataset", read_only=True)
+    dataset = serializers.PrimaryKeyRelatedField(
+        queryset=Dataset.objects.all(), write_only=True
+    )
+    name = serializers.CharField(source="dataset.dataset_name", read_only=True)
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PinnedDataset
+        fields = ["id", "dataset", "dataset_id", "name", "user", "pinned_at", "dataset_detail"]
+        read_only_fields = ["id", "pinned_at", "user"]
+
+    def create(self, validated_data):
+        """Prevent duplicate pins for same user."""
+        request = self.context.get("request")
+        user = request.user
+        dataset = validated_data["dataset"]
+
+        existing_pin = PinnedDataset.objects.filter(user=user, dataset=dataset).first()
+        if existing_pin:
+            raise serializers.ValidationError("This dataset is already pinned.")
+
+        validated_data["user"] = user
+        return super().create(validated_data)

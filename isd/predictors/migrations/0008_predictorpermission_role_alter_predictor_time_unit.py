@@ -10,10 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='predictor',
-            name='allow_admin_access',
-        ),
         migrations.AddField(
             model_name='predictorpermission',
             name='role',

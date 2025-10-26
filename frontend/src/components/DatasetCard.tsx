@@ -6,9 +6,12 @@
  * - Reuses PredictorItem shape to keep search / filter logic identical across tabs.
  * - Shows rows / size metadata in the right side of the footer (if provided).
  * - Owner sees Edit / Delete; Viewer sees View (only when selected).
+ * - Supports drag and drop functionality for folder organization.
  */
 
 import CardShell from "./CardShell";
+import DraggableCard from "./DraggableCard";
+import type { DragItem } from "../types/dragDrop";
 // import type { PredictorItem } from "./PredictorCard";
 
 // // Reuse PredictorItem shape so search / filter logic remains unchanged.
@@ -17,7 +20,7 @@ import CardShell from "./CardShell";
 //   sizeMB?: number;
 // };
 
-export type DatasetItem = {
+export interface DatasetItem {
   id: string;
   title: string;
   owner: boolean;        // true if current user is owner
@@ -29,8 +32,10 @@ export type DatasetItem = {
   sizeMB?: number;
   hasFile?: boolean;     // whether dataset has an associated file
   originalFilename?: string; // original filename for display
+  folderId?: string;     // folder assignment
+  folderName?: string;   // folder name for display
   __raw?: any;           // keep the raw API object if you need it later
-};
+}
 
 export default function DatasetCard({
   item,
@@ -40,6 +45,8 @@ export default function DatasetCard({
   onDelete,
   onView,
   onDownload,
+  onDrop,
+  isLoading = false,
 }: {
   item: DatasetItem;
   selected?: boolean;
@@ -48,8 +55,18 @@ export default function DatasetCard({
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
   onDownload?: (id: string) => void;
+  onDrop?: (item: DragItem, folderId?: string) => void;
+  isLoading?: boolean;
 }) {
-  return (
+  const dragItem: DragItem = {
+    id: item.id,
+    type: 'dataset',
+    title: item.title,
+    owner: Boolean(item.owner),
+    folderId: item.folderId,
+  };
+
+  const cardContent = (
     <CardShell
       actionVisibility="selected"
       title={item.title}
@@ -113,5 +130,11 @@ export default function DatasetCard({
           </>
         ))}
     </CardShell>
+  );
+
+  return (
+    <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
+      {cardContent}
+    </DraggableCard>
   );
 }

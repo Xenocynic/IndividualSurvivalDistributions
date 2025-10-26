@@ -5,6 +5,7 @@
  * - Composes CardShell to render a predictor.
  * - Shows status chip on the footer right (if provided).
  * - Owner sees Edit / Delete; Viewer sees View (only when selected).
+ * - Supports drag and drop functionality for folder organization.
  *
  * TS pattern:
  * - Define an exported `PredictorItem` interface so both tabs and other components
@@ -12,6 +13,8 @@
  */
 
 import CardShell from "./CardShell";
+import DraggableCard from "./DraggableCard";
+import type { DragItem } from "../types/dragDrop";
 
 export interface PredictorItem {
   id: string;
@@ -22,6 +25,8 @@ export interface PredictorItem {
   notes?: string; // description text
   isPublic?: boolean;     // privacy 
   pinned?: boolean;       // show pin state
+  folderId?: string;      // folder assignment
+  folderName?: string;    // folder name for display
 }
 
 export default function PredictorCard({
@@ -32,6 +37,8 @@ export default function PredictorCard({
   onDelete,
   onView,
   onDoubleClick,
+  onDrop,
+  isLoading = false,
 }: {
   item: PredictorItem;
   selected?: boolean;
@@ -40,8 +47,18 @@ export default function PredictorCard({
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
   onDoubleClick?: (id: string) => void;
+  onDrop?: (item: DragItem, folderId?: string) => void;
+  isLoading?: boolean;
 }) {
-  return (
+  const dragItem: DragItem = {
+    id: item.id,
+    type: 'predictor',
+    title: item.title,
+    owner: Boolean(item.owner),
+    folderId: item.folderId,
+  };
+
+  const cardContent = (
     <CardShell
       title={item.title}
       description={item.notes}
@@ -86,5 +103,11 @@ export default function PredictorCard({
         </>
       )}
     </CardShell>
+  );
+
+  return (
+    <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
+      {cardContent}
+    </DraggableCard>
   );
 }

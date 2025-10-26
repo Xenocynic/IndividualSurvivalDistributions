@@ -1,9 +1,10 @@
-import { api, setTokens } from "../lib/apiClient";
+import { api, publicApi, setTokens } from "../lib/apiClient";
 
 export type TokenPair = { access: string; refresh: string };
 
 export async function login(username: string, password: string) {
-  const data = await api.post<TokenPair>("/api/auth/login/", { username, password });
+  // Use publicApi for login since it's a public endpoint that shouldn't send auth headers
+  const data = await publicApi.post<TokenPair>("/api/auth/login/", { username, password });
   setTokens(data);
   return data;
 }
@@ -28,5 +29,6 @@ export async function register(payload: {
   first_name?: string;
   last_name?: string;
 }) {
-  return api.post("/api/auth/register/", payload);
+  // Use publicApi for registration since it's a public endpoint that shouldn't send auth headers
+  return publicApi.post("/api/auth/register/", payload);
 }
