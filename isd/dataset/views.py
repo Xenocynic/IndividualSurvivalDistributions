@@ -15,36 +15,6 @@ from .tasks import process_feature_imputation
 import os
 import mimetypes
 
-
-# ----------------------------
-# Pinned Dataset List View
-# ----------------------------
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def list_pinned_datasets(request):
-    """
-    List all datasets pinned by the current user.
-    """
-    pinned = PinnedDataset.objects.filter(user=request.user).select_related("dataset", "dataset__owner")
-    data = []
-
-    for p in pinned:
-        dataset = p.dataset
-        if not dataset or not dataset.owner:
-            # Skip invalid entries
-            continue
-
-        data.append({
-            "id": str(dataset.dataset_id),
-            "dataset_name": dataset.dataset_name,
-            "owner_name": dataset.owner.username,
-            "isPublic": dataset.is_public,
-            "uploaded_at": dataset.uploaded_at.isoformat() if dataset.uploaded_at else "",
-        })
-
-    return Response(data)
-
-
 # ----------------------------
 # Custom Permissions
 # ----------------------------
@@ -148,6 +118,25 @@ class DatasetViewSet(viewsets.ModelViewSet):
             .distinct()
             .order_by("dataset_name")
         )
+
+    def get_object(self):
+        """
+        Override to run permission checks first, so unauthorized users get 403 instead of 404.
+        (Basically sends 403 to let us know object exists, user just doesn't have access)
+        """
+        # Get the object from all datasets, not just the filtered queryset
+        queryset = Dataset.objects.all()
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        
+        try:
+            obj = queryset.get(**filter_kwargs)
+        except Dataset.DoesNotExist:
+            from django.http import Http404
+            raise Http404("No Dataset matches the given query.")
+        
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_permissions(self):
         """
