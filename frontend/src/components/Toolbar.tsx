@@ -12,8 +12,10 @@
 import SearchBar from "./SearchBar";
 import CreateMenu from "./CreateMenu";
 import FilterMenu, { type Ownership } from "./FilterMenu";
+import FolderTypeFilter, { type FolderType } from "./folder/navigation/FolderTypeFilter";
+import FolderSortMenu, { type FolderSortOption } from "./folder/navigation/FolderSortMenu";
 
-type Tab = "predictors" | "datasets";
+type Tab = "predictors" | "datasets" | "folders";
 
 interface ToolbarProps {
   activeTab: Tab;
@@ -24,10 +26,16 @@ interface ToolbarProps {
 
   onCreatePredictor: () => void;
   onCreateDataset: () => void;
-  onCreateFolder: () => void;
+  onCreateFolder?: () => void;
 
   ownership: Ownership;
   onOwnershipChange: (o: Ownership) => void;
+
+  // Folder-specific props
+  folderTypeFilter?: FolderType;
+  onFolderTypeFilterChange?: (type: FolderType) => void;
+  folderSortOption?: FolderSortOption;
+  onFolderSortChange?: (option: FolderSortOption) => void;
 }
 
 export default function Toolbar({
@@ -40,6 +48,10 @@ export default function Toolbar({
   onCreateFolder,
   ownership,
   onOwnershipChange,
+  folderTypeFilter,
+  onFolderTypeFilterChange,
+  folderSortOption,
+  onFolderSortChange,
 }: ToolbarProps) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -60,13 +72,26 @@ export default function Toolbar({
           >
             Datasets
           </button>
+          <button
+            type="button"
+            className={`px-3 text-sm ${activeTab === "folders" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            onClick={() => onTabChange("folders")}
+          >
+            Folders
+          </button>
         </div>
 
         <div className="flex-1 md:max-w-md">
           <SearchBar
             value={query}
             onChange={onQueryChange}
-            placeholder="Search"
+            placeholder={
+              activeTab === "folders" 
+                ? "Search folders..." 
+                : activeTab === "predictors" 
+                  ? "Search predictors..." 
+                  : "Search datasets..."
+            }
             onClear={() => onQueryChange("")}
           />
         </div>
@@ -74,7 +99,25 @@ export default function Toolbar({
 
       {/* Right: Filter + Create (always visible) */}
       <div className="flex items-center gap-2 shrink-0">
-        <FilterMenu value={ownership} onChange={onOwnershipChange} />
+        {activeTab === "folders" ? (
+          <>
+            <FilterMenu value={ownership} onChange={onOwnershipChange} />
+            {folderTypeFilter && onFolderTypeFilterChange && (
+              <FolderTypeFilter
+                value={folderTypeFilter}
+                onChange={onFolderTypeFilterChange}
+              />
+            )}
+            {folderSortOption && onFolderSortChange && (
+              <FolderSortMenu
+                value={folderSortOption}
+                onChange={onFolderSortChange}
+              />
+            )}
+          </>
+        ) : (
+          <FilterMenu value={ownership} onChange={onOwnershipChange} />
+        )}
         <CreateMenu
           onCreatePredictor={onCreatePredictor}
           onCreateDataset={onCreateDataset}

@@ -2,8 +2,10 @@ from django.contrib.auth.models import User
 from .serializers import UserSerializer
 from rest_framework import viewsets, permissions, status
 from django.contrib.auth.password_validation import validate_password
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from django.db.models import Q
+from drf_spectacular.utils import extend_schema
 
 # Create your views here.
 class IsSelf(permissions.BasePermission):
@@ -76,3 +78,54 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
 
         return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Search users",
+    description="Search for users by username or email. Returns basic user information for sharing purposes.",
+    parameters=[
+        {
+            'name': 'q',
+            'in': 'query',
+            'description': 'Search query (username or email)',
+            'required': True,
+            'schema': {'type': 'string', 'minLength': 2}
+        },
+        {
+            'name': 'limit',
+            'in': 'query', 
+            'description': 'Maximum number of results to return',
+            'required': False,
+            'schema': {'type': 'integer', 'default': 10, 'maximum': 50}
+        }
+    ],
+    responses={200: UserSerializer(many=True)},
+    tags=["Users"]
+)
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def search_users(request):
+    """
+    Search for users by username or email.
+    Used for sharing functionality - allows finding users to grant permissions to.
+    """
+    query = request.GET.get('q', '').strip()
+    limit = min(int(request.GET.get('limit', 10)), 50)  # Cap at 50 results
+    
+    if len(query) < 2:
+        return Response(
+            {"error": "Search query must be at least 2 characters long"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Search by username or email, exclude current user
+    users = User.objects.filter(
+        Q(username__icontains=query) | Q(email__icontains=query)
+    ).exclude(
+        id=request.user.id
+    ).filter(
+        is_active=True
+    )[:limit]
+    
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data)
