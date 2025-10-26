@@ -27,5 +27,5 @@ router.register("", DatasetViewSet, basename="dataset")
 
 urlpatterns = [
     path("public/", list_public_datasets, name="public-datasets"),
-    path("datasets/pins/", list_pinned_datasets, name="list-pinned-datasets"), 
+    path("pins/", list_pinned_datasets, name="list-pinned-datasets"), 
 ] + router.urls
