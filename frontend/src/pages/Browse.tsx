@@ -8,6 +8,7 @@ import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, } fro
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadDatasetFile } from "../lib/datasets";
+import { useNavigate } from "react-router-dom";
 
 type Tab = "predictors" | "datasets";
 
@@ -33,6 +34,7 @@ export default function Browse() {
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
+  const navigate = useNavigate();
 
   // API-loaded data (mapped through the mappers)
   const [predictors, setPredictors] = useState<Item[]>([]);
@@ -46,10 +48,19 @@ export default function Browse() {
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
 
-
-  // ----------------------------
-  // Fetch pinned predictors
-  // ----------------------------
+\
+  // Selection state (single-click to reveal actions)
+  const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  function toggleSelect(id: string) {
+    if (activeTab === "predictors") {
+      setSelectedPredictorId((curr) => (curr === id ? null : id));
+      setSelectedDatasetId(null);
+    } else {
+      setSelectedDatasetId((curr) => (curr === id ? null : id));
+      setSelectedPredictorId(null);
+    }
+  }
 
   // Fetch pinned predictors from your backend API
   async function fetchPinnedPredictors() {
@@ -270,7 +281,6 @@ export default function Browse() {
     }
   }
 
-
   // download dataset file
   async function downloadDataset(id: string) {
     try {
@@ -425,7 +435,9 @@ export default function Browse() {
                   return (
                     <CardShell
                       key={it.id}
-                      actionVisibility="hover"
+                      actionVisibility="selected"
+                      selected={activeTab === "predictors" ? selectedPredictorId === it.id : selectedDatasetId === it.id}
+                      onSelect={() => toggleSelect(it.id)}
                       title={
                         <div>
                           <div className="-mb-1">
@@ -455,9 +467,9 @@ export default function Browse() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (activeTab === "datasets") {
-                            window.open(`/datasets/${it.id}/view`, '_blank');
+                            navigate(`/datasets/${it.id}/view`);
                           } else {
-                            window.open(`/predictors/${it.id}/view`, '_blank');
+                            navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
                           }
                         }}
                       >
