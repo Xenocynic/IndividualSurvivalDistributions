@@ -20,8 +20,8 @@ import { useEffect, useRef, useState } from "react";
 
 interface CreateMenuProps {
   onCreatePredictor: () => void;
-  onCreateDataset: () => void;  
-  onCreateFolder: () => void;
+  onCreateDataset: () => void;
+  onCreateFolder?: () => void;
 }
 
 export default function CreateMenu({
@@ -70,12 +70,14 @@ export default function CreateMenu({
           >
             Dataset
           </button>
-          <button
-            className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-            onClick={() => { setOpen(false); onCreateFolder(); }}
-          >
-            Folder
-          </button>
+          {onCreateFolder && (
+            <button
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+              onClick={() => { setOpen(false); onCreateFolder(); }} 
+            >
+              Folder
+            </button>
+          )}
         </div>
       )}
     </div>

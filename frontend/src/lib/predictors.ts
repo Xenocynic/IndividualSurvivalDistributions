@@ -11,6 +11,8 @@ export type Predictor = {
   created_at: string;
   updated_at: string;
   time_unit: "year" | "month" | "day" | "hour";
+  folder_id?: string;
+  folder_name?: string;
 };
 
 /**
@@ -22,6 +24,7 @@ export async function createPredictor(body: {
   dataset_id: number;
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
+  folder_id?: string;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -38,14 +41,20 @@ export async function grantPredictorViewer(
   });
 }
 
-export async function resolveUsernameToId(username: string): Promise<number | null> {
+export async function resolveUsernameToId(
+  username: string
+): Promise<number | null> {
   try {
-    const res = await api.get<{ id: number }>(`/api/accounts/resolve/?username=${encodeURIComponent(username)}`);
+    const res = await api.get<{ id: number }>(
+      `/api/accounts/resolve/?username=${encodeURIComponent(username)}`
+    );
     return res.id;
   } catch (err) {
     console.warn("Could not resolve username:", username);
     return null;
-  }}
+  }
+}
+
 /**
  * Grant user access to predictor.
  */
@@ -56,8 +65,11 @@ export async function deletePredictor(id: string) {
 /**
  * List all predictors user owns or has access to.
  */
-export async function listMyPredictors() {
-  return api.get<Predictor[]>("/api/predictors/");
+export async function listMyPredictors(folderId?: string) {
+  const url = folderId
+    ? `/api/predictors/?folder=${folderId}`
+    : "/api/predictors/";
+  return api.get<Predictor[]>(url);
 }
 
 /**
@@ -70,13 +82,16 @@ export async function getPredictor(id: number): Promise<Predictor> {
 /**
  * Update a predictor
  */
-export async function updatePredictor(id: number, updatedData: {
-  name?: string,
-  description?: string,
-  time_unit?: string,
-  is_private?: boolean,
-  }): Promise<Predictor> {
-    return api.patch(`/api/predictors/${id}/`, updatedData);
+export async function updatePredictor(
+  id: number,
+  updatedData: {
+    name?: string;
+    description?: string;
+    time_unit?: string;
+    is_private?: boolean;
+  }
+): Promise<Predictor> {
+  return api.patch(`/api/predictors/${id}/`, updatedData);
 }
 
 /**
@@ -104,14 +119,20 @@ export async function listPinnedPredictors() {
  * List all public predictors (no authentication required).
  * This endpoint should be accessible to everyone.
  */
-export async function listPublicPredictors() {
-  return publicApi.get<Predictor[]>("/api/predictors/public/");
+export async function listPublicPredictors(folderId?: string) {
+  const url = folderId
+    ? `/api/predictors/public/?folder=${folderId}`
+    : "/api/predictors/public/";
+  return publicApi.get<Predictor[]>(url);
 }
 
 /**
  * Mapper function from API Predictor to UI PredictorItem
  */
-export function mapApiPredictorToUi(item: any, currentUserId?: number): PredictorItem {
+export function mapApiPredictorToUi(
+  item: any,
+  currentUserId?: number
+): PredictorItem {
   // Format the uploaded date for display
   const formatDate = (dateStr: string) => {
     try {
@@ -126,11 +147,17 @@ export function mapApiPredictorToUi(item: any, currentUserId?: number): Predicto
     id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
     title: item.name ?? item.title ?? "Untitled predictor",
     status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
-    updatedAt: formatDate(item.updated_at) ?? item.modified ?? item.last_edited ?? undefined,
+    updatedAt:
+      formatDate(item.updated_at) ??
+      item.modified ??
+      item.last_edited ??
+      undefined,
     owner:
       typeof item.owner === "number" && currentUserId !== undefined
         ? item.owner === currentUserId
         : Boolean(item.owner),
     notes: item.description ?? item.notes ?? "",
+    folderId: item.folder_id ?? undefined,
+    folderName: item.folder_name ?? undefined,
   };
 }

@@ -11,88 +11,6 @@ import pandas as pd
 import os
 from django.conf import settings
 
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def list_pinned_predictors(request):
-    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
-    # Only return the predictor info that your frontend expects
-    data = [
-        {
-            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
-            "title": p.predictor.name,
-            "owner_name": p.predictor.owner.username,
-            "isPublic": not p.predictor.is_private,
-            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
-        }
-        for p in pinned
-    ]
-    user = request.user
-    print("User requesting pinned:", user)
-    print("Pinned predictors returned:", pinned)
-    return Response(data)
-
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def resolve_username(request):
-    username = request.query_params.get("username")
-    if not username:
-        return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        user = User.objects.get(username=username)
-        return Response({"id": user.id})
-    except User.DoesNotExist:
-        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def grant_predictor_permission(request):
-    predictor_id = request.data.get("predictor")
-    user_id = request.data.get("user")
-    role = request.data.get("permission")
-
-    try:
-        predictor = Predictor.objects.get(pk=predictor_id)
-    except Predictor.DoesNotExist:
-        return Response({"error": "Predictor not found"}, status=404)
-    
-    try:
-        user = User.objects.get(pk=user_id)
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
-
-    if predictor.owner != request.user:
-        return Response({"error": "Only the owner can grant permissions"}, status=403)
-    
-    perm, created = PredictorPermission.objects.update_or_create(
-        predictor=predictor,
-        user=user,
-        defaults={"role": role}
-    )
-    return Response({"success": True, "permission_id": perm.id})
-
-
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def list_pinned_predictors(request):
-    pinned = PinnedPredictor.objects.filter(user=request.user).select_related("predictor")
-    # Only return the predictor info that your frontend expects
-    data = [
-        {
-            "id": str(p.predictor.id),  # note: predictor id, not pinned record id
-            "title": p.predictor.name,
-            "owner_name": p.predictor.owner.username,
-            "isPublic": not p.predictor.is_private,
-            "updatedAt": p.predictor.updated_at.isoformat() if p.predictor.updated_at else "",
-        }
-        for p in pinned
-    ]
-    user = request.user
-    print("User requesting pinned:", user)
-    print("Pinned predictors returned:", pinned)
-    return Response(data)
-
-
 # ----------------------------
 # Custom Permissions
 # ----------------------------
@@ -139,19 +57,56 @@ class PredictorViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Returns predictors the user owns, has been granted access to, or are public.
-        Superusers can see all predictors.
+        Supports folder filtering via query parameters.
+        - Owned predictors: user is the owner
+        - Shared predictors: user has PredictorPermission
+        - Public predictors: is_private=False
         """
         user = self.request.user
 
         if user.is_superuser:
             return Predictor.objects.all().prefetch_related("permissions", "pinned_by").order_by("name")
 
-        return (
+        queryset = (
             Predictor.objects.filter(Q(owner=user) | Q(permissions__user=user))
             .distinct()
             .prefetch_related("permissions", "pinned_by")
             .order_by("name")
         )
+        
+        # Support folder filtering
+        folder_id = self.request.query_params.get('folder_id')
+        if folder_id is not None:
+            if folder_id == 'null' or folder_id == '':
+                # Filter for items not in any folder
+                from folders.models import FolderItem
+                from django.contrib.contenttypes.models import ContentType
+                
+                predictor_ct = ContentType.objects.get_for_model(Predictor)
+                items_in_folders = FolderItem.objects.filter(
+                    content_type=predictor_ct
+                ).values_list('object_id', flat=True)
+                
+                queryset = queryset.exclude(predictor_id__in=items_in_folders)
+            else:
+                # Filter for items in specific folder
+                try:
+                    folder_id = int(folder_id)
+                    from folders.models import FolderItem
+                    from django.contrib.contenttypes.models import ContentType
+                    
+                    predictor_ct = ContentType.objects.get_for_model(Predictor)
+                    items_in_folder = FolderItem.objects.filter(
+                        folder_id=folder_id,
+                        content_type=predictor_ct
+                    ).values_list('object_id', flat=True)
+                    
+                    queryset = queryset.filter(predictor_id__in=items_in_folder)
+                except (ValueError, TypeError):
+                    # Invalid folder_id, return empty queryset
+                    queryset = queryset.none()
+        
+        return queryset
 
     def get_object(self):
         """
@@ -370,3 +325,16 @@ def list_public_predictors(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def resolve_username(request):
+    username = request.query_params.get("username")
+    if not username:
+        return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(username=username)
+        return Response({"id": user.id})
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)

@@ -3,14 +3,29 @@ import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
+import DragDropProvider from "../components/DragDropProvider";
+import {
+  FolderCard,
+  FolderSortMenu,
+  FolderTypeFilter,
+  RecentFolders,
+  type FolderSortOption,
+  type FolderType
+} from "../components/folder";
+import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
 import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor, } from "../lib/predictors";
-import { listPublicDatasets } from "../lib/datasets";
+import { listPublicFolders, getPublicFolderContents, mapApiFolderToUi, type Folder } from "../lib/folders";
+import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadDatasetFile } from "../lib/datasets";
-import { useNavigate } from "react-router-dom";
+import {
+  sortFolders,
+  filterFoldersByType,
+  DEFAULT_FOLDER_SORT,
+} from "../lib/folderUtils";
 
-type Tab = "predictors" | "datasets";
+type Tab = "predictors" | "datasets" | "folders";
 
 /**
  * Item is the local UI shape used by Browse cards.
@@ -31,14 +46,21 @@ type Item = {
 export default function Browse() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
-  const [query, setQuery] = useState("");
-  const [visibility, setVisibility] = useState<Visibility>("all");
+  
+  // Separate search states for each tab
+  const [predictorQuery, setPredictorQuery] = useState("");
+  const [datasetQuery, setDatasetQuery] = useState("");
+  const [folderQuery, setFolderQuery] = useState("");
+  
+  // Separate visibility filters for each tab
+  const [predictorVisibility, setPredictorVisibility] = useState<Visibility>("all");
+  const [datasetVisibility, setDatasetVisibility] = useState<Visibility>("all");
+  const [folderVisibility, setFolderVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
-  const navigate = useNavigate();
-
   // API-loaded data (mapped through the mappers)
   const [predictors, setPredictors] = useState<Item[]>([]);
   const [datasets, setDatasets] = useState<Item[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +69,16 @@ export default function Browse() {
   // Pinned IDs separated per tab (pinning is ONLY on Browse)
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
+  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(new Set());
+  
+  // Folder expansion state
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  
+  // Folder-specific filters (search uses main query state)
+  const [folderSortOption, setFolderSortOption] = useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
+  const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
+  
   // Selection state (single-click to reveal actions)
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
@@ -79,11 +110,36 @@ export default function Browse() {
     }
   }
 
+  // ----------------------------
+  // Fetch pinned datasets
+  // ----------------------------
+  async function fetchPinnedDatasets() {
+    if (!user) {
+      console.log("No user yet; not fetching pins");
+      return;
+    }
+    console.log("Fetching pinned datasets...");
+    try {
+      const pinned = await listPinnedDatasets();
+      console.log("Pinned response:", pinned);
+      const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
+      setPinnedDatasetIds(pinnedSet);
+      console.log("Pinned database IDs set:", pinnedSet);
+    } catch (err) {
+      console.error("Failed to fetch pinned datasets:", err);
+    }
+  }
+
   // Load pinned predictors from backend on mount
   // Call on mount or whenever the active tab is "predictors"
   useEffect(() => {
     if (activeTab === "predictors") fetchPinnedPredictors();
+    else if (activeTab === "datasets") fetchPinnedDatasets();
   }, [user, activeTab]);
+
+  // ----------------------------
+  // Fetch data for active tab
+  // ----------------------------
 
   // Fetch & map once on mount or when tab changes
   useEffect(() => {
@@ -132,10 +188,9 @@ export default function Browse() {
             };
             return item;
           });
-
           setPredictors(uiPreds);
 
-        } else {
+        } else if (activeTab === "datasets") {
           // Always use public endpoint on Browse page - only show public datasets
           const apiDsets = await listPublicDatasets();
 
@@ -157,7 +212,6 @@ export default function Browse() {
             };
             return item;
           });
-
           setDatasets(uiDsets);
         }
       } catch (err: any) {
@@ -185,21 +239,97 @@ export default function Browse() {
     };
   }, [user, activeTab]);
 
-  const list = activeTab === "predictors" ? predictors : datasets;
+  // Separate effect to fetch folders (always loaded)
+  useEffect(() => {
+    let mounted = true;
+    
+    async function fetchFolders() {
+      try {
+        // Fetch public folders
+        const apiFolders = await listPublicFolders();
+        
+        if (!mounted) return;
+
+        // Map and filter folders based on auto-hide logic
+        const uiFolders = apiFolders
+          .map(mapApiFolderToUi)
+          .filter(folder => {
+            // Auto-hide logic: only show folders that have public items
+            return !folder.is_private && folder.public_item_count > 0;
+          });
+
+        setFolders(uiFolders);
+      } catch (err) {
+        console.error('Failed to fetch folders:', err);
+      }
+    }
+
+    fetchFolders();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
+
+  const list = activeTab === "predictors" ? predictors : activeTab === "datasets" ? datasets : [];
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    if (activeTab === "folders") return [];
+    
+    const currentQuery = activeTab === "predictors" ? predictorQuery : datasetQuery;
+    const currentVisibility = activeTab === "predictors" ? predictorVisibility : datasetVisibility;
+    
+    const q = currentQuery.trim().toLowerCase();
     let arr = list.filter((it) => (q ? it.title.toLowerCase().includes(q) : true));
-    if (visibility === "public") arr = arr.filter((it) => it.isPublic);
-    if (visibility === "private") arr = arr.filter((it) => !it.isPublic);
+    if (currentVisibility === "public") arr = arr.filter((it) => it.isPublic);
+    if (currentVisibility === "private") arr = arr.filter((it) => !it.isPublic);
     return arr;
-  }, [list, query, visibility, activeTab]);
+  }, [list, predictorQuery, datasetQuery, predictorVisibility, datasetVisibility, activeTab]);
 
-  const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : pinnedDatasetIds;
-  const pinned = list.filter((it) => pinnedSet.has(it.id));
+  // Filter folders based on search, visibility, type, and sorting
+  const filteredFolders = useMemo(() => {
+    let folderArr = folders;
+    
+    // Apply search query
+    if (folderQuery.trim()) {
+      const q = folderQuery.trim().toLowerCase();
+      folderArr = folderArr.filter((folder) => {
+        // Search in folder name and description
+        const folderMatch = folder.name.toLowerCase().includes(q) ||
+          (folder.description && folder.description.toLowerCase().includes(q));
+        
+        // Search in folder contents
+        const contentMatch = folder.items?.some(item => 
+          item.title.toLowerCase().includes(q) ||
+          (item.notes && item.notes.toLowerCase().includes(q))
+        );
+        
+        return folderMatch || contentMatch;
+      });
+    }
+    
+    // Apply visibility filter
+    if (folderVisibility === "public") folderArr = folderArr.filter((folder) => !folder.is_private);
+    if (folderVisibility === "private") folderArr = folderArr.filter((folder) => folder.is_private);
+    
+    // Apply type filter
+    folderArr = filterFoldersByType(folderArr, folderTypeFilter);
+    
+    // Apply sorting
+    folderArr = sortFolders(folderArr, folderSortOption);
+    
+    return folderArr;
+  }, [folders, folderQuery, folderVisibility, folderTypeFilter, folderSortOption]);
+
+  const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
+  const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
+
+
+  // ----------------------------
+  // Toggle pin (predictors & datasets)
+  // ----------------------------
 
   // Pin / unpin (Browse + supabase interaction)
-  // Toggle pin
   async function togglePin(id: string) {
     if (!user) return;
 
@@ -231,14 +361,37 @@ export default function Browse() {
         });
       }
     } else if (activeTab === "datasets") {
-      // Local pin/unpin for datasets
+      const isPinned = pinnedDatasetIds.has(id);
       setPinnedDatasetIds((prev) => {
         const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
+        if (isPinned) next.delete(id);
         else next.add(id);
         return next;
       });
+
+      try {
+        if (isPinned) await unpinDataset(id);
+        else await pinDataset(id);
+      } catch (err) {
+        console.error("Failed to toggle dataset pin:", err);
+        setPinnedDatasetIds((prev) => {
+          const next = new Set(prev);
+          if (isPinned) next.add(id);
+          else next.delete(id);
+          return next;
+        });
+      }
     }
+  }
+
+  // Separate function for folder pinning
+  function toggleFolderPin(folderId: string) {
+    setPinnedFolderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
   }
 
   // download dataset file
@@ -261,14 +414,76 @@ export default function Browse() {
     }
   }
 
+  // Folder expansion handlers
+  async function handleToggleFolderExpand(folderId: string) {
+    const isExpanded = expandedFolders.has(folderId);
+    
+    if (isExpanded) {
+      // Collapse folder
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
+      });
+    } else {
+      // Expand folder - fetch contents if not already loaded
+      const folder = folders.find(f => f.folder_id === folderId);
+      if (folder && (!folder.items || folder.items.length === 0)) {
+        try {
+          const contents = await getPublicFolderContents(folderId);
+          // Update folder with contents
+          setFolders(prev => prev.map(f => 
+            f.folder_id === folderId 
+              ? { ...f, items: contents }
+              : f
+          ));
+        } catch (error) {
+          console.error('Failed to load folder contents:', error);
+        }
+      }
+      
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        next.add(folderId);
+        return next;
+      });
+
+      // Add to recent folders when expanded
+      if (folder) {
+        addFolderToRecent(folder);
+      }
+    }
+  }
+
+  // Recent folder selection handler
+  function handleRecentFolderSelect(folderId: string) {
+    setExpandedFolders(prev => new Set(prev).add(folderId));
+    // Scroll to the folder
+    setTimeout(() => {
+      const element = document.getElementById(`browse-folder-${folderId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }
+
+  function handleItemView(itemId: string, itemType: 'predictor' | 'dataset') {
+    if (itemType === 'predictor') {
+      window.open(`/predictors/${itemId}/view`, '_blank');
+    } else {
+      window.open(`/datasets/${itemId}/view`, '_blank');
+    }
+  }
+
   return (
-    <section className="flex gap-4">
+    <DragDropProvider>
+      <section className="flex gap-4">
       {/* Left: Pinned panel */}
       <aside className="w-64 shrink-0">
         <div className="rounded-md border border-black/10 bg-black">
           <div className="flex items-center justify-between border-b border-black/10 px-3 py-2">
             <div className="text-xs font-semibold text-white">
-              Pinned {activeTab === "predictors" ? "Predictors" : "Datasets"}
+              Pinned {activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders"}
             </div>
             <button
               onClick={() => setPinnedOpen((v) => !v)}
@@ -328,22 +543,76 @@ export default function Browse() {
                 >
                   Datasets
                 </button>
+                <button
+                  className={`px-3 text-sm ${activeTab === "folders" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  onClick={() => setActiveTab("folders")}
+                >
+                  Folders
+                </button>
               </div>
 
               <div className="flex-1 md:max-w-md">
-                <SearchBar value={query} onChange={setQuery} placeholder="Search" onClear={() => setQuery("")} />
+                <SearchBar 
+                  value={
+                    activeTab === "predictors" 
+                      ? predictorQuery 
+                      : activeTab === "datasets" 
+                        ? datasetQuery 
+                        : folderQuery
+                  } 
+                  onChange={
+                    activeTab === "predictors" 
+                      ? setPredictorQuery 
+                      : activeTab === "datasets" 
+                        ? setDatasetQuery 
+                        : setFolderQuery
+                  } 
+                  placeholder={
+                    activeTab === "folders" 
+                      ? "Search folders..." 
+                      : activeTab === "predictors" 
+                        ? "Search predictors..." 
+                        : "Search datasets..."
+                  } 
+                  onClear={() => {
+                    if (activeTab === "predictors") setPredictorQuery("");
+                    else if (activeTab === "datasets") setDatasetQuery("");
+                    else setFolderQuery("");
+                  }} 
+                />
               </div>
             </div>
 
-            {/* Right cluster: filter */}
-            <div className="shrink-0">
-              <PublicFilter value={visibility} onChange={setVisibility} />
+            {/* Right cluster: filters */}
+            <div className="flex items-center gap-2 shrink-0">
+              {activeTab === "folders" ? (
+                <>
+                  <PublicFilter 
+                    value={folderVisibility} 
+                    onChange={setFolderVisibility} 
+                  />
+                  <FolderTypeFilter
+                    value={folderTypeFilter}
+                    onChange={setFolderTypeFilter}
+                  />
+                  <FolderSortMenu
+                    value={folderSortOption}
+                    onChange={setFolderSortOption}
+                  />
+                </>
+              ) : (
+                <PublicFilter 
+                  value={activeTab === "predictors" ? predictorVisibility : datasetVisibility} 
+                  onChange={activeTab === "predictors" ? setPredictorVisibility : setDatasetVisibility} 
+                />
+              )}
             </div>
           </div>
 
           {/* Center title line */}
           <div className="mt-2 text-center font-semibold">
-            Browse {activeTab === "predictors" ? "Predictors" : "Datasets"}
+            Browse {activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders"}
           </div>
         </div>
 
@@ -376,96 +645,157 @@ export default function Browse() {
           </div>
         ) : null}
 
-        {/* Grid of cards */}
+        {/* Main Content Area */}
         {!isLoading && (
           <>
-            {filtered.length === 0 && !error ? (
-              <div className="text-center py-12">
-                <div className="text-gray-500 text-lg">
-                  No public {activeTab} available
+            {activeTab === "folders" ? (
+              /* Folders Tab Content */
+              <div className="space-y-6">
+                {/* Recent Folders Quick Access */}
+                <div>
+                  <RecentFolders
+                    onFolderSelect={handleRecentFolderSelect}
+                  />
                 </div>
-                <div className="text-gray-400 text-sm mt-2">
-                  Public {activeTab} will appear here when available
-                </div>
+
+                {/* Folders Content */}
+                {filteredFolders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-500 text-lg">
+                      No public folders available
+                    </div>
+                    <div className="text-gray-400 text-sm mt-2">
+                      Public folders will appear here when available
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                    {filteredFolders.map((folder) => {
+                      const isPinned = pinnedFolderIds.has(folder.folder_id);
+                      return (
+                        <div 
+                          key={folder.folder_id} 
+                          id={`browse-folder-${folder.folder_id}`}
+                          className="relative"
+                        >
+                          <FolderCard
+                            folder={folder}
+                            expanded={expandedFolders.has(folder.folder_id)}
+                            onToggleExpand={handleToggleFolderExpand}
+                            onItemView={handleItemView}
+                            canEdit={false}
+                          />
+                          {/* Pin button overlay */}
+                          <button
+                            className={`absolute top-2 right-2 rounded-md border border-black/10 px-2 py-1 text-xs ${
+                              isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
+                            }`}
+                            title={isPinned ? "Unpin" : "Pin"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFolderPin(folder.folder_id);
+                            }}
+                          >
+                            📌
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((it) => {
-                  const isPinned = pinnedSet.has(it.id);
-                  return (
-                    <CardShell
-                      key={it.id}
-                      actionVisibility="selected"
-                      selected={activeTab === "predictors" ? selectedPredictorId === it.id : selectedDatasetId === it.id}
-                      onSelect={() => toggleSelect(it.id)}
-                      title={
-                        <div>
-                          <div className="-mb-1">
-                            <UsernameTag name={it.ownerName} />
-                          </div>
-                          <div className="mt-1 text-sm font-medium">{it.title}</div>
-                        </div>
-                      }
-                      description={<span>{it.notes}</span>}
-                      footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
-                      footerRight={
-                        <div className="flex items-center gap-2">
-                          {activeTab === "datasets" && it.hasFile && it.originalFilename && (
-                            <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
-                          )}
-                          {it.isPublic ? (
-                            <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
-                          ) : (
-                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
-                          )}
-                        </div>
-                      }
-                    >
-                      {/* Hover actions (top-right) */}
-                      <button
-                        className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (activeTab === "datasets") {
-                            navigate(`/datasets/${it.id}/view`);
-                          } else {
-                            navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
+              /* Predictors and Datasets Tab Content */
+              <>
+                {filtered.length === 0 && !error ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-500 text-lg">
+                      No public {activeTab} available
+                    </div>
+                    <div className="text-gray-400 text-sm mt-2">
+                      Public {activeTab} will appear here when available
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {filtered.map((it) => {
+                      const isPinned = pinnedSet.has(it.id);
+                      return (
+                        <CardShell
+                          key={it.id}
+                          actionVisibility="hover"
+                          title={
+                            <div>
+                              <div className="-mb-1">
+                                <UsernameTag name={it.ownerName} />
+                              </div>
+                              <div className="mt-1 text-sm font-medium">{it.title}</div>
+                            </div>
                           }
-                        }}
-                      >
-                        View
-                      </button>
-                      {activeTab === "datasets" && it.hasFile && (
-                        <button
-                          className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                          title="Download file"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadDataset(it.id);
-                          }}
+                          description={<span>{it.notes}</span>}
+                          footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
+                          footerRight={
+                            <div className="flex items-center gap-2">
+                              {activeTab === "datasets" && it.hasFile && it.originalFilename && (
+                                <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
+                              )}
+                              {it.isPublic ? (
+                                <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
+                              ) : (
+                                <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
+                              )}
+                            </div>
+                          }
                         >
-                          📥
-                        </button>
-                      )}
-                      <button
-                        className={`rounded-md border border-black/10 px-2 py-1 text-xs ${isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
-                          }`}
-                        title={isPinned ? "Unpin" : "Pin"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePin(it.id);
-                        }}
-                      >
-                        📌
-                      </button>
-                    </CardShell>
-                  );
-                })}
-              </div>
+                          {/* Hover actions (top-right) */}
+                          <button
+                            className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeTab === "datasets") {
+                                window.open(`/datasets/${it.id}/view`, '_blank');
+                              } else {
+                                window.open(`/predictors/${it.id}/view`, '_blank');
+                              }
+                            }}
+                          >
+                            View
+                          </button>
+                          {activeTab === "datasets" && it.hasFile && (
+                            <button
+                              className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+                              title="Download file"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadDataset(it.id);
+                              }}
+                            >
+                              📥
+                            </button>
+                          )}
+                          <button
+                            className={`rounded-md border border-black/10 px-2 py-1 text-xs ${
+                              isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
+                            }`}
+                            title={isPinned ? "Unpin" : "Pin"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePin(it.id);
+                            }}
+                          >
+                            📌
+                          </button>
+                        </CardShell>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
       </div>
-    </section>
+      </section>
+    </DragDropProvider>
   );
 }
