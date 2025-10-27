@@ -3,38 +3,35 @@
  * DatasetCard (thin)
  * ----------------------------------------------------------------------------------
  * - Composes CardShell to render a dataset.
- * - Reuses PredictorItem shape to keep search / filter logic identical across tabs.
+ * - Reuses a similar shape to PredictorCard for search/filter consistency.
  * - Shows rows / size metadata in the right side of the footer (if provided).
  * - Owner sees Edit / Delete; Viewer sees View (only when selected).
  * - Supports drag and drop functionality for folder organization.
+ *
+ * Styling updates:
+ * - Neutral greys to match Create/Upload pages.
+ * - Replaced emoji 📄 with Unicode ▦.
  */
 
 import CardShell from "./CardShell";
 import DraggableCard from "./DraggableCard";
 import type { DragItem } from "../types/dragDrop";
-// import type { PredictorItem } from "./PredictorCard";
-
-// // Reuse PredictorItem shape so search / filter logic remains unchanged.
-// export type DatasetItem = PredictorItem & {
-//   rows?: number;
-//   sizeMB?: number;
-// };
 
 export interface DatasetItem {
   id: string;
   title: string;
-  owner: boolean;        // true if current user is owner
+  owner: boolean;
   ownerId?: number | null;
   ownerName?: string | null;
   updatedAt?: string;
   notes?: string;
   rows?: number;
   sizeMB?: number;
-  hasFile?: boolean;     // whether dataset has an associated file
-  originalFilename?: string; // original filename for display
-  folderId?: string;     // folder assignment
-  folderName?: string;   // folder name for display
-  __raw?: any;           // keep the raw API object if you need it later
+  hasFile?: boolean;
+  originalFilename?: string;
+  folderId?: string;
+  folderName?: string;
+  __raw?: any;
 }
 
 export default function DatasetCard({
@@ -73,11 +70,11 @@ export default function DatasetCard({
       description={item.notes}
       footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
       footerRight={
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-neutral-600">
           {item.rows !== undefined && <span>{item.rows.toLocaleString()} rows</span>}
           {item.sizeMB !== undefined && <span>{item.sizeMB} MB</span>}
           {item.hasFile && item.originalFilename && (
-            <span title={`File: ${item.originalFilename}`}>📄</span>
+            <span className="text-neutral-600" title={`File: ${item.originalFilename}`}>▦</span>
           )}
         </div>
       }
@@ -90,20 +87,20 @@ export default function DatasetCard({
           <>
             <button
               onClick={() => onEdit?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
               Edit
             </button>
             <button
               onClick={() => onDelete?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
               Delete
             </button>
             {item.hasFile && onDownload && (
               <button
                 onClick={() => onDownload(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                 title="Download file"
               >
                 Download
@@ -114,14 +111,14 @@ export default function DatasetCard({
           <>
             <button
               onClick={() => onView?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
               View
             </button>
             {item.hasFile && onDownload && (
               <button
                 onClick={() => onDownload(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                 title="Download file"
               >
                 Download

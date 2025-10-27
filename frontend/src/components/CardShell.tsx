@@ -4,19 +4,17 @@
  * ----------------------------------------------------------------------------------
  * - A shared “shell” for cards (PredictorCard / DatasetCard).
  * - Handles layout (title, optional description, sticky-to-bottom footer),
- *   selection ring, and an absolute-positioned action area in the top-right.
+ *   selection ring, and an action toolbar that sits in-flow (no overlap).
  *
  * React/TS notes:
  * - Props use ReactNode so callers can pass strings or JSX.
- * - children renders the action buttons (Edit / Delete / View) only when the card is selected.
- * - onActionAreaClick is used to stopPropagation so clicking actions doesn't toggle selection.
- * 
- * 
- * TO DO:
- * - Replace Edit / Delete / View text with icons, potentially?
- * - potentailly also allow users to edit the name of the dataset / predictor on top rather 
- *   than sending them to the entire Edit view (?)
- * - 
+ * - children renders the action buttons (Edit / Delete / View) when visible
+ *   based on `actionVisibility`.
+ * - onActionAreaClick stops propagation so clicking actions doesn't toggle selection.
+ *
+ * Styling updates:
+ * - Unified neutral palette (matches Create/Upload pages).
+ * - Actions/header row only takes space when visible (selected/hover) or when eyebrow is present.
  */
 
 import type {
@@ -38,6 +36,8 @@ type CardShellProps = {
   onActionAreaClick?: (e: MouseEvent) => void;
   /** when to reveal the action buttons (children) */
   actionVisibility?: "hover" | "selected" | "always";
+  /** LEFT side of the header row (e.g., UsernameTag). If provided, it sits opposite the actions. */
+  eyebrowLeft?: ReactNode;
 };
 
 const clamp3: CSSProperties = {
@@ -57,17 +57,26 @@ export default function CardShell({
   onDoubleClick,
   onActionAreaClick,
   actionVisibility = "hover",
+  eyebrowLeft,
   children,
 }: PropsWithChildren<CardShellProps>) {
-  const actionClass =
+  // Visibility classes that REMOVE layout space when hidden.
+  const actionsRowClass =
     actionVisibility === "always"
-      ? ""
+      ? "flex"
       : actionVisibility === "selected"
       ? selected
-        ? ""
+        ? "flex"
         : "hidden"
-      : // hover (default)
-        "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity";
+      : // hover
+        "hidden group-hover:flex";
+
+  // We render the header row only if there’s either an eyebrowLeft OR visible actions.
+  const showHeaderRow =
+    Boolean(eyebrowLeft) ||
+    actionVisibility === "always" ||
+    (actionVisibility === "selected" && selected) ||
+    actionVisibility === "hover"; // renders but hidden until hover (no space)
 
   return (
     <div
@@ -82,19 +91,38 @@ export default function CardShell({
           onSelect?.();
         }
       }}
-      className={`group relative cursor-pointer rounded-xl border border-black/10 bg-white p-4 shadow-card transition
-        ${selected ? "ring-2 ring-black" : "hover:ring-1 hover:ring-black/30"}`}
+      className={`group relative cursor-pointer rounded-md border border-neutral-200 bg-white p-4 shadow-card transition
+        ${selected ? "ring-2 ring-neutral-900" : "hover:ring-1 hover:ring-neutral-400"}`}
     >
       <div className="flex min-h-[168px] flex-col gap-3">
-        {/* Title */}
-        <h3 className="pr-20 text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
+        {/* Header row (username on left, actions on right). 
+            Takes NO space when hidden (hover/selected modes). */}
+        {showHeaderRow ? (
+          <div className="flex items-center justify-between">
+            <div className="min-h-[1rem]">{eyebrowLeft}</div>
+            {children ? (
+              <div
+                className={`${actionsRowClass} gap-2`}
+                onClick={(e) => {
+                  onActionAreaClick?.(e);
+                  e.stopPropagation();
+                }}
+              >
+                {children}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Title (separate from actions, never overlapped) */}
+        <h3 className="text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
           {title}
         </h3>
 
         {/* Description */}
         {description ? (
           <div
-            className="text-sm leading-5 text-gray-600 break-words hyphens-auto"
+            className="text-sm leading-5 text-neutral-600 break-words hyphens-auto"
             style={clamp3}
           >
             {description}
@@ -104,21 +132,11 @@ export default function CardShell({
         {/* Footer pinned to bottom */}
         {(footerLeft || footerRight) && (
           <div className="mt-auto flex items-center justify-between text-xs">
-            <div className="text-gray-500">{footerLeft}</div>
+            <div className="text-neutral-500">{footerLeft}</div>
             <div className="flex items-center gap-2">{footerRight}</div>
           </div>
         )}
       </div>
-
-      {/* Action area (absolute, top-right) */}
-      {children ? (
-        <div
-          className={`absolute right-3 top-3 flex gap-2 bg-white rounded-md px-2 py-1 shadow-sm ${actionClass}`}
-          onClick={onActionAreaClick as any}
-        >
-          {children}
-        </div>
-      ) : null}
     </div>
   );
 }
