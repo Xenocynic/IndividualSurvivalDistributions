@@ -24,6 +24,7 @@ import {
   filterFoldersByType,
   DEFAULT_FOLDER_SORT,
 } from "../lib/folderUtils";
+import { useNavigate } from "react-router-dom";
 
 type Tab = "predictors" | "datasets" | "folders";
 
@@ -78,8 +79,9 @@ export default function Browse() {
   const [folderSortOption, setFolderSortOption] = useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
+  const navigate = useNavigate();
+
   
-  // Selection state (single-click to reveal actions)
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   function toggleSelect(id: string) {
@@ -723,7 +725,9 @@ export default function Browse() {
                       return (
                         <CardShell
                           key={it.id}
-                          actionVisibility="hover"
+                          actionVisibility="selected"
+                          selected={activeTab === "predictors" ? selectedPredictorId === it.id : selectedDatasetId === it.id}
+                          onSelect={() => toggleSelect(it.id)}
                           title={
                             <div>
                               <div className="-mb-1">
@@ -753,11 +757,10 @@ export default function Browse() {
                             onClick={(e) => {
                               e.stopPropagation();
                               if (activeTab === "datasets") {
-                                window.open(`/datasets/${it.id}/view`, '_blank');
+                                navigate(`/datasets/${it.id}/view`);
                               } else {
-                                window.open(`/predictors/${it.id}/view`, '_blank');
-                              }
-                            }}
+                                navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
+                            }}}
                           >
                             View
                           </button>
