@@ -14,8 +14,7 @@
  *
  * Styling updates:
  * - Unified neutral palette (matches Create/Upload pages).
- * - Removed absolute-positioned action area; actions now live in a dedicated row.
- * - No overlap with title (title gets its own space, actions come later).
+ * - Actions/header row only takes space when visible (selected/hover) or when eyebrow is present.
  */
 
 import type {
@@ -37,6 +36,8 @@ type CardShellProps = {
   onActionAreaClick?: (e: MouseEvent) => void;
   /** when to reveal the action buttons (children) */
   actionVisibility?: "hover" | "selected" | "always";
+  /** LEFT side of the header row (e.g., UsernameTag). If provided, it sits opposite the actions. */
+  eyebrowLeft?: ReactNode;
 };
 
 const clamp3: CSSProperties = {
@@ -56,17 +57,26 @@ export default function CardShell({
   onDoubleClick,
   onActionAreaClick,
   actionVisibility = "hover",
+  eyebrowLeft,
   children,
 }: PropsWithChildren<CardShellProps>) {
-  const actionsVisibilityClass =
+  // Visibility classes that REMOVE layout space when hidden.
+  const actionsRowClass =
     actionVisibility === "always"
-      ? "opacity-100"
+      ? "flex"
       : actionVisibility === "selected"
       ? selected
-        ? "opacity-100"
-        : "opacity-0 pointer-events-none"
-      : // hover (default)
-        "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity";
+        ? "flex"
+        : "hidden"
+      : // hover
+        "hidden group-hover:flex";
+
+  // We render the header row only if there’s either an eyebrowLeft OR visible actions.
+  const showHeaderRow =
+    Boolean(eyebrowLeft) ||
+    actionVisibility === "always" ||
+    (actionVisibility === "selected" && selected) ||
+    actionVisibility === "hover"; // renders but hidden until hover (no space)
 
   return (
     <div
@@ -85,20 +95,26 @@ export default function CardShell({
         ${selected ? "ring-2 ring-neutral-900" : "hover:ring-1 hover:ring-neutral-400"}`}
     >
       <div className="flex min-h-[168px] flex-col gap-3">
-        {/* Actions toolbar (now above the title, in-flow) */}
-        {children ? (
-          <div
-            className={`-mt-1 mb-1 flex justify-end gap-2 ${actionsVisibilityClass}`}
-            onClick={(e) => {
-              onActionAreaClick?.(e);
-              e.stopPropagation(); // don’t toggle selection when clicking actions
-            }}
-          >
-            {children}
+        {/* Header row (username on left, actions on right). 
+            Takes NO space when hidden (hover/selected modes). */}
+        {showHeaderRow ? (
+          <div className="flex items-center justify-between">
+            <div className="min-h-[1rem]">{eyebrowLeft}</div>
+            {children ? (
+              <div
+                className={`${actionsRowClass} gap-2`}
+                onClick={(e) => {
+                  onActionAreaClick?.(e);
+                  e.stopPropagation();
+                }}
+              >
+                {children}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        {/* Title (gets its own space; no overlay) */}
+        {/* Title (separate from actions, never overlapped) */}
         <h3 className="text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
           {title}
         </h3>
