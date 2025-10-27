@@ -62,8 +62,9 @@ export default function DatasetUpload() {
       !!file ||
       isPublic ||
       timeUnit !== "month" ||
-      !!selectedFolderId;
-  }, [name, notes, file, isPublic, timeUnit, selectedFolderId]);
+      !!selectedFolderId ||
+      rows.some((r) => r.username.trim());
+  }, [name, notes, file, isPublic, timeUnit, selectedFolderId, rows]);
 
   // check name availability (client-side)
   useEffect(() => {
@@ -129,7 +130,7 @@ export default function DatasetUpload() {
           tab: "datasets",
           justCreatedId: created.dataset_id,
           folderAssigned: selectedFolderId ? true : false,
-          folderName: selectedFolderId ? "folder" : undefined, // We could get the actual folder name if needed
+          folderName: selectedFolderId ? "folder" : undefined,
         },
       });
     } catch (err: any) {
@@ -192,32 +193,33 @@ export default function DatasetUpload() {
   };
 
   return (
-    <div className='min-h-[60vh]'>
-      {/* Sticky header */}
-      <div className='sticky top-14 md:top-16 z-40 border-b border-black/10 bg-gray-400'>
-        <div className='mx-auto flex max-w-4xl items-center justify-between px-3 py-3'>
+    <div className="min-h-[60vh] bg-white">
+      {/* Sticky sub-header under global nav (match PredictorCreate) */}
+      <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2.5">
           <button
             onClick={onBack}
-            className='rounded border border-black/10 bg-white px-3 py-1.5 text-sm hover:bg-gray-100'
+            className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
           >
             Back
           </button>
-          <div className='font-semibold'>Upload Dataset</div>
+          <div className="text-sm font-semibold tracking-wide">Upload Dataset</div>
           <button
             onClick={onSave}
             disabled={!canSave || saving}
-            className='rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50'
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+        <div className="h-1 w-full bg-neutral-600" />
       </div>
 
-      {/* Body */}
-      <div className='mx-auto max-w-4xl space-y-8 p-4'>
+      {/* Body — single centered column (match PredictorCreate) */}
+      <div className="mx-auto max-w-3xl space-y-8 p-4">
         {/* Name */}
-        <section className='space-y-2'>
-          <label className='block text-xs font-medium text-gray-700'>
+        <section className="space-y-2">
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
             Name
           </label>
           <input
@@ -228,40 +230,36 @@ export default function DatasetUpload() {
               }
             }}
             maxLength={50}
-            className='w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
-            placeholder='A concise dataset name'
+            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
+            placeholder="A concise dataset name"
           />
-          <div className='flex justify-between items-start min-h-[1.25rem] text-xs'>
+          <div className="flex justify-between items-start min-h-[1.25rem] text-xs">
             <div>
               {name ? (
                 checking ? (
-                  <span className='text-gray-500'>Checking availability…</span>
+                  <span className="text-neutral-500">Checking availability…</span>
                 ) : nameTaken === true ? (
-                  <span className='text-red-600'>
-                    This name is already taken.
-                  </span>
+                  <span className="text-red-600">This name is already taken.</span>
                 ) : nameTaken === false ? (
-                  <span className='text-green-600'>
-                    Name is available. Proceed!
-                  </span>
+                  <span className="text-green-600">Name is available. Proceed!</span>
                 ) : (
-                  <span className='text-gray-500'>
+                  <span className="text-neutral-500">
                     Could not verify name; you can still proceed.
                   </span>
                 )
               ) : (
-                <span className='text-gray-500'>
+                <span className="text-neutral-500">
                   This maps to <code>dataset_name</code>.
                 </span>
               )}
             </div>
             <span
               className={`text-xs ${
-                name.length > 40
-                  ? "text-orange-600"
-                  : name.length > 45
+                name.length > 45
                   ? "text-red-600"
-                  : "text-gray-400"
+                  : name.length > 40
+                  ? "text-orange-600"
+                  : "text-neutral-400"
               }`}
             >
               {name.length}/50
@@ -270,8 +268,8 @@ export default function DatasetUpload() {
         </section>
 
         {/* Notes */}
-        <section className='space-y-2'>
-          <label className='block text-xs font-medium text-gray-700'>
+        <section className="space-y-2">
+          <label className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
             Notes
           </label>
           <textarea
@@ -283,17 +281,17 @@ export default function DatasetUpload() {
             }}
             maxLength={200}
             rows={4}
-            className='w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
-            placeholder='Optional notes for collaborators about this dataset (max 2 sentences).'
+            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
+            placeholder="Optional description (maps to backend 'notes')."
           />
-          <div className='flex justify-end'>
+          <div className="flex justify-end">
             <span
               className={`text-xs ${
-                notes.length > 160
-                  ? "text-orange-600"
-                  : notes.length > 180
+                notes.length > 180
                   ? "text-red-600"
-                  : "text-gray-400"
+                  : notes.length > 160
+                  ? "text-orange-600"
+                  : "text-neutral-400"
               }`}
             >
               {notes.length}/200
@@ -302,40 +300,38 @@ export default function DatasetUpload() {
         </section>
 
         {/* Folder Selection */}
-        <section className='space-y-2'>
-          <label className='block text-xs font-medium text-gray-700'>
-            Organization
-          </label>
+        <section className="space-y-2">
+          <label className="block text-xs font-medium text-gray-700">Organization</label>
           <FolderSelector
             selectedFolderId={selectedFolderId}
             onFolderSelect={setSelectedFolderId}
             disabled={saving}
-            placeholder='Select a folder (optional)'
+            placeholder="Select a folder (optional)"
           />
-          <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
+          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
             Organize your dataset by adding it to a folder. You can create a new
             folder or select an existing one.
           </div>
         </section>
 
         {/* Delimited Dataset / File format + uploader */}
-        <section className='space-y-3'>
-          <div className='flex items-center justify-between'>
-            <div className='text-xs font-semibold text-gray-700'>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
               Delimited Dataset
             </div>
             <button
               onClick={() => setShowFormatHelp((v) => !v)}
-              className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50'
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
               {showFormatHelp ? "Hide" : "Show"}
             </button>
           </div>
 
           {showFormatHelp && (
-            <div className='rounded-md border border-black/10 bg-gray-100 p-3 text-xs text-gray-700'>
-              <div className='font-medium'>File Format</div>
-              <p className='mt-1 leading-relaxed'>
+            <div className="rounded-md border bg-neutral-50 p-3 text-xs text-neutral-700">
+              <div className="font-medium">File Format</div>
+              <p className="mt-1 leading-relaxed">
                 Put formatting guide here (placeholder for now).
               </p>
             </div>
@@ -348,103 +344,92 @@ export default function DatasetUpload() {
               e.preventDefault();
               e.stopPropagation();
             }}
-            className='grid cursor-pointer place-items-center rounded-md border-2 border-dashed border-black/20 bg-white py-10 text-center hover:bg-gray-50'
+            className="grid cursor-pointer place-items-center rounded-md border-2 border-dashed border-neutral-300 bg-white py-10 text-center hover:bg-neutral-50"
           >
             <input
-              type='file'
-              accept='.csv,.tsv,text/csv'
-              className='hidden'
+              type="file"
+              accept=".csv,.tsv,text/csv"
+              className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <div>
-              <div className='text-3xl'>☁️</div>
-              <div className='mt-1 text-sm'>
-                {file ? (
-                  <strong>{file.name}</strong>
-                ) : (
-                  "Click to choose a file or drag it here"
-                )}
+              <div className="text-3xl">☁️</div>
+              <div className="mt-1 text-sm">
+                {file ? <strong>{file.name}</strong> : "Click to choose a file or drag it here"}
               </div>
-              <div className='text-xs text-gray-500'>CSV recommended</div>
+              <div className="text-xs text-neutral-500">CSV recommended</div>
             </div>
           </label>
         </section>
 
         {/* Time Unit */}
-        <section className='space-y-2'>
-          <div className='text-xs font-semibold text-gray-700'>Time Unit</div>
-          <div className='inline-flex overflow-hidden rounded-md border border-black/10 bg-white'>
+        <section className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Time Unit</div>
+          <div className="inline-flex overflow-hidden rounded-md border bg-white">
             {(["year", "month", "day", "hour"] as TimeUnit[]).map((unit) => (
               <button
                 key={unit}
                 onClick={() => setTimeUnit(unit)}
                 className={`px-3 py-1.5 text-sm capitalize ${
-                  timeUnit === unit
-                    ? "bg-black text-white"
-                    : "hover:bg-gray-100"
+                  timeUnit === unit ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
                 }`}
               >
                 {unit}
               </button>
             ))}
           </div>
-          <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
+          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
             Specify the time scale used by this dataset (e.g., survival
             durations recorded in months).
           </div>
         </section>
 
         {/* Visibility */}
-        <section className='space-y-2'>
-          <div className='text-xs font-semibold text-gray-700'>Visibility</div>
-          <label className='flex items-center gap-3'>
+        <section className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Visibility</div>
+          <label className="flex items-center gap-3">
             <input
-              type='checkbox'
+              type="checkbox"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className='h-4 w-4 accent-black'
+              className="h-4 w-4 accent-neutral-900"
             />
-            <span className='text-sm'>Make Dataset Public</span>
+            <span className="text-sm">Make Dataset Public</span>
           </label>
-          <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
+          <div className="rounded-md border bg-neutral-50 p-2 text-xs text-neutral-700">
             If enabled, other users can discover and view this dataset. (Viewers
             can use datasets, but only the owner can modify or delete.)
           </div>
         </section>
 
         {/* Manage permissions */}
-        <section className='space-y-3'>
-          <h3 className='text-sm font-semibold'>
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-neutral-800">
             Customize visibility and permissions
           </h3>
-          <div className='rounded-md border border-black/10'>
-            <div className='grid grid-cols-2 border-b border-black/10 bg-gray-50 px-3 py-2 text-xs font-semibold'>
+          <div className="rounded-md border">
+            <div className="grid grid-cols-2 border-b bg-neutral-100 px-3 py-2 text-xs font-semibold">
               <div>Users</div>
               <div>Permissions</div>
             </div>
 
             {/* rows */}
-            <div className='divide-y divide-black/5'>
+            <div className="divide-y">
               {rows.map((r) => (
-                <div
-                  key={r.id}
-                  className='grid grid-cols-2 items-center gap-2 px-3 py-2'
-                >
-                  <div className='flex items-center gap-2'>
+                <div key={r.id} className="grid grid-cols-2 items-center gap-2 px-3 py-2">
+                  <div className="flex items-center gap-2">
                     <button
-                      className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50'
-                      title='Remove'
+                      className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                      title="Remove"
                       onClick={() => removeRow(r.id)}
                     >
                       ✕
                     </button>
                     <input
                       value={r.username}
-                      onChange={(e) =>
-                        updateRow(r.id, { username: e.target.value })
-                      }
-                      placeholder='Username'
-                      className='w-full rounded-md border border-black/10 px-2 py-1 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10'
+                      onChange={(e) => updateRow(r.id, { username: e.target.value })}
+                      placeholder="Username"
+                      className="w-full rounded-md border px-2 py-1 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
                     />
                   </div>
                   <div>
@@ -455,9 +440,9 @@ export default function DatasetUpload() {
                           role: e.target.value as PermRow["role"],
                         })
                       }
-                      className='w-40 rounded-md border border-black/10 px-2 py-1 text-sm'
+                      className="w-40 rounded-md border px-2 py-1 text-sm"
                     >
-                      <option value='viewer'>Viewer</option>
+                      <option value="viewer">Viewer</option>
                     </select>
                   </div>
                 </div>
@@ -465,14 +450,14 @@ export default function DatasetUpload() {
             </div>
 
             {/* add row */}
-            <div className='flex items-center justify-between border-t border-black/10 bg-gray-50 px-3 py-2'>
+            <div className="flex items-center justify-between border-t bg-neutral-100 px-3 py-2">
               <button
                 onClick={addRow}
-                className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-50'
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               >
                 + Add
               </button>
-              <div className='text-[11px] text-gray-600'>
+              <div className="text-[11px] text-neutral-600">
                 Viewers can use the dataset for predictor training.
                 {/* TODO[backend]: implement user search, then POST role grants after create. */}
               </div>
@@ -494,7 +479,7 @@ export default function DatasetUpload() {
   );
 }
 
-/** "are you sure?" modal */
+/** "are you sure?" modal — match PredictorCreate modal style */
 function ConfirmLeave({
   onCancel,
   onContinue,
@@ -503,22 +488,22 @@ function ConfirmLeave({
   onContinue: () => void;
 }) {
   return (
-    <div className='fixed inset-0 z-50 grid place-items-center bg-black/40 p-4'>
-      <div className='w-full max-w-sm rounded-lg bg-white p-4 shadow-lg'>
-        <h3 className='text-base font-semibold'>Leave without saving?</h3>
-        <p className='mt-1 text-sm text-gray-600'>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-md bg-white p-4 shadow-lg">
+        <h3 className="text-base font-semibold">Leave without saving?</h3>
+        <p className="mt-1 text-sm text-neutral-600">
           Your data will not be saved if you return to the Dashboard.
         </p>
-        <div className='mt-4 flex justify-end gap-2'>
+        <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className='rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50'
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50"
           >
             Cancel
           </button>
           <button
             onClick={onContinue}
-            className='rounded-md bg-black px-3 py-1.5 text-sm text-white'
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white"
           >
             Continue
           </button>
@@ -527,3 +512,4 @@ function ConfirmLeave({
     </div>
   );
 }
+
