@@ -129,7 +129,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md px-4 py-2 bg-gray-500 text-white border border-black/10 shadow-sm disabled:opacity-60"
+              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -164,7 +164,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={pwSaving}
-              className="rounded-md px-4 py-2 bg-gray-500 text-white border border-black/10 shadow-sm disabled:opacity-60"
+              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
             >
               {pwSaving ? "Updating…" : "Update password"}
             </button>
