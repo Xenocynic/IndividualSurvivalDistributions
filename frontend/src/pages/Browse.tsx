@@ -163,14 +163,14 @@ export default function Browse() {
         if (activeTab === "predictors") {
           const apiPreds = await listPublicPredictors();
           if (!mounted) return;
-          const uiPreds = apiPreds.map((p) => {
+          const uiPreds = apiPreds.map((p: any) => {
             const ui = toPredictorItem(p);
             const item: Item = {
               id: ui.id,
               title: ui.title,
               updatedAt: ui.updatedAt ?? "",
               isPublic: !!ui.isPublic,
-              ownerName: (p as any).owner_name || "Owner",
+              ownerName: p.owner?.username || "Unknown Owner",
               notes: ui.notes,
             };
             return item;
