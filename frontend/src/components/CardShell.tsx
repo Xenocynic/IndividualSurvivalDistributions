@@ -4,19 +4,18 @@
  * ----------------------------------------------------------------------------------
  * - A shared “shell” for cards (PredictorCard / DatasetCard).
  * - Handles layout (title, optional description, sticky-to-bottom footer),
- *   selection ring, and an absolute-positioned action area in the top-right.
+ *   selection ring, and an action toolbar that sits in-flow (no overlap).
  *
  * React/TS notes:
  * - Props use ReactNode so callers can pass strings or JSX.
- * - children renders the action buttons (Edit / Delete / View) only when the card is selected.
- * - onActionAreaClick is used to stopPropagation so clicking actions doesn't toggle selection.
- * 
- * 
- * TO DO:
- * - Replace Edit / Delete / View text with icons, potentially?
- * - potentailly also allow users to edit the name of the dataset / predictor on top rather 
- *   than sending them to the entire Edit view (?)
- * - 
+ * - children renders the action buttons (Edit / Delete / View) when visible
+ *   based on `actionVisibility`.
+ * - onActionAreaClick stops propagation so clicking actions doesn't toggle selection.
+ *
+ * Styling updates:
+ * - Unified neutral palette (matches Create/Upload pages).
+ * - Removed absolute-positioned action area; actions now live in a dedicated row.
+ * - No overlap with title (title gets its own space, actions come later).
  */
 
 import type {
@@ -59,13 +58,13 @@ export default function CardShell({
   actionVisibility = "hover",
   children,
 }: PropsWithChildren<CardShellProps>) {
-  const actionClass =
+  const actionsVisibilityClass =
     actionVisibility === "always"
-      ? ""
+      ? "opacity-100"
       : actionVisibility === "selected"
       ? selected
-        ? ""
-        : "hidden"
+        ? "opacity-100"
+        : "opacity-0 pointer-events-none"
       : // hover (default)
         "opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity";
 
@@ -82,19 +81,32 @@ export default function CardShell({
           onSelect?.();
         }
       }}
-      className={`group relative cursor-pointer rounded-xl border border-black/10 bg-white p-4 shadow-card transition
-        ${selected ? "ring-2 ring-black" : "hover:ring-1 hover:ring-black/30"}`}
+      className={`group relative cursor-pointer rounded-md border border-neutral-200 bg-white p-4 shadow-card transition
+        ${selected ? "ring-2 ring-neutral-900" : "hover:ring-1 hover:ring-neutral-400"}`}
     >
       <div className="flex min-h-[168px] flex-col gap-3">
-        {/* Title */}
-        <h3 className="pr-20 text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
+        {/* Actions toolbar (now above the title, in-flow) */}
+        {children ? (
+          <div
+            className={`-mt-1 mb-1 flex justify-end gap-2 ${actionsVisibilityClass}`}
+            onClick={(e) => {
+              onActionAreaClick?.(e);
+              e.stopPropagation(); // don’t toggle selection when clicking actions
+            }}
+          >
+            {children}
+          </div>
+        ) : null}
+
+        {/* Title (gets its own space; no overlay) */}
+        <h3 className="text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
           {title}
         </h3>
 
         {/* Description */}
         {description ? (
           <div
-            className="text-sm leading-5 text-gray-600 break-words hyphens-auto"
+            className="text-sm leading-5 text-neutral-600 break-words hyphens-auto"
             style={clamp3}
           >
             {description}
@@ -104,21 +116,11 @@ export default function CardShell({
         {/* Footer pinned to bottom */}
         {(footerLeft || footerRight) && (
           <div className="mt-auto flex items-center justify-between text-xs">
-            <div className="text-gray-500">{footerLeft}</div>
+            <div className="text-neutral-500">{footerLeft}</div>
             <div className="flex items-center gap-2">{footerRight}</div>
           </div>
         )}
       </div>
-
-      {/* Action area (absolute, top-right) */}
-      {children ? (
-        <div
-          className={`absolute right-3 top-3 flex gap-2 bg-white rounded-md px-2 py-1 shadow-sm ${actionClass}`}
-          onClick={onActionAreaClick as any}
-        >
-          {children}
-        </div>
-      ) : null}
     </div>
   );
 }
