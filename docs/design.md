@@ -51,4 +51,7 @@ For a clearer look, go [here](https://www.canva.com/design/DAG0JPaxo_k/sMor9R0tp
 >Error messages are written in plain language, clearly indicating what went wrong and how to fix it.<br>
 10. **Help and Documentation**
 >Documentation is available directly within the project site (this MkDocs documentation), including step-by-step guidance on using the system.<br>
- 
+
+ ## Accessibility Checking<br>
+
+Descriptions are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1SvNpHSekmJAgwimwr7Q_biq6nQU/edit?tab=t.7lym6kmhnoq1)
