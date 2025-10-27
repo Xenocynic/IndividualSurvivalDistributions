@@ -13,17 +13,17 @@ import {
   type FolderType
 } from "../components/folder";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
-import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor, } from "../lib/predictors";
+import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor } from "../lib/predictors";
 import { listPublicFolders, getPublicFolderContents, mapApiFolderToUi, type Folder } from "../lib/folders";
-import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, } from "../lib/datasets";
+import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, downloadDatasetFile } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
-import { downloadDatasetFile } from "../lib/datasets";
 import {
   sortFolders,
   filterFoldersByType,
   DEFAULT_FOLDER_SORT,
 } from "../lib/folderUtils";
+import { useNavigate } from "react-router-dom";
 
 type Tab = "predictors" | "datasets" | "folders";
 
@@ -46,17 +46,18 @@ type Item = {
 export default function Browse() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("predictors");
-  
+
   // Separate search states for each tab
   const [predictorQuery, setPredictorQuery] = useState("");
   const [datasetQuery, setDatasetQuery] = useState("");
   const [folderQuery, setFolderQuery] = useState("");
-  
+
   // Separate visibility filters for each tab
   const [predictorVisibility, setPredictorVisibility] = useState<Visibility>("all");
   const [datasetVisibility, setDatasetVisibility] = useState<Visibility>("all");
   const [folderVisibility, setFolderVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
+
   // API-loaded data (mapped through the mappers)
   const [predictors, setPredictors] = useState<Item[]>([]);
   const [datasets, setDatasets] = useState<Item[]>([]);
@@ -70,16 +71,16 @@ export default function Browse() {
   const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
   const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
   const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(new Set());
-  
+
   // Folder expansion state
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  
+
   // Folder-specific filters (search uses main query state)
   const [folderSortOption, setFolderSortOption] = useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
-  
-  // Selection state (single-click to reveal actions)
+  const navigate = useNavigate();
+
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
   function toggleSelect(id: string) {
@@ -95,16 +96,12 @@ export default function Browse() {
   // Fetch pinned predictors from your backend API
   async function fetchPinnedPredictors() {
     if (!user) {
-      console.log("No user yet; not fetching pins");
       return;
     }
-    console.log("Fetching pinned predictors...");
     try {
       const pinned = await listPinnedPredictors(); // call your API
-      console.log("Pinned response:", pinned);
       const pinnedSet = new Set(pinned.map((p) => String(p.predictor.predictor_id)));
       setPinnedPredictorIds(pinnedSet);
-      console.log("Pinned predictor IDs set:", pinnedSet);
     } catch (err) {
       console.error("Failed to fetch pinned predictors:", err);
     }
@@ -115,16 +112,12 @@ export default function Browse() {
   // ----------------------------
   async function fetchPinnedDatasets() {
     if (!user) {
-      console.log("No user yet; not fetching pins");
       return;
     }
-    console.log("Fetching pinned datasets...");
     try {
       const pinned = await listPinnedDatasets();
-      console.log("Pinned response:", pinned);
       const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
       setPinnedDatasetIds(pinnedSet);
-      console.log("Pinned database IDs set:", pinnedSet);
     } catch (err) {
       console.error("Failed to fetch pinned datasets:", err);
     }
@@ -158,45 +151,34 @@ export default function Browse() {
     setError(null);
 
     async function fetchData() {
-      // Only trigger loader delay if it's the first fetch of the data
       if (isInitialFetch) {
         loadingTimer = setTimeout(() => {
           if (!didFinish && mounted) setIsLoading(true);
         }, SHOW_LOADING_DELAY);
       } else {
-        // No loader when switching tabs or refetching
         setIsLoading(false);
       }
 
       try {
         if (activeTab === "predictors") {
-          // Always use public endpoint on Browse page - only show public predictors
           const apiPreds = await listPublicPredictors();
-
           if (!mounted) return;
-
-          // Map API → UI (predictors)
-          const uiPreds = apiPreds.map((p) => {
+          const uiPreds = apiPreds.map((p: any) => {
             const ui = toPredictorItem(p);
             const item: Item = {
               id: ui.id,
               title: ui.title,
               updatedAt: ui.updatedAt ?? "",
               isPublic: !!ui.isPublic,
-              ownerName: (p as any).owner_name || "Owner",
+              ownerName: p.owner?.username || "Unknown Owner",
               notes: ui.notes,
             };
             return item;
           });
           setPredictors(uiPreds);
-
         } else if (activeTab === "datasets") {
-          // Always use public endpoint on Browse page - only show public datasets
           const apiDsets = await listPublicDatasets();
-
           if (!mounted) return;
-
-          // Map API → UI (datasets)
           const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
           const uiDsets = apiDsets.map((d) => {
             const ui = toDatasetItem(d, currentUserId);
@@ -215,11 +197,8 @@ export default function Browse() {
           setDatasets(uiDsets);
         }
       } catch (err: any) {
-        if (err?.status === 0) {
-          setError("Network error");
-        } else {
-          setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
-        }
+        if (err?.status === 0) setError("Network error");
+        else setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
         console.error("Fetch error", err);
       } finally {
         didFinish = true;
@@ -228,7 +207,6 @@ export default function Browse() {
       }
     }
 
-    // Debounce fetch start by 250 ms
     const t = window.setTimeout(() => fetchData(), 250);
 
     return () => {
@@ -237,27 +215,19 @@ export default function Browse() {
       clearTimeout(t);
       if (loadingTimer) clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]);
+  }, [user, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Separate effect to fetch folders (always loaded)
   useEffect(() => {
     let mounted = true;
-    
+
     async function fetchFolders() {
       try {
-        // Fetch public folders
         const apiFolders = await listPublicFolders();
-        
         if (!mounted) return;
-
-        // Map and filter folders based on auto-hide logic
         const uiFolders = apiFolders
           .map(mapApiFolderToUi)
-          .filter(folder => {
-            // Auto-hide logic: only show folders that have public items
-            return !folder.is_private && folder.public_item_count > 0;
-          });
-
+          .filter(folder => !folder.is_private && folder.public_item_count > 0);
         setFolders(uiFolders);
       } catch (err) {
         console.error('Failed to fetch folders:', err);
@@ -275,10 +245,10 @@ export default function Browse() {
 
   const filtered = useMemo(() => {
     if (activeTab === "folders") return [];
-    
+
     const currentQuery = activeTab === "predictors" ? predictorQuery : datasetQuery;
     const currentVisibility = activeTab === "predictors" ? predictorVisibility : datasetVisibility;
-    
+
     const q = currentQuery.trim().toLowerCase();
     let arr = list.filter((it) => (q ? it.title.toLowerCase().includes(q) : true));
     if (currentVisibility === "public") arr = arr.filter((it) => it.isPublic);
@@ -289,74 +259,62 @@ export default function Browse() {
   // Filter folders based on search, visibility, type, and sorting
   const filteredFolders = useMemo(() => {
     let folderArr = folders;
-    
+
     // Apply search query
     if (folderQuery.trim()) {
       const q = folderQuery.trim().toLowerCase();
       folderArr = folderArr.filter((folder) => {
-        // Search in folder name and description
         const folderMatch = folder.name.toLowerCase().includes(q) ||
           (folder.description && folder.description.toLowerCase().includes(q));
-        
-        // Search in folder contents
-        const contentMatch = folder.items?.some(item => 
+        const contentMatch = folder.items?.some(item =>
           item.title.toLowerCase().includes(q) ||
           (item.notes && item.notes.toLowerCase().includes(q))
         );
-        
         return folderMatch || contentMatch;
       });
     }
-    
+
     // Apply visibility filter
     if (folderVisibility === "public") folderArr = folderArr.filter((folder) => !folder.is_private);
     if (folderVisibility === "private") folderArr = folderArr.filter((folder) => folder.is_private);
-    
+
     // Apply type filter
     folderArr = filterFoldersByType(folderArr, folderTypeFilter);
-    
+
     // Apply sorting
     folderArr = sortFolders(folderArr, folderSortOption);
-    
+
     return folderArr;
   }, [folders, folderQuery, folderVisibility, folderTypeFilter, folderSortOption]);
 
-  const pinnedSet = activeTab === "predictors" ? pinnedPredictorIds : activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
+  const pinnedSet =
+    activeTab === "predictors" ? pinnedPredictorIds :
+    activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
   const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
-
 
   // ----------------------------
   // Toggle pin (predictors & datasets)
   // ----------------------------
 
-  // Pin / unpin (Browse + supabase interaction)
   async function togglePin(id: string) {
     if (!user) return;
 
     if (activeTab === "predictors") {
       const isPinned = pinnedPredictorIds.has(id);
-
-      // Optimistic update
       setPinnedPredictorIds((prev) => {
         const next = new Set(prev);
-        if (isPinned) next.delete(id);
-        else next.add(id);
+        if (isPinned) next.delete(id); else next.add(id);
         return next;
       });
-
       try {
-        if (isPinned) {
-          await unpinPredictor(id);
-        } else {
-          await pinPredictor(id);
-        }
+        if (isPinned) await unpinPredictor(id);
+        else await pinPredictor(id);
       } catch (err) {
         console.error("Failed to toggle pin:", err);
-        // Rollback
+        // rollback
         setPinnedPredictorIds((prev) => {
           const next = new Set(prev);
-          if (isPinned) next.add(id);
-          else next.delete(id);
+          if (isPinned) next.add(id); else next.delete(id);
           return next;
         });
       }
@@ -364,11 +322,9 @@ export default function Browse() {
       const isPinned = pinnedDatasetIds.has(id);
       setPinnedDatasetIds((prev) => {
         const next = new Set(prev);
-        if (isPinned) next.delete(id);
-        else next.add(id);
+        if (isPinned) next.delete(id); else next.add(id);
         return next;
       });
-
       try {
         if (isPinned) await unpinDataset(id);
         else await pinDataset(id);
@@ -376,8 +332,7 @@ export default function Browse() {
         console.error("Failed to toggle dataset pin:", err);
         setPinnedDatasetIds((prev) => {
           const next = new Set(prev);
-          if (isPinned) next.add(id);
-          else next.delete(id);
+          if (isPinned) next.add(id); else next.delete(id);
           return next;
         });
       }
@@ -399,8 +354,6 @@ export default function Browse() {
     try {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
-
-      // Create download link and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -417,23 +370,20 @@ export default function Browse() {
   // Folder expansion handlers
   async function handleToggleFolderExpand(folderId: string) {
     const isExpanded = expandedFolders.has(folderId);
-    
+
     if (isExpanded) {
-      // Collapse folder
       setExpandedFolders(prev => {
         const next = new Set(prev);
         next.delete(folderId);
         return next;
       });
     } else {
-      // Expand folder - fetch contents if not already loaded
       const folder = folders.find(f => f.folder_id === folderId);
       if (folder && (!folder.items || folder.items.length === 0)) {
         try {
           const contents = await getPublicFolderContents(folderId);
-          // Update folder with contents
-          setFolders(prev => prev.map(f => 
-            f.folder_id === folderId 
+          setFolders(prev => prev.map(f =>
+            f.folder_id === folderId
               ? { ...f, items: contents }
               : f
           ));
@@ -441,29 +391,23 @@ export default function Browse() {
           console.error('Failed to load folder contents:', error);
         }
       }
-      
+
       setExpandedFolders(prev => {
         const next = new Set(prev);
         next.add(folderId);
         return next;
       });
 
-      // Add to recent folders when expanded
-      if (folder) {
-        addFolderToRecent(folder);
-      }
+      if (folder) addFolderToRecent(folder);
     }
   }
 
   // Recent folder selection handler
   function handleRecentFolderSelect(folderId: string) {
     setExpandedFolders(prev => new Set(prev).add(folderId));
-    // Scroll to the folder
     setTimeout(() => {
       const element = document.getElementById(`browse-folder-${folderId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
   }
 
@@ -475,77 +419,39 @@ export default function Browse() {
     }
   }
 
+  const tabLabel = activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders";
+
   return (
     <DragDropProvider>
-      <section className="flex gap-4">
-      {/* Left: Pinned panel */}
-      <aside className="w-64 shrink-0">
-        <div className="rounded-md border border-black/10 bg-black">
-          <div className="flex items-center justify-between border-b border-black/10 px-3 py-2">
-            <div className="text-xs font-semibold text-white">
-              Pinned {activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders"}
-            </div>
-            <button
-              onClick={() => setPinnedOpen((v) => !v)}
-              className="rounded border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-              aria-expanded={pinnedOpen}
-            >
-              {pinnedOpen ? "▾" : "▸"}
-            </button>
-          </div>
-          {pinnedOpen && (
-            <div className="space-y-2 p-2">
-              {pinned.length === 0 ? (
-                <div className="rounded-md bg-gray-200 px-3 py-2 text-left text-xs text-gray-600">
-                  Nothing pinned yet
-                </div>
-              ) : (
-                pinned.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between rounded-md border border-black/10 bg-gray-200 px-3 py-2 text-xs"
-                  >
-                    <span className="truncate">{p.title}</span>
-                    <button
-                      className="ml-2 rounded px-2 py-0.5 text-xs hover:bg-gray-300"
-                      title="Unpin"
-                      onClick={() => togglePin(p.id)}
-                    >
-                      📌
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+      {/* Sticky sub-header under global nav (unified with create/upload pages) */}
+      <div className="sticky top-[var(--app-nav-h,3.5rem)] z-30 w-full border-b bg-neutral-700 text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-2.5">
+          <div className="text-sm font-semibold tracking-wide">Browse {tabLabel}</div>
         </div>
-      </aside>
+        <div className="h-1 w-full bg-neutral-600" />
+      </div>
 
-      {/* Right: content */}
-      <div className="min-w-0 flex-1 space-y-4">
-        {/* Mini grey navbar */}
-        <div className="rounded-md border border-black/10 bg-gray-400 px-3 py-2">
+      {/* Controls bar */}
+      <div className="w-full border-b bg-neutral-100">
+        <div className="mx-auto max-w-6xl px-3 py-2">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             {/* Left cluster: tab switch + search */}
             <div className="flex w-full items-center gap-2">
-              <div className="inline-flex h-9 overflow-hidden rounded-md border border-black/10 bg-white">
+              <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white">
                 <button
-                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
                   onClick={() => setActiveTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
                   onClick={() => setActiveTab("datasets")}
                 >
                   Datasets
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "folders" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                  className={`px-3 text-sm ${activeTab === "folders" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
                   onClick={() => setActiveTab("folders")}
                 >
                   Folders
@@ -553,33 +459,15 @@ export default function Browse() {
               </div>
 
               <div className="flex-1 md:max-w-md">
-                <SearchBar 
-                  value={
-                    activeTab === "predictors" 
-                      ? predictorQuery 
-                      : activeTab === "datasets" 
-                        ? datasetQuery 
-                        : folderQuery
-                  } 
-                  onChange={
-                    activeTab === "predictors" 
-                      ? setPredictorQuery 
-                      : activeTab === "datasets" 
-                        ? setDatasetQuery 
-                        : setFolderQuery
-                  } 
-                  placeholder={
-                    activeTab === "folders" 
-                      ? "Search folders..." 
-                      : activeTab === "predictors" 
-                        ? "Search predictors..." 
-                        : "Search datasets..."
-                  } 
+                <SearchBar
+                  value={activeTab === "predictors" ? predictorQuery : activeTab === "datasets" ? datasetQuery : folderQuery}
+                  onChange={activeTab === "predictors" ? setPredictorQuery : activeTab === "datasets" ? setDatasetQuery : setFolderQuery}
+                  placeholder={activeTab === "folders" ? "Search folders…" : activeTab === "predictors" ? "Search predictors…" : "Search datasets…"}
                   onClear={() => {
                     if (activeTab === "predictors") setPredictorQuery("");
                     else if (activeTab === "datasets") setDatasetQuery("");
                     else setFolderQuery("");
-                  }} 
+                  }}
                 />
               </div>
             </div>
@@ -588,213 +476,237 @@ export default function Browse() {
             <div className="flex items-center gap-2 shrink-0">
               {activeTab === "folders" ? (
                 <>
-                  <PublicFilter 
-                    value={folderVisibility} 
-                    onChange={setFolderVisibility} 
-                  />
-                  <FolderTypeFilter
-                    value={folderTypeFilter}
-                    onChange={setFolderTypeFilter}
-                  />
-                  <FolderSortMenu
-                    value={folderSortOption}
-                    onChange={setFolderSortOption}
-                  />
+                  <PublicFilter value={folderVisibility} onChange={setFolderVisibility} />
+                  <FolderTypeFilter value={folderTypeFilter} onChange={setFolderTypeFilter} />
+                  <FolderSortMenu value={folderSortOption} onChange={setFolderSortOption} />
                 </>
               ) : (
-                <PublicFilter 
-                  value={activeTab === "predictors" ? predictorVisibility : datasetVisibility} 
-                  onChange={activeTab === "predictors" ? setPredictorVisibility : setDatasetVisibility} 
+                <PublicFilter
+                  value={activeTab === "predictors" ? predictorVisibility : datasetVisibility}
+                  onChange={activeTab === "predictors" ? setPredictorVisibility : setDatasetVisibility}
                 />
               )}
             </div>
           </div>
-
-          {/* Center title line */}
-          <div className="mt-2 text-center font-semibold">
-            Browse {activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders"}
-          </div>
+          {/* (Removed center title line; title is now in the sticky header) */}
         </div>
+      </div>
 
-        {/* Loading indicator */}
-        {isLoading ? (
-          <div className="py-6">
-            {/* Simple spinner + hint */}
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-700" />
-              <div className="text-sm text-gray-700">Loading {activeTab}...</div>
+      {/* Content row: pinned left, grid right */}
+      <section className="mx-auto max-w-6xl px-3 py-4 flex gap-4">
+        {/* Left: Pinned panel */}
+        <aside className="w-64 shrink-0">
+          <div className="rounded-md border bg-neutral-50">
+            <div className="flex items-center justify-between border-b bg-neutral-100 px-3 py-2">
+              <div className="text-xs font-semibold text-neutral-800">
+                Pinned {tabLabel}
+              </div>
+              <button
+                onClick={() => setPinnedOpen((v) => !v)}
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                aria-expanded={pinnedOpen}
+              >
+                {pinnedOpen ? "▾" : "▸"}
+              </button>
             </div>
-
-            {/* Optional skeleton grid — placeholders matching your card layout */}
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="p-4 border rounded-lg animate-pulse">
-                  <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-                  <div className="h-20 bg-gray-200 rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Error display */}
-        {error && !isLoading ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        {/* Main Content Area */}
-        {!isLoading && (
-          <>
-            {activeTab === "folders" ? (
-              /* Folders Tab Content */
-              <div className="space-y-6">
-                {/* Recent Folders Quick Access */}
-                <div>
-                  <RecentFolders
-                    onFolderSelect={handleRecentFolderSelect}
-                  />
-                </div>
-
-                {/* Folders Content */}
-                {filteredFolders.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-gray-500 text-lg">
-                      No public folders available
-                    </div>
-                    <div className="text-gray-400 text-sm mt-2">
-                      Public folders will appear here when available
-                    </div>
+            {pinnedOpen && (
+              <div className="space-y-2 p-2">
+                {pinned.length === 0 ? (
+                  <div className="rounded-md bg-neutral-100 px-3 py-2 text-left text-xs text-neutral-600">
+                    Nothing pinned yet
                   </div>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                    {filteredFolders.map((folder) => {
-                      const isPinned = pinnedFolderIds.has(folder.folder_id);
-                      return (
-                        <div 
-                          key={folder.folder_id} 
-                          id={`browse-folder-${folder.folder_id}`}
-                          className="relative"
+                  pinned.map((p) => {
+                    const isPinned =
+                      (activeTab === "predictors" && pinnedPredictorIds.has(p.id)) ||
+                      (activeTab === "datasets" && pinnedDatasetIds.has(p.id)) ||
+                      (activeTab === "folders" && pinnedFolderIds.has(p.id));
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between rounded-md border bg-white px-3 py-2 text-xs"
+                      >
+                        <span className="truncate">{p.title}</span>
+                        <button
+                          className="ml-2 rounded-md px-2 py-0.5 text-xs hover:bg-neutral-50"
+                          title={isPinned ? "Unpin" : "Pin"}
+                          onClick={() => (activeTab === "folders" ? toggleFolderPin(p.id) : togglePin(p.id))}
                         >
-                          <FolderCard
-                            folder={folder}
-                            expanded={expandedFolders.has(folder.folder_id)}
-                            onToggleExpand={handleToggleFolderExpand}
-                            onItemView={handleItemView}
-                            canEdit={false}
-                          />
-                          {/* Pin button overlay */}
-                          <button
-                            className={`absolute top-2 right-2 rounded-md border border-black/10 px-2 py-1 text-xs ${
-                              isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
-                            }`}
-                            title={isPinned ? "Unpin" : "Pin"}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFolderPin(folder.folder_id);
-                            }}
-                          >
-                            📌
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          {isPinned ? "★" : "☆"}
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
-            ) : (
-              /* Predictors and Datasets Tab Content */
-              <>
-                {filtered.length === 0 && !error ? (
-                  <div className="text-center py-12">
-                    <div className="text-gray-500 text-lg">
-                      No public {activeTab} available
-                    </div>
-                    <div className="text-gray-400 text-sm mt-2">
-                      Public {activeTab} will appear here when available
-                    </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Right: content */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {/* Loading indicator */}
+          {isLoading ? (
+            <div className="py-6">
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                <div className="text-sm text-neutral-700">Loading {tabLabel}…</div>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-md border p-4">
+                    <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-neutral-100" />
+                    <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-neutral-100" />
+                    <div className="h-20 animate-pulse rounded bg-neutral-100" />
                   </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {filtered.map((it) => {
-                      const isPinned = pinnedSet.has(it.id);
-                      return (
-                        <CardShell
-                          key={it.id}
-                          actionVisibility="hover"
-                          title={
-                            <div>
-                              <div className="-mb-1">
-                                <UsernameTag name={it.ownerName} />
-                              </div>
-                              <div className="mt-1 text-sm font-medium">{it.title}</div>
-                            </div>
-                          }
-                          description={<span>{it.notes}</span>}
-                          footerLeft={<span className="text-gray-500">{it.updatedAt}</span>}
-                          footerRight={
-                            <div className="flex items-center gap-2">
-                              {activeTab === "datasets" && it.hasFile && it.originalFilename && (
-                                <span className="text-[11px] text-gray-500" title={`File: ${it.originalFilename}`}>📄</span>
-                              )}
-                              {it.isPublic ? (
-                                <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] text-green-700">Public</span>
-                              ) : (
-                                <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700">Private</span>
-                              )}
-                            </div>
-                          }
-                        >
-                          {/* Hover actions (top-right) */}
-                          <button
-                            className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeTab === "datasets") {
-                                window.open(`/datasets/${it.id}/view`, '_blank');
-                              } else {
-                                window.open(`/predictors/${it.id}/view`, '_blank');
-                              }
-                            }}
-                          >
-                            View
-                          </button>
-                          {activeTab === "datasets" && it.hasFile && (
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Error display */}
+          {error && !isLoading ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {/* Main Content Area */}
+          {!isLoading && (
+            <>
+              {activeTab === "folders" ? (
+                /* Folders Tab Content */
+                <div className="space-y-6 -mt-2">
+                  {/* Recent Folders Quick Access */}
+                  <div className="mt-0">
+                    <RecentFolders onFolderSelect={handleRecentFolderSelect} />
+                  </div>
+
+                  {/* Folders Content */}
+                  {filteredFolders.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <div className="text-lg text-neutral-500">No public folders available</div>
+                      <div className="mt-2 text-sm text-neutral-400">Public folders will appear here when available</div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                      {filteredFolders.map((folder) => {
+                        const isPinned = pinnedFolderIds.has(folder.folder_id);
+                        return (
+                          <div key={folder.folder_id} id={`browse-folder-${folder.folder_id}`} className="relative">
+                            <FolderCard
+                              folder={folder}
+                              expanded={expandedFolders.has(folder.folder_id)}
+                              onToggleExpand={handleToggleFolderExpand}
+                              onItemView={handleItemView}
+                              canEdit={false}
+                            />
+                            {/* Pin button overlay */}
                             <button
-                              className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs hover:bg-gray-100"
-                              title="Download file"
+                              className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs ${
+                                isPinned ? "bg-neutral-100" : "bg-white hover:bg-neutral-50"
+                              }`}
+                              title={isPinned ? "Unpin" : "Pin"}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                downloadDataset(it.id);
+                                toggleFolderPin(folder.folder_id);
                               }}
                             >
-                              📥
+                              {isPinned ? "★" : "☆"}
                             </button>
-                          )}
-                          <button
-                            className={`rounded-md border border-black/10 px-2 py-1 text-xs ${
-                              isPinned ? "bg-yellow-100 hover:bg-yellow-200" : "bg-white hover:bg-gray-100"
-                            }`}
-                            title={isPinned ? "Unpin" : "Pin"}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePin(it.id);
-                            }}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Predictors and Datasets Tab Content */
+                <>
+                  {filtered.length === 0 && !error ? (
+                    <div className="py-12 text-center">
+                      <div className="text-lg text-neutral-500">No public {activeTab} available</div>
+                      <div className="mt-2 text-sm text-neutral-400">Public {activeTab} will appear here when available</div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {filtered.map((it) => {
+                        const isPinned = pinnedSet.has(it.id);
+                        return (
+                          <CardShell
+                            key={it.id}
+                            actionVisibility="selected"
+                            selected={activeTab === "predictors" ? selectedPredictorId === it.id : selectedDatasetId === it.id}
+                            onSelect={() => toggleSelect(it.id)}
+                            title={
+                              <div>
+                                <div className="-mb-1">
+                                  <UsernameTag name={it.ownerName} />
+                                </div>
+                                <div className="mt-1 text-sm font-medium">{it.title}</div>
+                              </div>
+                            }
+                            description={<span>{it.notes}</span>}
+                            footerLeft={<span className="text-neutral-500">{it.updatedAt}</span>}
+                            footerRight={
+                              <div className="flex items-center gap-2">
+                                {activeTab === "datasets" && it.hasFile && it.originalFilename && (
+                                  <span className="text-[11px] text-neutral-600" title={`File: ${it.originalFilename}`}>▦</span>
+                                )}
+                                {it.isPublic ? (
+                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Public</span>
+                                ) : (
+                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Private</span>
+                                )}
+                              </div>
+                            }
                           >
-                            📌
-                          </button>
-                        </CardShell>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
+                            {/* Hover actions (top-right) */}
+                            <button
+                              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (activeTab === "datasets") {
+                                  navigate(`/datasets/${it.id}/view`);
+                                } else {
+                                  navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
+                                }
+                              }}
+                            >
+                              View
+                            </button>
+                            {activeTab === "datasets" && it.hasFile && (
+                              <button
+                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                title="Download file"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadDataset(it.id);
+                                }}
+                              >
+                                ⇩
+                              </button>
+                            )}
+                            <button
+                              className={`rounded-md border px-2 py-1 text-xs ${isPinned ? "bg-neutral-100" : "bg-white hover:bg-neutral-50"}`}
+                              title={isPinned ? "Unpin" : "Pin"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePin(it.id);
+                              }}
+                            >
+                              {isPinned ? "★" : "☆"}
+                            </button>
+                          </CardShell>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </section>
     </DragDropProvider>
   );

@@ -7,9 +7,9 @@
  * - Owner sees Edit / Delete; Viewer sees View (only when selected).
  * - Supports drag and drop functionality for folder organization.
  *
- * TS pattern:
- * - Define an exported `PredictorItem` interface so both tabs and other components
- *   (like DatasetCard) can reuse the same shape for search / filter consistency.
+ * Styling updates:
+ * - Neutral greys to match Create/Upload pages.
+ * - Actions use same button style as elsewhere (no emoji).
  */
 
 import CardShell from "./CardShell";
@@ -20,13 +20,13 @@ export interface PredictorItem {
   id: string;
   title: string;
   status?: "DRAFT" | "PUBLISHED"; 
-  updatedAt?: string;  // last edited date
-  owner?: boolean; // permissions
-  notes?: string; // description text
-  isPublic?: boolean;     // privacy 
-  pinned?: boolean;       // show pin state
-  folderId?: string;      // folder assignment
-  folderName?: string;    // folder name for display
+  updatedAt?: string;
+  owner?: boolean;
+  notes?: string;
+  isPublic?: boolean;
+  pinned?: boolean;
+  folderId?: string;
+  folderName?: string;
 }
 
 export default function PredictorCard({
@@ -65,7 +65,7 @@ export default function PredictorCard({
       footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
       footerRight={
         item.status ? (
-          <span className="rounded-full border border-black/10 px-2 py-0.5 text-gray-600">
+          <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-neutral-700">
             {item.status}
           </span>
         ) : null
@@ -74,13 +74,13 @@ export default function PredictorCard({
       onSelect={() => onToggleSelect?.(item.id)}
       onDoubleClick={() => onDoubleClick?.(item.id)}
       onActionAreaClick={(e) => e.stopPropagation()}
-      actionVisibility="selected"   
+      actionVisibility="selected"
     >
       {selected && (
         <>
           <button
             onClick={() => onView?.(item.id)}
-            className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+            className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
           >
             View
           </button>
@@ -88,13 +88,13 @@ export default function PredictorCard({
             <>
               <button
                 onClick={() => onEdit?.(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               >
                 Edit
               </button>
               <button
                 onClick={() => onDelete?.(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-gray-50"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               >
                 Delete
               </button>
