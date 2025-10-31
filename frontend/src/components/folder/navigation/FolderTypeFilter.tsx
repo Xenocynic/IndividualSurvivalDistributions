@@ -6,8 +6,8 @@
  * - Provides visual indicators for folder content types
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Filter } from "lucide-react";
+import { useEffect, useRef, useState, type JSX } from "react";
+import { Filter, BrainCircuit, Table, Boxes, Folder as FolderIcon } from "lucide-react";
 
 export type FolderType = "all" | "predictor-only" | "dataset-only" | "mixed";
 
@@ -17,11 +17,33 @@ interface FolderTypeFilterProps {
   className?: string;
 }
 
-const TYPE_OPTIONS: { value: FolderType; label: string; icon: string }[] = [
-  { value: "all", label: "All Folders", icon: "📁" },
-  { value: "predictor-only", label: "Predictors Only", icon: "🔮" },
-  { value: "dataset-only", label: "Datasets Only", icon: "📊" },
-  { value: "mixed", label: "Mixed Content", icon: "📦" },
+interface Option {
+  value: FolderType;
+  label: string;
+  icon: JSX.Element;
+}
+
+const TYPE_OPTIONS: Option[] = [
+  {
+    value: "all",
+    label: "All Folders",
+    icon: <FolderIcon className="h-4 w-4 text-gray-600" />,
+  },
+  {
+    value: "predictor-only",
+    label: "Predictors Only",
+    icon: <BrainCircuit className="h-4 w-4 text-gray-600" />,
+  },
+  {
+    value: "dataset-only",
+    label: "Datasets Only",
+    icon: <Table className="h-4 w-4 text-gray-600" />,
+  },
+  {
+    value: "mixed",
+    label: "Mixed Content",
+    icon: <Boxes className="h-4 w-4 text-gray-600" />,
+  },
 ];
 
 export default function FolderTypeFilter({
@@ -42,7 +64,8 @@ export default function FolderTypeFilter({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const currentOption = TYPE_OPTIONS.find((opt) => opt.value === value) || TYPE_OPTIONS[0];
+  const currentOption =
+    TYPE_OPTIONS.find((opt) => opt.value === value) || TYPE_OPTIONS[0];
 
   return (
     <div className={`relative ${className}`} ref={ref}>
@@ -51,7 +74,7 @@ export default function FolderTypeFilter({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm hover:bg-gray-50"
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm text-gray-700 hover:bg-gray-50"
       >
         <Filter className="h-4 w-4 text-gray-500" />
         <span className="hidden sm:inline">{currentOption.label}</span>
@@ -66,7 +89,7 @@ export default function FolderTypeFilter({
           {TYPE_OPTIONS.map((option) => (
             <button
               key={option.value}
-              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+              className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 ${
                 value === option.value ? "bg-gray-100 font-medium" : ""
               }`}
               onClick={() => {
@@ -74,7 +97,9 @@ export default function FolderTypeFilter({
                 onChange(option.value);
               }}
             >
-              <span className="text-lg">{option.icon}</span>
+              <span className="flex h-4 w-4 items-center justify-center">
+                {option.icon}
+              </span>
               <span>{option.label}</span>
             </button>
           ))}

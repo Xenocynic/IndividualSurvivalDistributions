@@ -8,7 +8,13 @@
  */
 
 import { useState, useEffect } from "react";
-import { Clock, Folder as FolderIcon, Lock } from "lucide-react";
+import {
+  Clock,
+  Folder as FolderIcon,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import type { Folder } from "../../../lib/folders";
 
 interface RecentFolder {
@@ -67,11 +73,8 @@ export default function RecentFolders({
     };
 
     setRecentFolders((prev) => {
-      // Remove if already exists
       const filtered = prev.filter((f) => f.folder_id !== folder.folder_id);
-      // Add to beginning
       const updated = [recentFolder, ...filtered];
-      // Keep only the most recent ones
       return updated.slice(0, MAX_RECENT_FOLDERS);
     });
   };
@@ -93,25 +96,31 @@ export default function RecentFolders({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+    <div
+      className={`bg-white rounded-lg border border-gray-200 ${className}`}
+    >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className='w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-t-lg'
+        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100 rounded-t-lg"
       >
-        <div className='flex items-center gap-2'>
-          <Clock className='h-4 w-4 text-gray-500' />
-          <span className='text-sm font-medium text-gray-900'>
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-gray-700" />
+          <span className="text-sm font-medium text-gray-900">
             Recent Folders
           </span>
-          <span className='text-xs text-gray-500'>
+          <span className="text-xs text-gray-600">
             ({recentFolders.length})
           </span>
         </div>
-        <span className='text-gray-400 text-sm'>{isExpanded ? "▼" : "▶"}</span>
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-gray-700" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-700" />
+        )}
       </button>
 
       {isExpanded && (
-        <div className='border-t border-gray-200'>
+        <div className="border-t border-gray-200">
           {recentFolders.map((folder) => (
             <button
               key={folder.folder_id}
@@ -122,18 +131,18 @@ export default function RecentFolders({
                   : ""
               }`}
             >
-              <div className='flex items-center gap-2 flex-1 min-w-0'>
-                <div className='flex items-center gap-1'>
-                  <FolderIcon className='h-4 w-4 text-gray-400' />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <FolderIcon className="h-4 w-4 text-gray-700" />
                   {folder.is_private && (
-                    <Lock className='h-3 w-3 text-gray-400' />
+                    <Lock className="h-3 w-3 text-gray-700" />
                   )}
                 </div>
-                <span className='text-sm text-gray-900 truncate'>
+                <span className="text-sm text-gray-900 truncate">
                   {folder.name}
                 </span>
               </div>
-              <span className='text-xs text-gray-500 whitespace-nowrap'>
+              <span className="text-xs text-gray-600 whitespace-nowrap">
                 {new Date(folder.last_accessed).toLocaleDateString()}
               </span>
             </button>

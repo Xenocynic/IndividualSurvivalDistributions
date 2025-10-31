@@ -2,362 +2,224 @@
  * ----------------------------------------------------------------------------------
  * FolderCard
  * ----------------------------------------------------------------------------------
- * - Displays a folder with expand/collapse functionality
- * - Shows folder name, item count, privacy status, and owner information
- * - Supports drag and drop operations (drop target for items)
- * - Provides actions for folder owners (edit, delete, share)
- * - Expandable to show folder contents inline
+ * - Shows a folder, its metadata, and optionally its contents.
+ * - Can render inline actions (Edit / Share / Delete) if the user may manage.
+ * - Uses DroppableFolder wrapper for drag/drop targets.
+ *
+ * Visual / accessibility cleanup:
+ * - Replaces emojis / triangles with lucide-react icons.
+ * - Uses <PrivacyBadge /> for consistent public/private chip.
+ * - Raises text contrast (gray-900 / gray-600).
+ * - Normalizes header action buttons to bordered pills.
  */
 
 import { useState } from "react";
-import type { Folder } from "../../../lib/folders";
-import { canManageFolder, getVisibleItemCount } from "../../../lib/folders";
-import FolderItemList from "./FolderItemList";
 import DroppableFolder from "./DroppableFolder";
-import FolderSharingModal from "../modals/FolderSharingModal";
-import FolderEditModal from "../modals/FolderEditModal";
-import FolderDuplicateModal from "../modals/FolderDuplicateModal";
-import FolderContentSearch from "../navigation/FolderContentSearch";
-import type { PredictorItem } from "../../PredictorCard";
-import type { DatasetItem } from "../../DatasetCard";
+import FolderItemList from "./FolderItemList";
+import PrivacyBadge from "../../PrivacyBadge";
+import {
+  ChevronDown,
+  ChevronRight,
+  Lock,
+  FolderOpen,
+  Users,
+} from "lucide-react";
 
 export interface FolderCardProps {
-  folder: Folder;
-  expanded?: boolean;
-  onToggleExpand?: (folderId: string) => void;
-  onEdit?: (folderId: string) => void;
-  onDelete?: (folderId: string) => void;
-  onShare?: (folderId: string) => void;
-  onDuplicate?: (folderId: string) => void;
-  onItemSelect?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemEdit?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemDelete?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemView?: (itemId: string, itemType: "predictor" | "dataset") => void;
+  folder: any;
+  expanded: boolean;
+  onToggleExpand: (folderId: string) => void;
+
+  onItemSelect?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onItemEdit?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onItemDelete?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onItemView?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
   onRemoveFromFolder?: (
     itemId: string,
     itemType: "predictor" | "dataset"
   ) => void;
+
+  onEdit?: (folderId: string) => void;
+  onDelete?: (folderId: string) => void;
+  onShare?: (folderId: string) => void;
+
   selectedItems?: Set<string>;
-  currentUserId?: number;
-  canEdit?: boolean;
+  currentUserId?: string | number | undefined;
+
+  canEdit: boolean;
   isLoading?: boolean;
 }
 
 export default function FolderCard({
   folder,
-  expanded = false,
+  expanded,
   onToggleExpand,
-  onEdit,
-  onDelete,
-  onShare,
-  onDuplicate,
   onItemSelect,
   onItemEdit,
   onItemDelete,
   onItemView,
   onRemoveFromFolder,
-  selectedItems = new Set(),
+  onEdit,
+  onDelete,
+  onShare,
+  selectedItems,
   currentUserId,
-  canEdit = false,
-  isLoading = false,
+  canEdit,
+  isLoading,
 }: FolderCardProps) {
   const [showActions, setShowActions] = useState(false);
-  const [showSharingModal, setShowSharingModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  const [folderData, setFolderData] = useState(folder);
-  const [filteredItems, setFilteredItems] = useState<
-    Array<PredictorItem | DatasetItem>
-  >(folder.items || []);
-  const isOwner = currentUserId ? folder.owner.id === currentUserId : false;
-  const canManage = canEdit && canManageFolder(folder, currentUserId);
-
-  // Determine visible item count based on user permissions
-  const visibleItemCount = getVisibleItemCount(folder, currentUserId);
 
   const handleToggleExpand = () => {
-    if (onToggleExpand) {
-      onToggleExpand(folder.folder_id);
-    }
+    onToggleExpand(folder.folder_id);
   };
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Close any other modals first
-    setShowSharingModal(false);
-    setShowDuplicateModal(false);
-    // Then open edit modal
-    setShowEditModal(true);
-    // Also call the parent callback if provided
-    if (onEdit && canManage) {
-      onEdit(folder.folder_id);
-    }
-  };
+  const isOwner =
+    currentUserId && folder?.owner?.id
+      ? String(folder.owner.id) === String(currentUserId)
+      : false;
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onDelete && canManage) {
-      onDelete(folder.folder_id);
-    }
-  };
+  const itemCount = folder.item_count ?? folder.items?.length ?? 0;
 
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (canManage) {
-      // Close any other modals first
-      setShowEditModal(false);
-      setShowDuplicateModal(false);
-      // Then open sharing modal
-      setShowSharingModal(true);
-      // Also call the parent callback if provided
-      if (onShare) {
-        onShare(folder.folder_id);
-      }
-    }
-  };
-
-  const handleDuplicate = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (canManage) {
-      // Close any other modals first
-      setShowEditModal(false);
-      setShowSharingModal(false);
-      // Then open duplicate modal
-      setShowDuplicateModal(true);
-      // Also call the parent callback if provided
-      if (onDuplicate) {
-        onDuplicate(folder.folder_id);
-      }
-    }
-  };
-
-  const handleFolderUpdated = (updatedFolder: Folder) => {
-    setFolderData(updatedFolder);
-  };
-
-  const handleFolderDuplicated = (_duplicatedFolder: Folder) => {
-    // The parent component should handle refreshing the folder list
-    // This callback is mainly for UI feedback
-  };
+  const items = Array.isArray(folder.items) ? folder.items : [];
 
   return (
     <DroppableFolder
       folder={folder}
-      isLoading={(_itemId) => isLoading}
-      className='rounded-xl'
+      // DroppableFolder expects isLoading: (itemId: string) => boolean
+      isLoading={(_itemId: string) => Boolean(isLoading)}
+      className="rounded-xl border border-black/10 bg-white shadow-sm transition-all duration-200"
     >
       <div
-        className={`group relative rounded-xl border bg-white shadow-card transition-all duration-200 border-black/10 hover:ring-1 hover:ring-black/30 ${
-          isLoading ? "opacity-90 pointer-events-none" : ""
-        }`}
-        onMouseEnter={() => !isLoading && setShowActions(true)}
+        className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between"
+        onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
-        {/* Folder Header */}
-        <div className='p-4'>
-          <div className='flex items-start justify-between'>
-            {/* Left side: Folder icon, name, and info */}
-            <div
-              className={`flex items-center gap-3 min-w-0 flex-1 ${
-                isLoading ? "cursor-not-allowed opacity-75" : "cursor-pointer"
-              }`}
-              onClick={isLoading ? undefined : handleToggleExpand}
-            >
-              {/* Folder Icon and Expand/Collapse */}
-              <div className='flex items-center gap-2 flex-shrink-0'>
-                <div className='text-lg'>
-                  {folderData.is_private ? "🔒" : "📁"}
-                </div>
-                {visibleItemCount > 0 && (
-                  <button
-                    disabled={isLoading}
-                    className='text-gray-400 hover:text-gray-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed'
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isLoading) handleToggleExpand();
-                    }}
-                  >
-                    {expanded ? "▼" : "▶"}
-                  </button>
-                )}
-              </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              {folder.is_private ? (
+                <Lock className="h-4 w-4 text-gray-700" />
+              ) : (
+                <FolderOpen className="h-4 w-4 text-gray-700" />
+              )}
 
-              {/* Folder Info */}
-              <div className='min-w-0 flex-1'>
-                <div className='flex items-center gap-2 mb-1'>
-                  <h3 className='font-medium text-sm leading-snug truncate'>
-                    {folderData.name}
-                  </h3>
-                  {/* Privacy Status Badge */}
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      folderData.is_private
-                        ? "bg-gray-100 text-gray-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {folderData.is_private ? "Private" : "Public"}
-                  </span>
-                </div>
-                <div className='flex items-center gap-2 text-xs text-gray-500'>
-                  <span>
-                    {visibleItemCount} item{visibleItemCount !== 1 ? "s" : ""}
-                  </span>
-                  {!isOwner && (
-                    <>
-                      <span>•</span>
-                      <span>by {folder.owner.username}</span>
-                    </>
-                  )}
-                  {folder.permissions && folder.permissions.length > 0 && (
-                    <>
-                      <span>•</span>
-                      <span className='flex items-center gap-1'>
-                        <span className='text-blue-600'>👥</span>
-                        shared with {folder.permissions.length} user
-                        {folder.permissions.length !== 1 ? "s" : ""}
-                      </span>
-                    </>
-                  )}
-                  {!isOwner && (
-                    <>
-                      <span>•</span>
-                      <span className='flex items-center gap-1 text-blue-600'>
-                        <span>👥</span>
-                        shared with you
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
+              <button
+                className="flex items-center gap-2 font-semibold text-gray-900 hover:underline"
+                onClick={handleToggleExpand}
+              >
+                <span className="truncate">{folder.name}</span>
+                <span className="inline-flex items-center text-xs font-normal text-gray-600">
+                  {itemCount} item{itemCount !== 1 ? "s" : ""}
+                </span>
+                {expanded ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
+                )}
+              </button>
             </div>
 
-            {/* Right side: Action Menu */}
-            {canManage && (
-              <div
-                className={`flex items-center gap-1 ml-3 bg-white rounded-md px-2 py-1 shadow-sm transition-opacity ${
-                  showActions && !isLoading
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none"
-                }`}
-              >
-                <button
-                  onClick={handleEdit}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                  title='Edit folder'
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={handleDuplicate}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                  title='Duplicate folder'
-                >
-                  Duplicate
-                </button>
-                <button
-                  onClick={handleShare}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                  title='Share folder'
-                >
-                  Share
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-50 text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                  title='Delete folder'
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+            <PrivacyBadge isPublic={!folder.is_private} />
+          </div>
+
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-600">
+            {folder.description ? (
+              <span className="truncate">{folder.description}</span>
+            ) : null}
+
+            {!isOwner && folder?.owner?.username ? (
+              <>
+                <span>•</span>
+                <span>by {folder.owner.username}</span>
+              </>
+            ) : null}
+
+            {Array.isArray(folder.permissions) &&
+            folder.permissions.length > 0 ? (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3 text-gray-400" />
+                  <span className="text-gray-600">
+                    shared with {folder.permissions.length} user
+                    {folder.permissions.length !== 1 ? "s" : ""}
+                  </span>
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
 
-        {/* Folder Description */}
-        {folderData.description && (
-          <div className='px-4 pb-4 border-t border-gray-50 pt-3 mt-1'>
-            <p
-              className='text-sm text-gray-600'
-              style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {folderData.description}
-            </p>
-          </div>
-        )}
-
-        {/* Expanded Content */}
-        {expanded && visibleItemCount > 0 && (
-          <div className='border-t border-gray-100'>
-            {/* Content Search */}
-            {(folder.items || []).length > 3 && (
-              <div className='p-4 border-b border-gray-100'>
-                <FolderContentSearch
-                  items={folder.items || []}
-                  onFilteredItemsChange={setFilteredItems}
-                  placeholder={`Search ${folder.items?.length || 0} items...`}
-                />
-              </div>
+        {canEdit && (isOwner || folder.can_manage) && showActions && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {onEdit && (
+              <button
+                className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(folder.folder_id);
+                }}
+              >
+                Edit
+              </button>
             )}
-
-            <FolderItemList
-              items={filteredItems}
-              selectedItems={selectedItems}
-              onItemSelect={onItemSelect}
-              onItemEdit={onItemEdit}
-              onItemDelete={onItemDelete}
-              onItemView={onItemView}
-              onRemoveFromFolder={onRemoveFromFolder}
-              canEdit={canEdit}
-              showRemoveAction={canManage}
-              isLoading={isLoading}
-            />
-          </div>
-        )}
-
-        {/* Empty State for Expanded Folder */}
-        {expanded && visibleItemCount === 0 && (
-          <div className='border-t border-gray-100 p-4 text-center text-gray-500 text-sm'>
-            {isOwner ? "No items in this folder" : "No visible items"}
+            {onShare && (
+              <button
+                className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare(folder.folder_id);
+                }}
+              >
+                Share
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(folder.folder_id);
+                }}
+              >
+                Delete
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Folder Sharing Modal */}
-      <FolderSharingModal
-        isOpen={showSharingModal}
-        onClose={() => setShowSharingModal(false)}
-        folder={folderData}
-        onPermissionsUpdated={() => {
-          // Refresh folder data if needed
-          // This could trigger a parent component refresh
-        }}
-      />
-
-      {/* Folder Edit Modal */}
-      <FolderEditModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        folder={folderData}
-        onFolderUpdated={handleFolderUpdated}
-      />
-
-      {/* Folder Duplicate Modal */}
-      <FolderDuplicateModal
-        isOpen={showDuplicateModal}
-        onClose={() => setShowDuplicateModal(false)}
-        folder={folderData}
-        onFolderDuplicated={handleFolderDuplicated}
-      />
+      {expanded && (
+        <div className="border-t border-black/10 p-4">
+          {items.length === 0 ? (
+            <div className="py-6 text-center text-sm text-gray-500">
+              {isLoading ? "Loading items..." : "No items in this folder"}
+            </div>
+          ) : (
+            <FolderItemList
+              items={items}
+              selectedItems={selectedItems}
+              onSelectItem={onItemSelect}
+              onEditItem={onItemEdit}
+              onDeleteItem={onItemDelete}
+              onViewItem={onItemView}
+              onRemoveFromFolder={onRemoveFromFolder}
+            />
+          )}
+        </div>
+      )}
     </DroppableFolder>
   );
 }

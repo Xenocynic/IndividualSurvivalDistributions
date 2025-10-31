@@ -10,15 +10,22 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-  getFolderPermissions, 
-  grantFolderPermission, 
+import {
+  getFolderPermissions,
+  grantFolderPermission,
   revokeFolderPermission,
   searchUsers,
-  type Folder, 
-  type FolderPermission, 
-  type User 
+  type Folder,
+  type FolderPermission,
+  type User,
 } from "../../../lib/folders";
+import {
+  X,
+  Loader2,
+  UserRound,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 
 export interface FolderSharingModalProps {
   isOpen: boolean;
@@ -51,7 +58,6 @@ export default function FolderSharingModal({
     if (isOpen && folder) {
       loadPermissions();
     } else {
-      // Reset state when modal closes
       setPermissions([]);
       setSearchQuery("");
       setSearchResults([]);
@@ -72,18 +78,17 @@ export default function FolderSharingModal({
         setIsSearching(true);
         setError(null);
         const users = await searchUsers(searchQuery.trim(), 10);
-        
-        // Mark users who already have access
-        const usersWithAccess = users.map(user => ({
+
+        const usersWithAccess = users.map((user) => ({
           ...user,
-          hasAccess: permissions.some(p => p.user.id === user.id)
+          hasAccess: permissions.some((p) => p.user.id === user.id),
         }));
-        
+
         setSearchResults(usersWithAccess);
       } catch (err: any) {
         console.error("User search error:", err);
         let errorMessage = "Failed to search users";
-        
+
         if (err.status === 404) {
           errorMessage = "User search service is not available";
         } else if (err.status === 403) {
@@ -95,7 +100,7 @@ export default function FolderSharingModal({
         } else if (err.message) {
           errorMessage = `Search failed: ${err.message}`;
         }
-        
+
         setError(errorMessage);
         setSearchResults([]);
       } finally {
@@ -108,13 +113,13 @@ export default function FolderSharingModal({
 
   const loadPermissions = async () => {
     if (!folder) return;
-    
+
     try {
       setIsLoadingPermissions(true);
       setError(null);
       const folderPermissions = await getFolderPermissions(folder.folder_id);
       setPermissions(folderPermissions);
-    } catch (err: any) {
+    } catch {
       setError("Failed to load folder permissions");
     } finally {
       setIsLoadingPermissions(false);
@@ -127,38 +132,43 @@ export default function FolderSharingModal({
     try {
       setError(null);
       setSuccessMessage(null);
-      
-      // Optimistic update
-      setSearchResults(prev => 
-        prev.map(u => u.id === user.id ? { ...u, isLoading: true } : u)
+
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, isLoading: true } : u
+        )
       );
 
       await grantFolderPermission(folder.folder_id, {
         user_id: user.id,
-        permission_type: 'view'
+        permission_type: "view",
       });
 
-      // Update local state
       const newPermission: FolderPermission = {
         folder: folder.folder_id,
         user: user,
-        permission_type: 'view',
+        permission_type: "view",
         granted_at: new Date().toISOString(),
-        granted_by: { id: 0, username: 'You', email: '' } // Placeholder
+        granted_by: { id: 0, username: "You", email: "" },
       };
-      
-      setPermissions(prev => [...prev, newPermission]);
-      setSearchResults(prev => 
-        prev.map(u => u.id === user.id ? { ...u, hasAccess: true, isLoading: false } : u)
+
+      setPermissions((prev) => [...prev, newPermission]);
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? { ...u, hasAccess: true, isLoading: false }
+            : u
+        )
       );
-      
+
       setSuccessMessage(`Access granted to ${user.username}`);
       onPermissionsUpdated?.();
-      
-    } catch (err: any) {
+    } catch {
       setError(`Failed to grant access to ${user.username}`);
-      setSearchResults(prev => 
-        prev.map(u => u.id === user.id ? { ...u, isLoading: false } : u)
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, isLoading: false } : u
+        )
       );
     }
   };
@@ -169,20 +179,31 @@ export default function FolderSharingModal({
     try {
       setError(null);
       setSuccessMessage(null);
-      
-      await revokeFolderPermission(folder.folder_id, permission.user.id);
-      
-      // Update local state
-      setPermissions(prev => prev.filter(p => p.user.id !== permission.user.id));
-      setSearchResults(prev => 
-        prev.map(u => u.id === permission.user.id ? { ...u, hasAccess: false } : u)
+
+      await revokeFolderPermission(
+        folder.folder_id,
+        permission.user.id
       );
-      
-      setSuccessMessage(`Access revoked from ${permission.user.username}`);
+
+      setPermissions((prev) =>
+        prev.filter((p) => p.user.id !== permission.user.id)
+      );
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === permission.user.id
+            ? { ...u, hasAccess: false }
+            : u
+        )
+      );
+
+      setSuccessMessage(
+        `Access revoked from ${permission.user.username}`
+      );
       onPermissionsUpdated?.();
-      
-    } catch (err: any) {
-      setError(`Failed to revoke access from ${permission.user.username}`);
+    } catch {
+      setError(
+        `Failed to revoke access from ${permission.user.username}`
+      );
     }
   };
 
@@ -191,7 +212,6 @@ export default function FolderSharingModal({
     setSuccessMessage(null);
   }, []);
 
-  // Clear messages after 5 seconds
   useEffect(() => {
     if (error || successMessage) {
       const timeoutId = setTimeout(clearMessages, 5000);
@@ -203,49 +223,60 @@ export default function FolderSharingModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-lg bg-white shadow-lg max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-lg">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between border-b border-black/10 p-6">
           <div>
-            <h2 className="text-lg font-semibold">Share Folder</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Share Folder
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
               Manage access to "{folder.name}"
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Close"
           >
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
           {/* Messages */}
           {(error || successMessage) && (
-            <div className="p-4 border-b">
+            <div className="border-b border-black/10 p-4">
               {error && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 mb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-red-700">{error}</div>
+                <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start text-sm text-red-700">
+                      <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0 text-red-500" />
+                      <span>{error}</span>
+                    </div>
                     <button
                       onClick={clearMessages}
-                      className="text-red-400 hover:text-red-600"
+                      className="rounded p-1 text-red-400 hover:text-red-600"
+                      aria-label="Dismiss error"
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               )}
               {successMessage && (
-                <div className="rounded-md bg-green-50 border border-green-200 p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-green-700">{successMessage}</div>
+                <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start text-sm text-green-700">
+                      <Check className="mr-2 h-4 w-4 flex-shrink-0 text-green-600" />
+                      <span>{successMessage}</span>
+                    </div>
                     <button
                       onClick={clearMessages}
-                      className="text-green-400 hover:text-green-600"
+                      className="rounded p-1 text-green-400 hover:text-green-600"
+                      aria-label="Dismiss success"
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -253,10 +284,13 @@ export default function FolderSharingModal({
             </div>
           )}
 
-          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+          <div className="flex-1 space-y-6 overflow-y-auto p-6">
             {/* User Search */}
             <div>
-              <label htmlFor="userSearch" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="userSearch"
+                className="mb-2 block text-sm font-medium text-gray-900"
+              >
                 Add People
               </label>
               <div className="relative">
@@ -266,44 +300,48 @@ export default function FolderSharingModal({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by username or email..."
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-md border border-black/10 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {isSearching && (
                   <div className="absolute right-3 top-2.5">
-                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                   </div>
                 )}
               </div>
 
               {/* Search Results */}
               {searchResults.length > 0 && (
-                <div className="mt-3 border border-gray-200 rounded-md max-h-48 overflow-y-auto">
+                <div className="mt-3 max-h-48 overflow-y-auto rounded-md border border-black/10">
                   {searchResults.map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center justify-between p-3 border-b border-gray-100 last:border-b-0"
+                      className="flex items-center justify-between border-b border-black/10 p-3 last:border-b-0"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-700">
                           {user.username.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-medium text-sm">{user.username}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.username}
+                          </div>
                           {user.email && (
-                            <div className="text-xs text-gray-500">{user.email}</div>
+                            <div className="text-xs text-gray-600">
+                              {user.email}
+                            </div>
                           )}
                         </div>
                       </div>
                       <div>
                         {user.hasAccess ? (
-                          <span className="text-xs text-green-600 font-medium">
+                          <span className="text-xs font-medium text-green-600">
                             Has Access
                           </span>
                         ) : (
                           <button
                             onClick={() => handleGrantAccess(user)}
                             disabled={user.isLoading}
-                            className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {user.isLoading ? "Adding..." : "Add"}
                           </button>
@@ -314,26 +352,28 @@ export default function FolderSharingModal({
                 </div>
               )}
 
-              {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
-                <div className="mt-3 text-sm text-gray-500 text-center py-4">
-                  No users found matching "{searchQuery}"
-                </div>
-              )}
+              {searchQuery.length >= 2 &&
+                !isSearching &&
+                searchResults.length === 0 && (
+                  <div className="mt-3 py-4 text-center text-sm text-gray-600">
+                    No users found matching "{searchQuery}"
+                  </div>
+                )}
             </div>
 
             {/* Current Permissions */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-700">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900">
                   People with Access
                 </h3>
                 {isLoadingPermissions && (
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                 )}
               </div>
 
               {permissions.length === 0 && !isLoadingPermissions ? (
-                <div className="text-sm text-gray-500 text-center py-8 border border-gray-200 rounded-md">
+                <div className="rounded-md border border-black/10 py-8 text-center text-sm text-gray-600">
                   No one else has access to this folder
                 </div>
               ) : (
@@ -341,21 +381,25 @@ export default function FolderSharingModal({
                   {permissions.map((permission) => (
                     <div
                       key={permission.user.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-md"
+                      className="flex items-center justify-between rounded-md border border-black/10 p-3"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium">
-                          {permission.user.username.charAt(0).toUpperCase()}
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-700">
+                          <UserRound className="h-4 w-4 text-gray-600" />
                         </div>
                         <div>
-                          <div className="font-medium text-sm">{permission.user.username}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {permission.user.username}
+                          </div>
                           {permission.user.email && (
-                            <div className="text-xs text-gray-500">{permission.user.email}</div>
+                            <div className="text-xs text-gray-600">
+                              {permission.user.email}
+                            </div>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500 capitalize">
+                        <span className="text-xs capitalize text-gray-600">
                           {permission.permission_type}
                         </span>
                         <button
@@ -372,10 +416,12 @@ export default function FolderSharingModal({
             </div>
 
             {/* Sharing Info */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-4">
               <div className="text-sm text-blue-800">
-                <div className="font-medium mb-1">About Folder Sharing</div>
-                <ul className="text-xs space-y-1 text-blue-700">
+                <div className="mb-1 font-medium">
+                  About Folder Sharing
+                </div>
+                <ul className="space-y-1 text-xs text-blue-700">
                   <li>• People with access can view all items in this folder</li>
                   <li>• They will also gain access to individual items within the folder</li>
                   <li>• Only you can add or remove items from this folder</li>
@@ -387,10 +433,10 @@ export default function FolderSharingModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end p-6 border-t bg-gray-50">
+        <div className="border-t border-black/10 bg-gray-50 p-6 text-right">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            className="rounded-md border border-black/10 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             Done
           </button>

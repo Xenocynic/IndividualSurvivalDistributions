@@ -19,9 +19,6 @@
  * - useMemo filters each list by query + ownership.
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
- *
- * TO DO:
- * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
 import { useMemo, useState, useEffect } from "react";
@@ -71,34 +68,6 @@ import type { FolderSortOption, FolderType } from "../components/folder";
 
 type Tab = "predictors" | "datasets" | "folders";
 
-// mock data - remove or comment out once we get frontend / backend connected
-// const MOCK_PREDICTORS: PredictorItem[] = [
-//   { id: "1", title: "Predictor A", status: "DRAFT", updatedAt: "2 days ago", owner: true,
-//     notes:  "This is a description of Predictor A. It is quite frankly the worst predictor ever."
-//     },
-//   { id: "2", title: "Predictor B", status: "DRAFT", updatedAt: "5 days ago", owner: false,
-//     notes: "This is a description of Predictor B. It is quite frankly the BEST predictor ever!"
-//     },
-//   { id: "3", title: "Super Magical Disease Detector", status: "DRAFT", updatedAt: "1 week ago", owner: false,
-//         notes: "This is a description of the most super duper magical predictor ever!!! It works like... a charm!!!!!"
-//     },
-//   { id: "4", title: "Liver Cancer Remission", status: "PUBLISHED", updatedAt: "Mar 10, 2009", owner: true,
-//     notes: "This is a description of the most serious predictor on the list."
-//     },
-// ];
-
-// const MOCK_DATASETS: PredictorItem[] = [
-//   { id: "d1", title: "Hospital Readmissions 2024", updatedAt: "3 days ago", owner: true,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d2", title: "Cancer Registry Cohort", updatedAt: "Aug 20, 2023", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d3", title: "CERVICAL CANCER CSV Upload", updatedAt: "Jul 02, 2010", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-// ];
-
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -116,7 +85,7 @@ export default function Dashboard() {
   // Track which tabs have been loaded
   const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set());
 
-  // selection is per-tab
+  // selection (per tab)
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(
     null
   );
@@ -124,24 +93,24 @@ export default function Dashboard() {
     null
   );
 
-  // separate search states for each tab
+  // per-tab search
   const [predictorQuery, setPredictorQuery] = useState("");
   const [datasetQuery, setDatasetQuery] = useState("");
   const [folderQuery, setFolderQuery] = useState("");
 
-  // separate ownership filters for each tab
+  // per-tab ownership
   const [predictorOwnership, setPredictorOwnership] =
     useState<Ownership>("all");
   const [datasetOwnership, setDatasetOwnership] = useState<Ownership>("all");
   const [folderOwnership, setFolderOwnership] = useState<Ownership>("all");
 
-  // delete modal
+  // delete modal (predictors/datasets only)
   const [pendingDelete, setPendingDelete] = useState<PredictorItem | null>(
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // folder management
+  // folder mgmt
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
@@ -149,7 +118,7 @@ export default function Dashboard() {
   const [folderError, setFolderError] = useState<string | null>(null);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
-  // folder-specific filters (search will use main query state)
+  // folder filters
   const [folderSortOption, setFolderSortOption] =
     useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
@@ -157,72 +126,61 @@ export default function Dashboard() {
     null
   );
 
-  // drag and drop
+  // drag+drop tracking
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
 
-  const { moveItem, isItemLoading } = useDragDrop(
-    // Don't update local state for copy behavior - items should stay in main view
-    () => {
-      // Empty callback - the sidebar handles its own updates
-    }
-  );
+  const { moveItem, isItemLoading } = useDragDrop(() => {
+    // sidebar handles its own updates; no-op here
+  });
 
-  // Separate function to fetch folders
-  const fetchFolders = async () => {
+  async function fetchFolders() {
     try {
       const folderData = await listMyFolders();
       const mapped = Array.isArray(folderData)
         ? folderData.map((it) => mapApiFolderToUi(it))
         : [];
       setFolders(mapped);
+      // console.log for debug only
       console.log("mapped folders:", JSON.parse(JSON.stringify(mapped)));
     } catch (err: any) {
       console.error("Failed to fetch folders:", err);
-      // Don't set error for folders as it's not critical
     }
-  };
+  }
 
+  // Fetch tab data (+ folders) on tab switch / initial
   useEffect(() => {
     let mounted = true;
-    // AbortController for cleanup if component unmounts or user changes rapidly
     const controller = new AbortController();
-
-    // Track whether the fetch finished
     let didFinish = false;
 
     setError(null);
 
-    // After 300 ms, show the loading screen
     const SHOW_LOADING_DELAY = 300;
 
-    // track whether we’ve already fetched data for this tab
     const isInitialPredictorFetch =
       predictors.length === 0 && activeTab === "predictors";
     const isInitialDatasetFetch =
       datasets.length === 0 && activeTab === "datasets";
     const isInitialFolderFetch =
       folders.length === 0 && activeTab === "folders";
+
     const isInitialFetch =
       isInitialPredictorFetch || isInitialDatasetFetch || isInitialFolderFetch;
 
-    // Define loadingTimer
     let loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function fetchActive() {
-      // If we already have data for this tab, don't fetch and clear loading
       if (!isInitialFetch) {
         setIsLoading(false);
         return;
       }
 
-      // Only trigger loader delay if it's the first fetch of the data
       loadingTimer = setTimeout(() => {
         if (!didFinish && mounted) setIsLoading(true);
       }, SHOW_LOADING_DELAY);
 
       try {
-        // Always fetch folders alongside the active tab data
-        const promises = [];
+        const promises: Promise<void>[] = [];
 
         if (activeTab === "predictors") {
           promises.push(
@@ -261,10 +219,13 @@ export default function Dashboard() {
             })
           );
         }
-        // For folders tab, we only need to fetch folders (handled below)
 
-        // Always fetch folders
-        promises.push(fetchFolders());
+        // always fetch folders so sidebar + folders tab stay fresh
+        promises.push(
+          (async () => {
+            await fetchFolders();
+          })()
+        );
 
         await Promise.all(promises);
       } catch (err: any) {
@@ -275,16 +236,14 @@ export default function Dashboard() {
             err?.details?.message ?? err?.statusText ?? "Failed to load"
           );
         }
-        console.error("Fetch error", error);
+        console.error("Fetch error", err);
       } finally {
-        // clear the timeout no matter what
         didFinish = true;
         if (loadingTimer) clearTimeout(loadingTimer);
         if (mounted) setIsLoading(false);
       }
     }
 
-    // debounce fetch start by 250 ms
     const t = window.setTimeout(() => fetchActive(), 250);
 
     return () => {
@@ -293,9 +252,9 @@ export default function Dashboard() {
       clearTimeout(t);
       if (loadingTimer) clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]);
+  }, [user, activeTab, predictors.length, datasets.length, folders.length]);
 
-  // Simple loading state management
+  // track "loaded once" per tab, to avoid spinner flashes
   useEffect(() => {
     const hasData =
       (activeTab === "predictors" && predictors.length > 0) ||
@@ -305,11 +264,9 @@ export default function Dashboard() {
     const tabWasLoaded = loadedTabs.has(activeTab);
 
     if (hasData && !tabWasLoaded) {
-      // Mark this tab as loaded
       setLoadedTabs((prev) => new Set(prev).add(activeTab));
       setIsLoading(false);
     } else if (hasData && tabWasLoaded) {
-      // Tab has data and was already loaded, no loading needed
       setIsLoading(false);
     }
   }, [
@@ -320,7 +277,6 @@ export default function Dashboard() {
     loadedTabs,
   ]);
 
-  // filter functionality for predictors and datasets - uses tab-specific states
   const filteredPredictors = useMemo(() => {
     const q = predictorQuery.trim().toLowerCase();
     let list = predictors.filter((it) =>
@@ -342,31 +298,30 @@ export default function Dashboard() {
     return list;
   }, [datasets, datasetQuery, datasetOwnership]);
 
-  // filter folders based on search, ownership, type, and sorting
   const filteredFolders = useMemo(() => {
     const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
 
-    // Start with all folders
     let list = folders;
 
-    // Apply ownership filter
+    // ownership filter
     list = list.filter((folder) => {
-      const isOwner = currentUserId ? folder.owner.id === currentUserId : false;
+      const isOwner = currentUserId
+        ? folder.owner.id === currentUserId
+        : false;
       if (folderOwnership === "owner") return isOwner;
       if (folderOwnership === "viewer") return !isOwner;
       return true;
     });
 
-    // Apply search query (searches both folders and items)
+    // search folders and their contents
     if (folderQuery.trim()) {
       const q = folderQuery.trim().toLowerCase();
       list = list.filter((folder) => {
-        // Search in folder name and description
         const folderMatch =
           folder.name.toLowerCase().includes(q) ||
-          (folder.description && folder.description.toLowerCase().includes(q));
+          (folder.description &&
+            folder.description.toLowerCase().includes(q));
 
-        // Search in folder contents
         const contentMatch = folder.items?.some(
           (item) =>
             item.title.toLowerCase().includes(q) ||
@@ -377,10 +332,10 @@ export default function Dashboard() {
       });
     }
 
-    // Apply type filter
+    // type filter
     list = filterFoldersByType(list, folderTypeFilter);
 
-    // Apply sorting
+    // sort
     list = sortFolders(list, folderSortOption);
 
     return list;
@@ -393,7 +348,6 @@ export default function Dashboard() {
     user,
   ]);
 
-  // if you click, you select it and can choose to edit or delete / view
   function toggleSelect(id: string) {
     if (activeTab === "predictors") {
       setSelectedPredictorId((curr) => (curr === id ? null : id));
@@ -404,23 +358,19 @@ export default function Dashboard() {
     }
   }
 
-  // remove selection established above
   function clearSelection() {
     setSelectedPredictorId(null);
     setSelectedDatasetId(null);
   }
 
-  // create Predictor - navigate to the Create Predictor page
   function createPredictor() {
     navigate("/predictors/new");
   }
 
-  // create Dataset - navigate to the Upload/Create Dataset page
   function addDataset() {
     navigate("/datasets/new");
   }
 
-  // Folder management functions
   function handleCreateFolder() {
     setShowFolderModal(true);
     setFolderError(null);
@@ -435,7 +385,7 @@ export default function Dashboard() {
       setFolders((prev) => [mapApiFolderToUi(newFolder), ...prev]);
       setShowFolderModal(false);
 
-      // Refresh data to update item assignments
+      // refresh after creation so sidebar, etc. are current
       await fetchFolders();
     } catch (error: any) {
       const folderError = handleFolderApiError(error);
@@ -452,7 +402,6 @@ export default function Dashboard() {
         newSet.delete(folderId);
       } else {
         newSet.add(folderId);
-        // Add to recent folders when expanded
         const folder = folders.find((f) => f.folder_id === folderId);
         if (folder) {
           addFolderToRecent(folder);
@@ -465,7 +414,6 @@ export default function Dashboard() {
   function handleRecentFolderSelect(folderId: string) {
     setCurrentFolderView(folderId);
     setExpandedFolders((prev) => new Set(prev).add(folderId));
-    // Scroll to the folder
     setTimeout(() => {
       const element = document.getElementById(`folder-${folderId}`);
       if (element) {
@@ -485,12 +433,38 @@ export default function Dashboard() {
 
     try {
       await deleteFolder(folderId);
+
       setFolders((prev) => prev.filter((f) => f.folder_id !== folderId));
+
       setExpandedFolders((prev) => {
         const newSet = new Set(prev);
         newSet.delete(folderId);
         return newSet;
       });
+
+      // if you were looking at this folder, clear that view
+      setCurrentFolderView((curr) =>
+        curr === folderId ? null : curr
+      );
+
+      // also prune it from "recent folders"
+      try {
+        const stored = localStorage.getItem("kiro_recent_folders");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const updated = parsed.filter(
+              (f: any) => f.folder_id !== folderId
+            );
+            localStorage.setItem(
+              "kiro_recent_folders",
+              JSON.stringify(updated)
+            );
+          }
+        }
+      } catch (_) {
+        /* ignore localStorage errors */
+      }
     } catch (error: any) {
       console.error("Failed to delete folder:", error);
       setError("Failed to delete folder");
@@ -502,24 +476,27 @@ export default function Dashboard() {
     itemType: "predictor" | "dataset",
     folderId: string
   ) {
-    // Set loading states
     setLoadingFolders((prev) => new Set(prev).add(folderId));
 
     try {
       await removeItemFromFolder(folderId, itemType, itemId);
 
-      // Update local state immediately
+      // clear folderId on that item in the flat lists
       if (itemType === "predictor") {
         setPredictors((prev) =>
-          prev.map((p) => (p.id === itemId ? { ...p, folderId: undefined } : p))
+          prev.map((p) =>
+            p.id === itemId ? { ...p, folderId: undefined } : p
+          )
         );
       } else {
         setDatasets((prev) =>
-          prev.map((d) => (d.id === itemId ? { ...d, folderId: undefined } : d))
+          prev.map((d) =>
+            d.id === itemId ? { ...d, folderId: undefined } : d
+          )
         );
       }
 
-      // Update folder contents immediately by removing the item
+      // update exact folder's contents inline
       setFolders((prev) =>
         prev.map((folder) => {
           if (folder.folder_id === folderId && folder.items) {
@@ -538,7 +515,6 @@ export default function Dashboard() {
       console.error("Failed to remove item from folder:", error);
       setError("Failed to remove item from folder");
     } finally {
-      // Clear loading state
       setLoadingFolders((prev) => {
         const newSet = new Set(prev);
         newSet.delete(folderId);
@@ -551,18 +527,14 @@ export default function Dashboard() {
     moveItem(item, folderId);
   };
 
-  // navigate to edit page
   function editItem(id: string) {
     if (activeTab === "predictors") {
-      // Navigate to predictor edit page
       navigate(`/predictors/${id}/edit`);
     } else {
-      // Navigate to dataset edit page
       navigate(`/datasets/${id}/edit`);
     }
   }
 
-  // navigate to view page - WIRED
   function viewItem(id: string) {
     if (activeTab === "predictors") {
       navigate(`/predictors/${id}`, { state: { from: "dashboard" } });
@@ -571,17 +543,11 @@ export default function Dashboard() {
     }
   }
 
-  // Handle double-click navigation - commented ot because its not meant tp do anything now
-  //function handleCardDoubleClick(id: string) {
-  //}
-
-  // download dataset file
   async function downloadItem(id: string) {
     try {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
 
-      // Create download link and trigger download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -595,7 +561,6 @@ export default function Dashboard() {
     }
   }
 
-  // delete dataset / predictor prompt and deletion
   async function confirmDelete() {
     if (!pendingDelete || isDeleting) return;
 
@@ -603,31 +568,34 @@ export default function Dashboard() {
 
     try {
       if (activeTab === "predictors") {
-        // Delete predictor via API
         const predictorId = pendingDelete.id;
         await deletePredictor(predictorId);
 
-        // Remove from local state after successful API call
-        setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
+        setPredictors((arr) =>
+          arr.filter((x) => x.id !== pendingDelete.id)
+        );
 
-        if (selectedPredictorId == predictorId) {
+        if (selectedPredictorId === predictorId) {
           setSelectedPredictorId(null);
         }
       } else {
-        // Delete dataset via API
         const datasetId = parseInt(pendingDelete.id);
         await deleteDataset(datasetId);
 
-        // Remove from local state after successful API call
-        setDatasets((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-        if (selectedDatasetId === pendingDelete.id) setSelectedDatasetId(null);
+        setDatasets((arr) =>
+          arr.filter((x) => x.id !== pendingDelete.id)
+        );
+        if (selectedDatasetId === pendingDelete.id) {
+          setSelectedDatasetId(null);
+        }
       }
 
       setPendingDelete(null);
     } catch (error: any) {
-      // Show error message
       const errorMessage =
-        error?.details?.error || error?.message || "Failed to delete dataset";
+        error?.details?.error ||
+        error?.message ||
+        "Failed to delete dataset";
       alert(`Delete failed: ${errorMessage}`);
     } finally {
       setIsDeleting(false);
@@ -641,19 +609,23 @@ export default function Dashboard() {
       ? filteredDatasets
       : [];
   const selectedId =
-    activeTab === "predictors" ? selectedPredictorId : selectedDatasetId;
+    activeTab === "predictors"
+      ? selectedPredictorId
+      : selectedDatasetId;
 
   return (
     <DragDropProvider>
-      {/* Main Content */}
       <section
-        className='space-y-6'
+        className="space-y-6"
         onClick={clearSelection}
-        role='presentation'
+        role="presentation"
       >
         {/* welcome header */}
-        <div className='py-6 text-center' onClick={(e) => e.stopPropagation()}>
-          <h1 className='text-3xl font-extrabold tracking-tight md:text-4xl'>
+        <div
+          className="py-6 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             Welcome,{" "}
             {user
               ? user.first_name?.trim()
@@ -662,29 +634,27 @@ export default function Dashboard() {
               : "User"}
             !
           </h1>
-          {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
-          <div className='mx-auto mt-4 max-w-2xl space-y-2'>
-            <h2 className='text-2xl tracking-tight md:text-2xl'>
+          <div className="mx-auto mt-4 max-w-2xl space-y-2">
+            <h2 className="text-2xl tracking-tight md:text-2xl">
               Find your datasets and predictors below.
             </h2>
           </div>
         </div>
-        {/* sticky toolbar under navbar - stays on top when you scroll */}
+
+        {/* sticky toolbar under navbar, aligned to max-w-6xl like Browse */}
         <div
-          className='sticky top-14 md:top-16 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60'
+          className="sticky top-14 md:top-16 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className='py-3'>
+          <div className="mx-auto max-w-6xl px-4 py-3">
             <Toolbar
               activeTab={activeTab}
               onTabChange={async (t) => {
                 setActiveTab(t);
                 clearSelection();
-                // Refresh folders when switching to folder tab to show latest items
                 if (t === "folders") {
                   await fetchFolders();
                 }
-
               }}
               query={
                 activeTab === "predictors"
@@ -721,66 +691,64 @@ export default function Dashboard() {
                 activeTab === "folders" ? folderTypeFilter : undefined
               }
               onFolderTypeFilterChange={
-                activeTab === "folders" ? setFolderTypeFilter : undefined
+                activeTab === "folders"
+                  ? setFolderTypeFilter
+                  : undefined
               }
               folderSortOption={
                 activeTab === "folders" ? folderSortOption : undefined
               }
               onFolderSortChange={
-                activeTab === "folders" ? setFolderSortOption : undefined
+                activeTab === "folders"
+                  ? setFolderSortOption
+                  : undefined
               }
             />
           </div>
-          <div className='border-t border-black/10' />
+          <div className="border-t border-black/10" />
         </div>
 
-        {/* loading indicator or skeleton - only show if loading AND no data */}
-        {isLoading &&
-        ((activeTab === "predictors" && predictors.length === 0) ||
-          (activeTab === "datasets" && datasets.length === 0) ||
-          (activeTab === "folders" && folders.length === 0)) ? (
-          <div className='mx-auto max-w-6xl px-4 py-6'>
-            {/* simple spinner + hint */}
-            <div className='flex items-center gap-3'>
-              <div className='animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-700' />
-              <div className='text-sm text-gray-700'>
-                Loading {activeTab}...
-              </div>
-            </div>
-
-            {/* optional skeleton grid — placeholders matching your card layout */}
-            <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className='p-4 border rounded-lg animate-pulse'>
-                  <div className='h-5 bg-gray-200 rounded w-3/4 mb-3' />
-                  <div className='h-3 bg-gray-200 rounded w-1/2 mb-2' />
-                  <div className='h-20 bg-gray-200 rounded' />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
         {/* Main Content Area */}
-        <div className='flex gap-6'>
-          {/* Folder Sidebar - always render but hide when not needed */}
-          <FolderSidebar
-            onItemMoved={async (_itemId, _folderId) => {
-              // Refresh folder data for the folder tab (but don't reload the whole tab)
-              try {
-                await fetchFolders();
-              } catch (error) {
-                console.error('Failed to refresh folder data:', error);
-              }
-            }}
-            className={activeTab === "folders" ? "hidden" : ""}
-          />
+        {activeTab === "folders" ? (
+          /* FOLDERS TAB LAYOUT (no sidebar) */
+          <div
+            className="mx-auto max-w-6xl px-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isLoading && folders.length === 0 ? (
+              /* folders loading skeleton */
+              <div className="space-y-6">
+                <div className="rounded-md border border-black/10 bg-white p-4">
+                  <div className="mb-3 h-4 w-32 animate-pulse rounded bg-gray-200" />
+                  <div className="flex gap-2 overflow-x-auto">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="min-w-[8rem] rounded-lg border border-black/10 p-3"
+                      >
+                        <div className="mb-2 h-4 w-2/3 animate-pulse rounded bg-gray-200" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-          {/* Main Content */}
-          <div className='flex-1 transition-all duration-300'>
-            {activeTab === "folders" ? (
-              /* Folders Tab Content */
-              <div className='space-y-6' onClick={(e) => e.stopPropagation()}>
-                {/* Recent Folders Quick Access */}
+                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-black/10 bg-white p-4 shadow-sm"
+                    >
+                      <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-gray-200" />
+                      <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+                      <div className="h-16 animate-pulse rounded bg-gray-200" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* folders real content */
+              <div className="space-y-6">
                 <div>
                   <RecentFolders
                     onFolderSelect={handleRecentFolderSelect}
@@ -788,8 +756,7 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* Folders Grid */}
-                <div className='grid gap-4 sm:grid-cols-1 lg:grid-cols-2'>
+                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                   {filteredFolders.map((folder) => {
                     const currentUserId =
                       (user as any)?.id ?? (user as any)?.pk ?? undefined;
@@ -808,19 +775,19 @@ export default function Dashboard() {
                           expanded={expandedFolders.has(folder.folder_id)}
                           onToggleExpand={handleToggleFolderExpansion}
                           onEdit={(folderId) => {
-                            // Folder editing is now handled by the FolderCard component's internal modal
-                            console.log("Folder edit initiated for:", folderId);
+                            console.log(
+                              "Folder edit initiated for:",
+                              folderId
+                            );
                           }}
                           onDelete={handleFolderDelete}
                           onShare={(folderId) => {
-                            // Folder sharing is now handled by the FolderCard component's internal modal
                             console.log(
                               "Folder sharing initiated for:",
                               folderId
                             );
                           }}
                           onItemSelect={(itemId, itemType) => {
-                            // Handle item selection within folders
                             if (itemType === "predictor") {
                               setSelectedPredictorId((prev) =>
                                 prev === itemId ? null : itemId
@@ -854,47 +821,93 @@ export default function Dashboard() {
                               ...(selectedPredictorId
                                 ? [selectedPredictorId]
                                 : []),
-                              ...(selectedDatasetId ? [selectedDatasetId] : []),
+                              ...(selectedDatasetId
+                                ? [selectedDatasetId]
+                                : []),
                             ])
                           }
                           currentUserId={currentUserId}
                           canEdit={true}
-                          isLoading={loadingFolders.has(folder.folder_id)}
+                          // DroppableFolder in FolderCard expects isLoading: (id) => boolean
+                          isLoading={loadingFolders.has(
+                            folder.folder_id
+                          )}
                         />
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Empty state for folders - only show if not loading */}
                 {filteredFolders.length === 0 && !isLoading && (
-                  <div className='text-center py-12'>
-                    <div className='text-gray-500 text-lg'>
+                  <div className="text-center py-12">
+                    <div className="text-gray-500 text-lg">
                       No folders found
                     </div>
-                    <div className='text-gray-400 text-sm mt-2'>
+                    <div className="text-gray-400 text-sm mt-2">
                       Create a folder to organize your predictors and datasets
                     </div>
                   </div>
                 )}
               </div>
-            ) : (
-              /* Predictors and Datasets Tab Content */
-              <DroppableFolder
-                folder={null}
-                onDrop={handleDrop}
-                isLoading={isItemLoading}
-                className='min-h-[200px] p-4 rounded-xl transition-all duration-200'
-              >
-                <div
-                  className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'
-                  onClick={(e) => e.stopPropagation()}
+            )}
+          </div>
+        ) : (
+          /* PREDICTORS / DATASETS TAB LAYOUT (sidebar + main grid) */
+          <div className="mx-auto max-w-6xl px-4 flex gap-6">
+            {/* left sidebar is always shown here, like pinned panel on Browse */}
+            <FolderSidebar
+              onItemMoved={async (_itemId, _folderId) => {
+                try {
+                  await fetchFolders();
+                } catch (error) {
+                  console.error(
+                    "Failed to refresh folder data:",
+                    error
+                  );
+                }
+              }}
+            />
+
+            <div className="flex-1 transition-all duration-300">
+              {isLoading && list.length === 0 ? (
+                /* predictors/datasets loading skeleton in-place */
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-6 w-6 animate-spin rounded-full border-t-2 border-b-2 border-gray-700" />
+                    <div className="text-sm text-gray-700">
+                      Loading {activeTab}...
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="rounded-md border border-black/10 p-4"
+                      >
+                        <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-gray-200" />
+                        <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+                        <div className="h-20 animate-pulse rounded bg-gray-200" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* real predictors/datasets content */
+                <DroppableFolder
+                  folder={null}
+                  onDrop={handleDrop}
+                  isLoading={isItemLoading}
+                  className="min-h-[200px] p-4 rounded-xl transition-all duration-200"
                 >
-                  {/* Individual Items - show items not in folders */}
-                  {activeTab === "predictors"
-                    ? list
-                        .filter((item) => !item.folderId) // Only show items not in folders
-                        .map((it) => (
+                  <div
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {list
+                      .filter((item) => !item.folderId)
+                      .map((it) =>
+                        activeTab === "predictors" ? (
                           <PredictorCard
                             key={it.id}
                             item={it}
@@ -910,10 +923,7 @@ export default function Dashboard() {
                             onDrop={handleDrop}
                             isLoading={isItemLoading(it.id)}
                           />
-                        ))
-                    : list
-                        .filter((item) => !item.folderId) // Only show items not in folders
-                        .map((it) => (
+                        ) : (
                           <DatasetCard
                             key={it.id}
                             item={{ ...it, owner: Boolean(it.owner) }}
@@ -930,50 +940,53 @@ export default function Dashboard() {
                             onDrop={handleDrop}
                             isLoading={isItemLoading(it.id)}
                           />
-                        ))}
+                        )
+                      )}
 
-                  {/* Empty state hint for drag and drop - only show if not loading */}
-                  {list.filter((item) => !item.folderId).length === 0 &&
-                    !isLoading && (
-                      <div className='col-span-full flex items-center justify-center py-12 text-center'>
-                        <div className='max-w-sm'>
-                          <div className='text-gray-400 text-lg mb-2'>📁</div>
-                          <p className='text-gray-500 text-sm'>
-                            No {activeTab} in your main collection
-                          </p>
-                          <p className='text-gray-400 text-xs mt-1'>
-                            Drag items from folders here to move them back to
-                            your main collection
-                          </p>
+                    {list.filter((item) => !item.folderId).length === 0 &&
+                      !isLoading && (
+                        <div className="col-span-full flex items-center justify-center py-12 text-center">
+                          <div className="max-w-sm">
+                            <div className="text-gray-400 text-lg mb-2">
+                              🗀
+                            </div>
+                            <p className="text-gray-500 text-sm">
+                              No {activeTab} in your main collection
+                            </p>
+                            <p className="text-gray-400 text-xs mt-1">
+                              Drag items from folders here to move them
+                              back to your main collection
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                </div>
-              </DroppableFolder>
-            )}
-
-            <DeletePredictor
-              open={!!pendingDelete}
-              name={pendingDelete?.title ?? ""}
-              onCancel={() => !isDeleting && setPendingDelete(null)}
-              onConfirm={confirmDelete}
-              isLoading={isDeleting}
-            />
-
-            <FolderCreationModal
-              isOpen={showFolderModal}
-              onClose={() => {
-                setShowFolderModal(false);
-                setFolderError(null);
-              }}
-              onCreateFolder={handleFolderCreation}
-              availablePredictors={predictors.filter((p) => !p.folderId)}
-              availableDatasets={datasets.filter((d) => !d.folderId)}
-              isLoading={isCreatingFolder}
-              error={folderError}
-            />
+                      )}
+                  </div>
+                </DroppableFolder>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        <DeletePredictor
+          open={!!pendingDelete}
+          name={pendingDelete?.title ?? ""}
+          onCancel={() => !isDeleting && setPendingDelete(null)}
+          onConfirm={confirmDelete}
+          isLoading={isDeleting}
+        />
+
+        <FolderCreationModal
+          isOpen={showFolderModal}
+          onClose={() => {
+            setShowFolderModal(false);
+            setFolderError(null);
+          }}
+          onCreateFolder={handleFolderCreation}
+          availablePredictors={predictors.filter((p) => !p.folderId)}
+          availableDatasets={datasets.filter((d) => !d.folderId)}
+          isLoading={isCreatingFolder}
+          error={folderError}
+        />
       </section>
     </DragDropProvider>
   );
