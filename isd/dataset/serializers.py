@@ -3,7 +3,6 @@ from django.contrib.auth.models import User
 from .models import Dataset, DatasetPermission, PinnedDataset
 from .file_utils import FileValidator
 from rest_framework.exceptions import PermissionDenied
-from .models import PinnedDataset
 
 # ----------------------------
 # User Serializer (lightweight)
@@ -383,7 +382,7 @@ class DatasetPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetPermission
         fields = ["id", "dataset", "user", "user_id"]
-        read_only_fields = ["id", "pinned_at", "user"]
+        read_only_fields = ["id", "user"]
 
     def create(self, validated_data):
         """Ensure only dataset owners can grant permission."""
@@ -407,7 +406,7 @@ class PinnedDatasetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PinnedDataset
-        fields = ["id", "dataset", "dataset_id", "name", "user", "pinned_at", "dataset_detail"]
+        fields = ["id", "dataset", "name", "user", "pinned_at", "dataset_detail"]
         read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
