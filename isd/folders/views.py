@@ -18,7 +18,7 @@ from .serializers import (
 )
 
 from predictors.models import Predictor
-
+from dataset.models import Dataset
 
 # ----------------------------
 # Custom Permissions
