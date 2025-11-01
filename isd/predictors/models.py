@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from dataset.models import Dataset
+from folders.models import Folder
 from django.utils import timezone
 
 
@@ -15,6 +16,7 @@ class Predictor(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="predictors")
+    folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="predictors")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_predictors")
     is_private = models.BooleanField(default=False)  # False = public, True = private
 
