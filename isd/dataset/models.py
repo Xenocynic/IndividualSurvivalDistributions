@@ -43,6 +43,7 @@ class Dataset(models.Model):
             models.Index(fields=['is_public']),
             models.Index(fields=['owner', 'uploaded_at']),
         ]
+        ordering = ['-uploaded_at']  # Default ordering: most recent first
     
     def __str__(self):
         return f"{self.dataset_name} ({self.owner.username})"
