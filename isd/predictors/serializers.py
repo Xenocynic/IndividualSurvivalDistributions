@@ -128,53 +128,6 @@ class PredictorSerializer(serializers.ModelSerializer):
             
         return data
     
-    def validate_folder_id(self, value):
-        """Validate folder_id field."""
-        if value is None:
-            return value
-            
-        request = self.context.get("request")
-        if not request or not request.user:
-            raise serializers.ValidationError("User context is required")
-        
-        # Import here to avoid circular imports
-        from folders.models import Folder
-        
-        try:
-            folder = Folder.objects.get(folder_id=value)
-        except Folder.DoesNotExist:
-            raise serializers.ValidationError("Folder does not exist")
-        
-        # Check if user owns the folder
-        if folder.owner != request.user:
-            raise serializers.ValidationError("You can only add predictors to folders you own")
-        
-        return value
-    
-    def to_representation(self, instance):
-        """Add folder information to the response."""
-        data = super().to_representation(instance)
-        
-        # Get folder information if predictor is in a folder
-        from folders.models import FolderItem
-        from django.contrib.contenttypes.models import ContentType
-        
-        predictor_ct = ContentType.objects.get_for_model(Predictor)
-        folder_item = FolderItem.objects.filter(
-            content_type=predictor_ct,
-            object_id=instance.predictor_id
-        ).select_related('folder').first()
-        
-        if folder_item:
-            data['folder'] = {
-                'folder_id': folder_item.folder.folder_id,
-                'name': folder_item.folder.name
-            }
-        else:
-            data['folder'] = None
-            
-        return data
-    
     def create(self, validated_data):
         """Automatically attach owner and handle folder assignment during creation."""
         request = self.context.get("request")
@@ -200,7 +153,7 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PredictorPermission
-        fields = ["id", "predictor", "user", "user_id", "user_display", "role"]
+        fields = ["id", "predictor", "user", "user_id"]
 
     def validate_predictor(self, value):
         """Validate that the user owns the predictor."""
