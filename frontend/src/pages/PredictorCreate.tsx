@@ -34,14 +34,17 @@ import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
 // TODO[backend]: createPredictor() should accept fields listed below
 // TODO[backend]: listMyPredictors() is used for client-side "name exists" check - maybe make a dedicated exists endpoint?
-import { createPredictor, listMyPredictors, grantPredictorViewer, resolveUsernameToId } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 // import { api } from "../lib/apiClient";
+import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
+import { resolveUsernameToId } from "../lib/users";
 
 type PermRow = { 
   id: number;              // local row id
   username: string;        // text the user typed (later - lookup user id)
   role: "owner" | "viewer"; // UI role
+  userId?: number;
 };
 
 export default function PredictorCreate() {
@@ -148,7 +151,10 @@ export default function PredictorCreate() {
       for (const row of rows) {
         const username = row.username.trim();
         if (!username) continue;
-        const userId = await resolveUsernameToId(username);
+        let userId = row.userId;
+        if (!userId) {
+          userId = await resolveUsernameToId(username);
+        }
         if (!userId) continue;
         try {
           await grantPredictorViewer(created.predictor_id, userId, row.role);
@@ -196,6 +202,9 @@ export default function PredictorCreate() {
   }
   function updateRow(id: number, patch: Partial<PermRow>) {
     setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }
+  function handleUserSelect(id: number, user: UserSuggestion) {
+    updateRow(id, { username: user.username, userId: user.id });
   }
 
   return (
@@ -349,11 +358,12 @@ export default function PredictorCreate() {
                     >
                       ✕
                     </button>
-                    <input
+                    <UserSearchInput
                       value={r.username}
-                      onChange={(e) => updateRow(r.id, { username: e.target.value })}
-                      placeholder="Username"
-                      className="w-full rounded-md border px-2 py-1 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
+                      onValueChange={(val) => updateRow(r.id, { username: val, userId: undefined })}
+                      onSelect={(user) => handleUserSelect(r.id, user)}
+                      placeholder="Search username"
+                      disabled={saving}
                     />
                   </div>
                   <div>

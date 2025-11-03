@@ -47,6 +47,16 @@ export interface CreateDatasetResponse extends Dataset {
   warnings?: string[];
 }
 
+export type DatasetPermission = {
+  id: number;
+  dataset: number;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+};
+
 /**
  * Create a dataset object with file upload.
  * Sends multipart form data with all required fields.
@@ -111,7 +121,19 @@ export async function listPublicDatasets(folderId?: string) {
  * Grant a user viewer access (permissions are "viewer" only for datasets).
  */
 export async function grantDatasetViewer(dataset: number, user: number) {
-  return api.post("/api/datasets/permissions/", { dataset, user });
+  return api.post("/api/datasets/permissions/", { dataset, user_id: user });
+}
+
+export async function listDatasetPermissions(datasetId?: number) {
+  const data = await api.get<DatasetPermission[]>("/api/datasets/permissions/");
+  if (typeof datasetId === "number") {
+    return data.filter((perm) => perm.dataset === datasetId);
+  }
+  return data;
+}
+
+export async function revokeDatasetPermission(permissionId: number) {
+  return api.del(`/api/datasets/permissions/${permissionId}/`);
 }
 
 /**
