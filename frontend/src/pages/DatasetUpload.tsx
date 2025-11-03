@@ -124,6 +124,15 @@ export default function DatasetUpload() {
 
       const created = await createDataset(request);
 
+      if (created.warnings && created.warnings.length > 0) {
+        // Format warnings for a clear alert
+        const warningMessage = "Dataset created, but with warnings:\n\n" +
+                               created.warnings.join("\n\n");
+        
+        // Use alert to show warnings. Replace with a modal for better UX
+        alert(warningMessage);
+      }
+
       // Route to dashboard with the Datasets tab selected
       navigate("/dashboard", {
         state: {

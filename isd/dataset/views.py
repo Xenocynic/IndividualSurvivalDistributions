@@ -208,16 +208,18 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 
                 # Automatically perform feature imputation
                 imputation_result = None
+                processing_warnings = []
+
                 if dataset.file_path:
                     try:
                         imputation_result = process_feature_imputation(dataset.dataset_id)
+                        if imputation_result.get('warnings'):
+                            processing_warnings = imputation_result['warnings'] # Capture warnings
                         if imputation_result['success']:
-                            # Update the dataset with new file size after imputation
-                            storage_manager = FileStorageManager()
-                            new_size = storage_manager.get_file_size(dataset.file_path)
-                            if new_size:
-                                dataset.file_size = new_size
-                                dataset.save()
+                            pass
+                        else:
+                            # If processing failed, raise an error to roll back the transaction
+                            raise Exception(imputation_result.get('error', 'Data processing failed.'))
                     except Exception as imputation_error:
                         # Log the error but don't fail the dataset creation
                         import logging
@@ -227,19 +229,10 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 # Prepare response data
                 response_data = serializer.data
                 
-                # Add imputation results to response if available
-                if imputation_result and imputation_result['success']:
-                    response_data['imputation'] = {
-                        'performed': True,
-                        'details': imputation_result['details']
-                    }
-                else:
-                    response_data['imputation'] = {
-                        'performed': False,
-                        'reason': 'No missing values found or imputation failed'
-                    }
-                
-                # Return success response
+                # Add processing details and warnings to the response
+                response_data['processing_details'] = imputation_result.get('details')
+                response_data['warnings'] = processing_warnings # Add warnings here
+
                 headers = self.get_success_headers(response_data)
                 return Response(
                     response_data,
