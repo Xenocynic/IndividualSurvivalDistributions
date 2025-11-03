@@ -29,6 +29,8 @@ export type Dataset = {
   uploaded_at: string;
   folder_id?: string;
   folder_name?: string;
+  num_features: number | null;
+  num_labels: number | null;
 };
 
 export type CreateDatasetRequest = {

@@ -341,6 +341,22 @@ export default function DatasetEdit() {
                       {dataset.file_size_display} • Uploaded{" "}
                       {new Date(dataset.uploaded_at).toLocaleDateString()}
                     </div>
+
+                    <div className='mt-2 flex gap-4 border-t border-black/5 pt-2'>
+                      <div>
+                        <div className='text-xs text-gray-500'>Features</div>
+                        <div className='text-sm font-medium text-gray-800'>
+                          {dataset.num_features ?? 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className='text-xs text-gray-500'>Labels (Samples)</div>
+                        <div className='text-sm font-medium text-gray-800'>
+                          {dataset.num_labels ?? 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
                 <div className='text-xs text-gray-600'>
