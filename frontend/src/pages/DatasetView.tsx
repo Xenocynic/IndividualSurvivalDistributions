@@ -158,6 +158,21 @@ export default function DatasetView() {
                     </div>
                   </div>
                 </div>
+                
+                <div className="mt-2 flex gap-4 border-t pt-2">
+                        <div>
+                          <div className="text-xs text-neutral-500">Features</div>
+                          <div className="text-sm font-medium text-neutral-800">
+                            {dataset.num_features ?? 'N/A'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-neutral-500">Labels (Samples)</div>
+                          <div className="text-sm font-medium text-neutral-800">
+                            {dataset.num_labels ?? 'N/A'}
+                          </div>
+                        </div>
+                      </div>
 
                 <button
                   onClick={handleDownload}

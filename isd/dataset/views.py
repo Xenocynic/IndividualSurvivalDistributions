@@ -14,6 +14,8 @@ from .file_utils import FileStorageManager
 from .tasks import process_feature_imputation
 import os
 import mimetypes
+import pandas as pd
+from django.conf import settings
 
 # ----------------------------
 # Custom Permissions
@@ -400,6 +402,45 @@ class DatasetViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this dataset.")
         PinnedDataset.objects.filter(user=request.user, dataset=dataset).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Custom retrieve method to add feature and label counts to the response.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # Initialize counts
+        num_features = None
+        num_labels = None
+
+        try:
+            if instance.file_path:
+                # Construct the full path to the file
+                full_file_path = os.path.join(settings.MEDIA_ROOT, instance.file_path)
+                
+                if os.path.exists(full_file_path):
+                    # Open in binary read mode and let pandas read it
+                    with open(full_file_path, 'rb') as f:
+                        df = pd.read_csv(f)
+                    
+                    # Calculate num_labels (rows - header)
+                    num_labels = len(df)
+                    
+                    # Calculate num_features (cols - 2)
+                    num_cols = len(df.columns)
+                    num_features = num_cols - 2 if num_cols >= 2 else 0
+                
+        except Exception as e:
+            # Log the error but don't fail the request
+            print(f"Error reading CSV for dataset {instance.dataset_id}: {e}")
+
+        # Add the counts to the serialized data
+        data['num_features'] = num_features
+        data['num_labels'] = num_labels
+        
+        return Response(data)
 
 
 # ----------------------------
