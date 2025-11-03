@@ -17,6 +17,7 @@ import {
   listMyDatasets,
   type Dataset,
 } from "../lib/datasets";
+import LinkedPredictorsList from "../components/LinkedPredictorsList";
 
 type TimeUnit = "year" | "month" | "day" | "hour";
 
@@ -411,6 +412,20 @@ export default function DatasetEdit() {
           <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
             If enabled, other users can discover and view this dataset. (Viewers
             can use datasets, but only the owner can modify or delete.)
+          </div>
+        </section>
+
+        {/* Connected Predictors */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold text-gray-700">
+            Predictors Using This Dataset
+          </h2>
+          <div className="rounded-md border border-black/10 bg-gray-50 p-3">
+            {datasetId ? (
+              <LinkedPredictorsList datasetId={datasetId} />
+            ) : (
+              <p className="text-sm text-gray-500">Could not load predictors.</p>
+            )}
           </div>
         </section>
       </div>

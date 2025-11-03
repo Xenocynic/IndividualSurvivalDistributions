@@ -16,6 +16,9 @@ import os
 import mimetypes
 import pandas as pd
 from django.conf import settings
+from predictors.models import Predictor
+from predictors.serializers import PredictorSerializer
+from predictors.views import CanAccessPredictor
 
 # ----------------------------
 # Custom Permissions
@@ -434,6 +437,38 @@ class DatasetViewSet(viewsets.ModelViewSet):
         data['num_labels'] = num_labels
         
         return Response(data)
+
+    @action(detail=True, methods=['get'], url_path='predictors')
+    def list_predictors(self, request, pk=None):
+        """
+        List all predictors (public or accessible by the user)
+        that are associated with this dataset.
+        """
+        #    Get the dataset object. This automatically runs
+        #    CanAccessDataset permission check, so a user can't
+        #    see predictors for a dataset they don't have access to.
+        try:
+            dataset = self.get_object() 
+        except Exception as e:
+            return Response({"error": "Dataset not found or permission denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        #    Get all predictors linked to this dataset
+        all_predictors_on_dataset = Predictor.objects.filter(
+            dataset=dataset
+        ).order_by('-updated_at')
+
+        #    Filter this list to only what the user can see
+        #    We must manually check each predictor's permissions
+        accessible_predictors = []
+        predictor_permission_check = CanAccessPredictor()
+        for predictor in all_predictors_on_dataset:
+            if predictor_permission_check.has_object_permission(request, self, predictor):
+                accessible_predictors.append(predictor)
+
+        #    Serialize the final list of accessible predictors
+        #    (We can add backend pagination here later if lists get very long)
+        serializer = PredictorSerializer(accessible_predictors, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ----------------------------

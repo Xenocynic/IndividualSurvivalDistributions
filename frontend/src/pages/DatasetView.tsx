@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDataset, downloadDatasetFile, type Dataset } from "../lib/datasets";
+import LinkedPredictorsList from "../components/LinkedPredictorsList";
 
 export default function DatasetView() {
   const navigate = useNavigate();
@@ -214,6 +215,14 @@ export default function DatasetView() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Connected Predictors */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-neutral-800">
+            Predictors Using This Dataset
+          </h2>
+          {datasetId && <LinkedPredictorsList datasetId={datasetId} />}
         </section>
       </div>
     </div>
