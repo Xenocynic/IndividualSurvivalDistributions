@@ -332,7 +332,7 @@ export default function DatasetUpload() {
             <div className="rounded-md border bg-neutral-50 p-3 text-xs text-neutral-700">
               <div className="font-medium">File Format</div>
               <p className="mt-1 leading-relaxed">
-                Put formatting guide here (placeholder for now).
+              Data files must be in Comma-Seperated Value (CSV) format. Each line in the file describes one sample in your data set. The first column should be the survival time (or other variable to predict). The second column should be a binary value describing whether this data is censored (0=uncensored, 1=censored; u=uncensored, c=censored). The remaining columns are the rest of the features for each sample. Columns can be numeric, or nominal (categorical).
               </p>
             </div>
           )}
