@@ -15,11 +15,26 @@ import {
   getDataset,
   updateDataset,
   listMyDatasets,
+  listDatasetPermissions,
+  grantDatasetViewer,
+  revokeDatasetPermission,
   type Dataset,
+  type DatasetPermission,
 } from "../lib/datasets";
 import LinkedPredictorsList from "../components/LinkedPredictorsList";
+import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
+import { resolveUsernameToId } from "../lib/users";
 
 type TimeUnit = "year" | "month" | "day" | "hour";
+
+type ShareRow = {
+  id: number;
+  username: string;
+  role: "viewer";
+  userId?: number;
+  permissionId?: number;
+  isProcessing?: boolean;
+};
 
 export default function DatasetEdit() {
   const navigate = useNavigate();
@@ -35,6 +50,10 @@ export default function DatasetEdit() {
   // dataset info
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [originalName, setOriginalName] = useState("");
+
+  // sharing state
+  const [shareRows, setShareRows] = useState<ShareRow[]>([]);
+  const [sharingError, setSharingError] = useState<string | null>(null);
 
   // meta state
   const [loading, setLoading] = useState(true);
@@ -92,6 +111,37 @@ export default function DatasetEdit() {
     loadDataset();
   }, [datasetId]);
 
+  useEffect(() => {
+    if (!datasetId) {
+      setShareRows([{ id: 1, username: "", role: "viewer" }]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const permissions: DatasetPermission[] = await listDatasetPermissions(
+          datasetId
+        );
+        const mapped: ShareRow[] = permissions.map((perm, idx) => ({
+          id: idx + 1,
+          username: perm.user.username,
+          role: "viewer",
+          userId: perm.user.id,
+          permissionId: perm.id,
+        }));
+        if (mapped.length === 0) {
+          mapped.push({ id: 1, username: "", role: "viewer" });
+        }
+        setShareRows(mapped);
+        setSharingError(null);
+      } catch (err) {
+        console.error("Failed to load dataset permissions", err);
+        setSharingError("Failed to load sharing settings.");
+        setShareRows([{ id: 1, username: "", role: "viewer" }]);
+      }
+    })();
+  }, [datasetId]);
+
   // check name availability (client-side, excluding current dataset)
   useEffect(() => {
     let cancelled = false;
@@ -127,28 +177,80 @@ export default function DatasetEdit() {
   }, [name, originalName, datasetId]);
 
   // "valid" when the required bits are present and changed
+  const pendingShareRows = useMemo(
+    () => shareRows.filter((row) => !row.permissionId && row.username.trim()),
+    [shareRows]
+  );
+
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
     if (nameTaken) return false;
-    if (!isDirty) return false; // No changes made
+    if (!isDirty && pendingShareRows.length === 0) return false;
     return true;
-  }, [name, nameTaken, isDirty]);
+  }, [name, nameTaken, isDirty, pendingShareRows]);
 
   // Save - update dataset
   const onSave = async () => {
     if (!canSave || saving || !datasetId) return;
     setSaving(true);
     try {
-      const updateData = {
-        dataset_name: name.trim(),
-        notes: notes.trim() || undefined,
-        time_unit: timeUnit,
-        is_public: isPublic,
-      };
+      const datasetHasChanges = isDirty;
+      const pendingShares = pendingShareRows;
 
-      await updateDataset(datasetId, updateData);
+      if (datasetHasChanges) {
+        const updateData = {
+          dataset_name: name.trim(),
+          notes: notes.trim() || undefined,
+          time_unit: timeUnit,
+          is_public: isPublic,
+        };
+        await updateDataset(datasetId, updateData);
+      }
 
-      // Route back to dashboard
+      const failedShares: string[] = [];
+      if (pendingShares.length > 0) {
+        const existingUserIds = new Set(
+          shareRows
+            .filter((row) => row.permissionId && typeof row.userId === "number")
+            .map((row) => row.userId as number)
+        );
+        const processedUserIds = new Set<number>();
+
+        for (const row of pendingShares) {
+          const username = row.username.trim();
+          if (!username) continue;
+
+          let userId = row.userId;
+          if (!userId) {
+            const resolvedId = await resolveUsernameToId(username);
+            userId = resolvedId ?? undefined;
+          }
+          if (!userId) {
+            failedShares.push(username);
+            continue;
+          }
+          if (existingUserIds.has(userId) || processedUserIds.has(userId)) {
+            continue;
+          }
+
+          try {
+            await grantDatasetViewer(datasetId, userId);
+            processedUserIds.add(userId);
+          } catch (grantErr) {
+            console.error("Failed to grant dataset access", grantErr);
+            failedShares.push(username);
+          }
+        }
+      }
+
+      if (failedShares.length) {
+        alert(
+          `Dataset updated, but sharing failed for: ${failedShares.join(
+            ", "
+          )}. Please check the usernames and try again.`
+        );
+      }
+
       navigate("/dashboard", { state: { tab: "datasets" } });
     } catch (err: any) {
       let errorMessage = "Failed to update dataset. Please try again.";
@@ -178,12 +280,59 @@ export default function DatasetEdit() {
   };
 
   const onBack = () => {
-    if (isDirty) {
+    if (isDirty || pendingShareRows.length > 0) {
       setShowLeavePrompt(true);
     } else {
       navigate("/dashboard", { state: { tab: "datasets" } });
     }
   };
+
+  function addShareRow() {
+    setSharingError(null);
+    setShareRows((prev) => {
+      const nextId = (prev.at(-1)?.id ?? 0) + 1;
+      return [...prev, { id: nextId, username: "", role: "viewer" }];
+    });
+  }
+
+  function removeShareRowFromState(rowId: number) {
+    setShareRows((prev) => {
+      const filtered = prev.filter((row) => row.id !== rowId);
+      if (filtered.length === 0) {
+        return [{ id: 1, username: "", role: "viewer" }];
+      }
+      return filtered;
+    });
+  }
+
+  function updateShareRow(id: number, patch: Partial<ShareRow>) {
+    setSharingError(null);
+    setShareRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+  }
+
+  function handleUserSelect(id: number, user: UserSuggestion) {
+    updateShareRow(id, { username: user.username, userId: user.id });
+  }
+
+  async function removeShareRow(row: ShareRow) {
+    if (row.permissionId) {
+      updateShareRow(row.id, { isProcessing: true });
+      try {
+        await revokeDatasetPermission(row.permissionId);
+        removeShareRowFromState(row.id);
+        setSharingError(null);
+      } catch (err) {
+        console.error("Failed to revoke dataset access", err);
+        setSharingError(`Failed to revoke access for ${row.username}.`);
+        updateShareRow(row.id, { isProcessing: false });
+      }
+      return;
+    }
+
+    removeShareRowFromState(row.id);
+  }
 
   if (loading) {
     return (
@@ -412,6 +561,87 @@ export default function DatasetEdit() {
           <div className='rounded-md bg-gray-100 p-2 text-xs text-gray-700'>
             If enabled, other users can discover and view this dataset. (Viewers
             can use datasets, but only the owner can modify or delete.)
+          </div>
+        </section>
+
+        {/* Sharing */}
+        <section className='space-y-3'>
+          <h3 className='text-sm font-semibold text-gray-800'>
+            Share with other users
+          </h3>
+          {sharingError && (
+            <div className='rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700'>
+              {sharingError}
+            </div>
+          )}
+          <div className='rounded-md border border-black/10'>
+            <div className='grid grid-cols-2 border-b bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700'>
+              <div>Users</div>
+              <div>Permissions</div>
+            </div>
+
+            <div className='divide-y'>
+              {shareRows.length === 0 ? (
+                <div className='px-3 py-2 text-xs text-gray-500'>
+                  No viewers have been added yet.
+                </div>
+              ) : (
+                shareRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className='grid grid-cols-2 items-center gap-2 px-3 py-2'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <button
+                        className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
+                        title='Remove'
+                        onClick={() => removeShareRow(row)}
+                        disabled={saving || row.isProcessing}
+                      >
+                        ✕
+                      </button>
+                      {row.permissionId ? (
+                        <div>
+                          <div className='text-sm font-medium'>
+                            {row.username}
+                          </div>
+                          <div className='text-xs text-gray-500'>
+                            Existing viewer
+                          </div>
+                        </div>
+                      ) : (
+                        <UserSearchInput
+                          value={row.username}
+                          onValueChange={(val) =>
+                            updateShareRow(row.id, {
+                              username: val,
+                              userId: undefined,
+                            })
+                          }
+                          onSelect={(user) => handleUserSelect(row.id, user)}
+                          placeholder='Search username'
+                          disabled={saving}
+                        />
+                      )}
+                    </div>
+                    <div className='text-sm text-gray-700'>Viewer</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className='flex items-center justify-between border-t bg-gray-100 px-3 py-2'>
+              <button
+                onClick={addShareRow}
+                className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
+                disabled={saving}
+              >
+                + Add
+              </button>
+              <div className='text-[11px] text-gray-600'>
+                Viewers can use this dataset but cannot edit or delete it.
+              </div>
+            </div>
           </div>
         </section>
 
