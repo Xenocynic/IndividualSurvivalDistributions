@@ -420,7 +420,7 @@ class PinnedDatasetSerializer(serializers.ModelSerializer):
 
         existing_pin = PinnedDataset.objects.filter(user=user, dataset=dataset).first()
         if existing_pin:
-            raise serializers.ValidationError("This dataset is already pinned.")
+            return existing_pin  # Return existing pin instead of creating a new one
 
         validated_data["user"] = user
         return super().create(validated_data)

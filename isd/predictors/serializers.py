@@ -195,7 +195,7 @@ class PinnedPredictorSerializer(serializers.ModelSerializer):
 
         existing_pin = PinnedPredictor.objects.filter(user=user, predictor=predictor).first()
         if existing_pin:
-            raise serializers.ValidationError("This predictor is already pinned.")
+            return existing_pin  # Return existing pin instead of creating a new one
 
         validated_data["user"] = user
         return super().create(validated_data)

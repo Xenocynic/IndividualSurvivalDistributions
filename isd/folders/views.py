@@ -8,13 +8,14 @@ from rest_framework.exceptions import PermissionDenied
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from .models import Folder, FolderItem, FolderPermission
+from .models import Folder, FolderItem, FolderPermission, PinnedFolder
 from .serializers import (
     FolderSerializer,
     FolderPermissionSerializer,
     FolderItemSerializer,
     AddItemToFolderSerializer,
-    RemoveItemFromFolderSerializer
+    RemoveItemFromFolderSerializer,
+    PinnedFolderSerializer
 )
 
 from predictors.models import Predictor
@@ -581,6 +582,25 @@ class FolderViewSet(viewsets.ModelViewSet):
                 {"error": f"Failed to duplicate folder: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    # Pin and Unpin actions
+    @action(detail=True, methods=["post"])
+    def pin(self, request, pk=None):
+        """Pin a folder for quick access."""
+        folder = self.get_object()
+        if not CanAccessFolder().has_object_permission(request, self, folder):
+            raise PermissionDenied("You do not have access to pin this folder.")
+        PinnedFolder.objects.get_or_create(user=request.user, folder=folder)
+        return Response({"message": "Folder pinned successfully."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def unpin(self, request, pk=None):
+        """Unpin a folder."""
+        folder = self.get_object()
+        if not CanAccessFolder().has_object_permission(request, self, folder):
+            raise PermissionDenied("You do not have access to unpin this folder.")
+        PinnedFolder.objects.filter(user=request.user, folder=folder).delete()
+        return Response({"message": "Folder unpinned successfully."}, status=status.HTTP_200_OK)
 
 
 # ----------------------------
@@ -1079,6 +1099,27 @@ class FolderPermissionViewSet(viewsets.ModelViewSet):
             'failed': len(errors)
         }, status=status.HTTP_200_OK)
 
+
+# ----------------------------
+# PinnedFolder ViewSet
+# ----------------------------
+class PinnedFolderViewSet(viewsets.ModelViewSet):
+    """
+    API viewset for managing pinned predictors.
+    - GET: list pinned predictors
+    - POST: pin a predictor
+    - DELETE: unpin a predictor
+    """
+    serializer_class = PinnedFolderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Return pinned folders for the current user."""
+        return PinnedFolder.objects.filter(user=self.request.user).order_by('-pinned_at')
+    
+    def perform_create(self, serializer):
+        """Automatically set the user when pinning a folder."""
+        serializer.save(user=self.request.user)
 
 # ----------------------------
 # Public Folder Views

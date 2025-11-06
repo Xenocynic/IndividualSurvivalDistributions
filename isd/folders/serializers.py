@@ -6,7 +6,9 @@ from .models import Folder, FolderItem, FolderPermission
 from predictors.models import Predictor
 from dataset.models import Dataset
 
-
+# ----------------------------
+# User Serializer (lightweight)
+# ----------------------------
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -275,6 +277,33 @@ class FolderPermissionSerializer(serializers.ModelSerializer):
         
         return super().create(validated_data)
 
+
+class PinnedFolderSerializer(serializers.ModelSerializer):
+    """Serializer for PinnedFolder model."""
+    
+    folder = FolderSerializer(read_only=True)
+    folder_id = serializers.PrimaryKeyRelatedField(
+        queryset=Folder.objects.all(), source="folder", write_only=True
+    )
+    
+    class Meta:
+        model = FolderPermission
+        fields = ['id', 'folder', 'folder_id', 'pinned_at']
+        read_only_fields = ['id', 'pinned_at']
+    
+    def create(self, validated_data):
+        """Prevent duplicate pins for same user."""
+        request = self.context.get("request")
+        user = request.user
+        folder = validated_data["folder"]
+        
+        existing_pin = FolderPermission.objects.filter(user=user, folder=folder).first()
+        
+        if existing_pin:
+            return existing_pin  # Return existing pin instead of creating a new one
+        
+        validated_data["user"] = user
+        return super().create(validated_data)
 
 # ----------------------------
 # Add/Remove Item Serializers

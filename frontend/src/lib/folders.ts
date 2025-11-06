@@ -165,6 +165,19 @@ export async function removeItemFromFolder(folderId: string, itemType: 'predicto
   });
 }
 
+// Folder pinning operations
+export async function pinFolder(folderId: string): Promise<void> {
+  return api.post(`/api/folders/${folderId}/pin/`);
+}
+
+export async function unpinFolder(folderId: string): Promise<void> {
+  return api.post(`/api/folders/${folderId}/unpin/`);
+}
+
+export async function listPinnedFolders(): Promise<Folder[]> {
+  return api.get<Folder[]>("/api/folders/pins/");
+}
+
 // Public folder operations (no authentication required)
 export async function listPublicFolders(): Promise<Folder[]> {
   return publicApi.get<Folder[]>("/api/folders/public/");
