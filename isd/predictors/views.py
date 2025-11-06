@@ -40,8 +40,6 @@ class CanAccessPredictor(permissions.BasePermission):
             return True
         if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
             return True
-        if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
-            return True
         return False
 
 
@@ -357,8 +355,7 @@ def resolve_username(request):
     if not username:
         return Response({"detail": "username required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    try:
-        user = User.objects.get(username=username)
-        return Response({"id": user.id})
-    except User.DoesNotExist:
-        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    user = User.objects.filter(username=username).first()
+    if not user:
+        return Response({"detail": "User not found"}, status=404)
+    return Response({"id": user.id})

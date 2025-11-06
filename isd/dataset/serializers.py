@@ -3,7 +3,6 @@ from django.contrib.auth.models import User
 from .models import Dataset, DatasetPermission, PinnedDataset
 from .file_utils import FileValidator
 from rest_framework.exceptions import PermissionDenied
-from .models import PinnedDataset
 
 # ----------------------------
 # User Serializer (lightweight)
