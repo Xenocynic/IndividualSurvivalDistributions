@@ -1,20 +1,24 @@
-from django.db.models import Q
 from django.db import IntegrityError
 from django.contrib.contenttypes.models import ContentType
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
+
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .models import Folder, FolderItem, FolderPermission
 from .serializers import (
-    FolderSerializer, FolderPermissionSerializer, FolderItemSerializer,
-    AddItemToFolderSerializer, RemoveItemFromFolderSerializer
+    FolderSerializer,
+    FolderPermissionSerializer,
+    FolderItemSerializer,
+    AddItemToFolderSerializer,
+    RemoveItemFromFolderSerializer
 )
+
 from predictors.models import Predictor
 from dataset.models import Dataset
-
 
 # ----------------------------
 # Custom Permissions

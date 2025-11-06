@@ -153,7 +153,7 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PredictorPermission
-        fields = ["id", "predictor", "user", "user_id", "user_display", "role"]
+        fields = ["id", "predictor", "user", "user_id"]
 
     def validate_predictor(self, value):
         """Validate that the user owns the predictor."""

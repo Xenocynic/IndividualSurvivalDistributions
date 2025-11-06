@@ -7,26 +7,18 @@ from rest_framework.response import Response
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema
 
-# Create your views here.
-class IsSelf(permissions.BasePermission):
-    """
-    Custom permission: only allow users to access or modify their own data.
-    """
-    def has_object_permission(self, request, view, obj):
-        return obj == request.user
-
 class UserViewSet(viewsets.ModelViewSet):
     """
     Handles user profile CRUD operations with self-access permissions.
     """
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated, IsSelf]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         # Only return the authenticated user
         return User.objects.filter(id=self.request.user.id)
     
-    @action(detail=False, methods=["get", "put", "patch"], url_path='me')
+    @action(detail=False, methods=["get", "patch"], url_path='me')
     def me(self, request):
         """
         Adds path /api/accounts/users/me/ for the authenticated user to view or update their profile.
@@ -37,7 +29,7 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(request.user)
             return Response(serializer.data)
         
-        elif request.method in ["PUT", "PATCH"]:
+        elif request.method == "PATCH":
             serializer = self.get_serializer(request.user, data=request.data, partial=(request.method == "PATCH"))
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
