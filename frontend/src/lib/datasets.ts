@@ -29,6 +29,8 @@ export type Dataset = {
   uploaded_at: string;
   folder_id?: string;
   folder_name?: string;
+  num_features: number | null;
+  num_labels: number | null;
 };
 
 export type CreateDatasetRequest = {
@@ -40,11 +42,16 @@ export type CreateDatasetRequest = {
   folder_id?: string;
 };
 
+export interface CreateDatasetResponse extends Dataset {
+  processing_details?: any;
+  warnings?: string[];
+}
+
 /**
  * Create a dataset object with file upload.
  * Sends multipart form data with all required fields.
  */
-export async function createDataset(request: CreateDatasetRequest) {
+export async function createDataset(request: CreateDatasetRequest): Promise<CreateDatasetResponse> {
   const formData = new FormData();
   formData.append('dataset_name', request.dataset_name);
   formData.append('file', request.file);
@@ -59,7 +66,12 @@ export async function createDataset(request: CreateDatasetRequest) {
     formData.append("folder_id", request.folder_id);
   }
 
-  return api.post<Dataset>("/api/datasets/", formData);
+  const responseData = await api.post<CreateDatasetResponse>(
+    "/api/datasets/",
+    formData
+  );
+
+  return responseData;
 }
 
 /** List the datasets visible to the current user (owner + shared)

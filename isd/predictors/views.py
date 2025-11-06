@@ -74,6 +74,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
         
         # Support folder filtering
         folder_id = self.request.query_params.get('folder_id')
+        print(folder_id)
         if folder_id is not None:
             if folder_id == 'null' or folder_id == '':
                 # Filter for items not in any folder
@@ -140,19 +141,41 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        """Assign the logged-in user as the owner."""
+        """Assign the logged-in user as the owner and handle folders + permissions."""
         print("RAW request.data:", self.request.data)
-        predictor = serializer.save()
-        # Automatically create 'owner' permission for this user
+
+        # Save predictor instance, attaching owner
+        predictor = serializer.save(owner=self.request.user)
+
+        # -------------------------
+        # Handle folder (multi-model)
+        # -------------------------
+        folder = serializer.validated_data.get('folder')  # This is a Folder instance or None
+        if folder:
+            from folders.models import FolderItem
+            from django.contrib.contenttypes.models import ContentType
+
+            FolderItem.objects.create(
+                content_type=ContentType.objects.get_for_model(Predictor),
+                object_id=predictor.predictor_id,
+                folder=folder,
+                added_by=self.request.user
+            )
+            print(f"Predictor {predictor.predictor_id} added to folder {folder.folder_id}")
+
+        # -------------------------
+        # Automatically create 'owner' permission
+        # -------------------------
         perm = PredictorPermission.objects.create(
             predictor=predictor,
             user=self.request.user,
             role='owner'
         )
-
         print("Owner permission added:", perm)
 
-        # Add extra permissions
+        # -------------------------
+        # Add extra permissions from request
+        # -------------------------
         try:
             permissions_data = self.request.data.get("permissions", [])
             for perm_data in permissions_data:
@@ -177,6 +200,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
                     print("Failed to add permission:", perm_data, e)
         except Exception as e:
             print("perform_create failed:", e)
+
 
     def retrieve(self, request, *args, **kwargs):
         """
