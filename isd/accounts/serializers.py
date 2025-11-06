@@ -3,10 +3,6 @@ from rest_framework import serializers
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for Django User model"""
-    
-    role = serializers.CharField(write_only=True, required=False)
-    groups = serializers.StringRelatedField(many=True, read_only=True)
-    
     class Meta:
         model = User
         fields = ["id", "username", "email", "first_name", "last_name", "password", "date_joined", "is_active"]

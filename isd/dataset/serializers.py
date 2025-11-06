@@ -382,7 +382,7 @@ class DatasetPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetPermission
         fields = ["id", "dataset", "user", "user_id"]
-        read_only_fields = ["id", "user"]
+        read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
         """Ensure only dataset owners can grant permission."""
@@ -406,7 +406,7 @@ class PinnedDatasetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PinnedDataset
-        fields = ["id", "dataset", "name", "user", "pinned_at", "dataset_detail"]
+        fields = ["id", "dataset", "dataset_id", "name", "user", "pinned_at", "dataset_detail"]
         read_only_fields = ["id", "pinned_at", "user"]
 
     def create(self, validated_data):
