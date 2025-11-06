@@ -14,6 +14,11 @@ from .file_utils import FileStorageManager
 from .tasks import process_feature_imputation
 import os
 import mimetypes
+import pandas as pd
+from django.conf import settings
+from predictors.models import Predictor
+from predictors.serializers import PredictorSerializer
+from predictors.views import CanAccessPredictor
 
 # ----------------------------
 # Custom Permissions
@@ -206,16 +211,18 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 
                 # Automatically perform feature imputation
                 imputation_result = None
+                processing_warnings = []
+
                 if dataset.file_path:
                     try:
                         imputation_result = process_feature_imputation(dataset.dataset_id)
+                        if imputation_result.get('warnings'):
+                            processing_warnings = imputation_result['warnings'] # Capture warnings
                         if imputation_result['success']:
-                            # Update the dataset with new file size after imputation
-                            storage_manager = FileStorageManager()
-                            new_size = storage_manager.get_file_size(dataset.file_path)
-                            if new_size:
-                                dataset.file_size = new_size
-                                dataset.save()
+                            pass
+                        else:
+                            # If processing failed, raise an error to roll back the transaction
+                            raise Exception(imputation_result.get('error', 'Data processing failed.'))
                     except Exception as imputation_error:
                         # Log the error but don't fail the dataset creation
                         import logging
@@ -225,19 +232,10 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 # Prepare response data
                 response_data = serializer.data
                 
-                # Add imputation results to response if available
-                if imputation_result and imputation_result['success']:
-                    response_data['imputation'] = {
-                        'performed': True,
-                        'details': imputation_result['details']
-                    }
-                else:
-                    response_data['imputation'] = {
-                        'performed': False,
-                        'reason': 'No missing values found or imputation failed'
-                    }
-                
-                # Return success response
+                # Add processing details and warnings to the response
+                response_data['processing_details'] = imputation_result.get('details')
+                response_data['warnings'] = processing_warnings # Add warnings here
+
                 headers = self.get_success_headers(response_data)
                 return Response(
                     response_data,
@@ -400,6 +398,77 @@ class DatasetViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this dataset.")
         PinnedDataset.objects.filter(user=request.user, dataset=dataset).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Custom retrieve method to add feature and label counts to the response.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # Initialize counts
+        num_features = None
+        num_labels = None
+
+        try:
+            if instance.file_path:
+                # Construct the full path to the file
+                full_file_path = os.path.join(settings.MEDIA_ROOT, instance.file_path)
+                
+                if os.path.exists(full_file_path):
+                    # Open in binary read mode and let pandas read it
+                    with open(full_file_path, 'rb') as f:
+                        df = pd.read_csv(f)
+                    
+                    # Calculate num_labels (rows - header)
+                    num_labels = len(df)
+                    
+                    # Calculate num_features (cols - 2)
+                    num_cols = len(df.columns)
+                    num_features = num_cols - 2 if num_cols >= 2 else 0
+                
+        except Exception as e:
+            # Log the error but don't fail the request
+            print(f"Error reading CSV for dataset {instance.dataset_id}: {e}")
+
+        # Add the counts to the serialized data
+        data['num_features'] = num_features
+        data['num_labels'] = num_labels
+        
+        return Response(data)
+
+    @action(detail=True, methods=['get'], url_path='predictors')
+    def list_predictors(self, request, pk=None):
+        """
+        List all predictors (public or accessible by the user)
+        that are associated with this dataset.
+        """
+        #    Get the dataset object. This automatically runs
+        #    CanAccessDataset permission check, so a user can't
+        #    see predictors for a dataset they don't have access to.
+        try:
+            dataset = self.get_object() 
+        except Exception as e:
+            return Response({"error": "Dataset not found or permission denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        #    Get all predictors linked to this dataset
+        all_predictors_on_dataset = Predictor.objects.filter(
+            dataset=dataset
+        ).order_by('-updated_at')
+
+        #    Filter this list to only what the user can see
+        #    We must manually check each predictor's permissions
+        accessible_predictors = []
+        predictor_permission_check = CanAccessPredictor()
+        for predictor in all_predictors_on_dataset:
+            if predictor_permission_check.has_object_permission(request, self, predictor):
+                accessible_predictors.append(predictor)
+
+        #    Serialize the final list of accessible predictors
+        #    (We can add backend pagination here later if lists get very long)
+        serializer = PredictorSerializer(accessible_predictors, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ----------------------------

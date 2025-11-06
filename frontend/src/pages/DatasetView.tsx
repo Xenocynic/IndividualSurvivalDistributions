@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDataset, downloadDatasetFile, type Dataset } from "../lib/datasets";
+import LinkedPredictorsList from "../components/LinkedPredictorsList";
 
 export default function DatasetView() {
   const navigate = useNavigate();
@@ -158,6 +159,21 @@ export default function DatasetView() {
                     </div>
                   </div>
                 </div>
+                
+                <div className="mt-2 flex gap-4 border-t pt-2">
+                        <div>
+                          <div className="text-xs text-neutral-500">Features</div>
+                          <div className="text-sm font-medium text-neutral-800">
+                            {dataset.num_features ?? 'N/A'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-neutral-500">Labels (Samples)</div>
+                          <div className="text-sm font-medium text-neutral-800">
+                            {dataset.num_labels ?? 'N/A'}
+                          </div>
+                        </div>
+                      </div>
 
                 <button
                   onClick={handleDownload}
@@ -199,6 +215,14 @@ export default function DatasetView() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Connected Predictors */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-neutral-800">
+            Predictors Using This Dataset
+          </h2>
+          {datasetId && <LinkedPredictorsList datasetId={datasetId} />}
         </section>
       </div>
     </div>

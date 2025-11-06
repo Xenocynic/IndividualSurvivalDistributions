@@ -51,96 +51,71 @@ def process_feature_imputation(dataset_id):
         
         # Store original info
         original_shape = df.shape
-        original_missing = df.isnull().sum().sum()
+        warnings = []
+        imputed_cols_summary = []
         
-        if original_missing == 0:
-            return {
-                'success': True,
-                'details': {
-                    'message': 'No missing values found in dataset',
-                    'rows': original_shape[0],
-                    'columns': original_shape[1],
-                    'missing_values_before': 0,
-                    'missing_values_after': 0
-                }
-            }
+        if df.shape[1] < 3:
+            return {'success': False, 'error': 'Dataset must have at least 3 columns (Survival, Censorship, and 1+ feature).'}
         
-        # Perform imputation
-        imputed_columns = []
+        label_cols = df.columns[:2].tolist()
+        feature_cols = df.columns[2:].tolist()
+
+        numeric_features = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
+        categorical_features = df[feature_cols].select_dtypes(include=['object', 'category']).columns.tolist()
         
-        # Process numeric columns
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        for col in numeric_columns:
-            missing_count = df[col].isnull().sum()
-            if missing_count > 0:
-                mean_value = df[col].mean()
-                df[col] = df[col].fillna(mean_value)
-                imputed_columns.append({
-                    'column': col,
-                    'type': 'numeric',
-                    'missing_count': int(missing_count),
-                    'imputed_with': 'mean',
-                    'imputed_value': float(mean_value) if not pd.isna(mean_value) else None
-                })
+        # --- 1. Imputation ---
         
-        # Process categorical columns (mode imputation)
-        categorical_columns = df.select_dtypes(include=['object', 'category']).columns
-        for col in categorical_columns:
-            missing_count = df[col].isnull().sum()
-            if missing_count > 0:
-                mode_value = df[col].mode()
-                if len(mode_value) > 0:
-                    df[col] = df[col].fillna(mode_value[0])
-                    imputed_columns.append({
-                        'column': col,
-                        'type': 'categorical',
-                        'missing_count': int(missing_count),
-                        'imputed_with': 'mode',
-                        'imputed_value': str(mode_value[0])
-                    })
-                else:
-                    # If no mode available, fill with 'Unknown'
-                    df[col] = df[col].fillna('Unknown')
-                    imputed_columns.append({
-                        'column': col,
-                        'type': 'categorical',
-                        'missing_count': int(missing_count),
-                        'imputed_with': 'default',
-                        'imputed_value': 'Unknown'
-                    })
+        # Impute NUMERIC features with mean
+        for col in numeric_features:
+            if df[col].isnull().any():
+                mean_val = df[col].mean()
+                df[col] = df[col].fillna(mean_val)
+                imputed_cols_summary.append(f"Imputed missing values in numeric column '{col}' with mean ({mean_val:.2f}).")
+
+        # Impute CATEGORICAL features with "unknown"
+        for col in categorical_features:
+            if df[col].isnull().any():
+                df[col] = df[col].fillna("unknown")
+                imputed_cols_summary.append(f"Imputed missing values in categorical column '{col}' with 'unknown'.")
         
-        # Save the imputed dataset
-        # Create a backup of the original file first
-        backup_path = dataset.file_path.replace('.csv', '_backup.csv').replace('.tsv', '_backup.tsv')
-        storage_manager.copy_file(dataset.file_path, backup_path)
+        # --- 2. Warning Generation ---
         
-        # Save the imputed data
+        for col in categorical_features:
+            unique_count = df[col].nunique()
+            
+            # Generate warning if > 30 unique categories
+            if unique_count > 30:
+                warnings.append(
+                    f"Warning: Feature '{col}' has {unique_count} unique categories. "
+                    "This may create many new features and could adversely affect model performance."
+                )
+
+        # --- 3. Save Processed File ---
+        
+        # Overwrite the original file
         if dataset.file_path.lower().endswith('.tsv'):
             df.to_csv(file_path, sep='\t', index=False)
         else:
             df.to_csv(file_path, index=False)
-        
+            
         # Update file size
         new_file_size = storage_manager.get_file_size(dataset.file_path)
         dataset.file_size = new_file_size
         dataset.save()
         
-        final_missing = df.isnull().sum().sum()
-        
-        logger.info(f"Feature imputation completed for dataset {dataset_id}. "
-                   f"Missing values: {original_missing} -> {final_missing}")
-        
+        logger.info(f"Data processing completed for dataset {dataset_id}. New shape: {df.shape}")
+
         return {
             'success': True,
             'details': {
-                'message': 'Feature imputation completed successfully',
-                'rows': original_shape[0],
-                'columns': original_shape[1],
-                'missing_values_before': int(original_missing),
-                'missing_values_after': int(final_missing),
-                'imputed_columns': imputed_columns,
-                'backup_created': backup_path
-            }
+                'message': 'Imputation and one-hot encoding completed.',
+                'original_rows': original_shape[0],
+                'original_cols': original_shape[1],
+                'final_rows': df.shape[0],
+                'final_cols': df.shape[1],
+                'imputation_summary': imputed_cols_summary,
+            },
+            'warnings': warnings  # Pass the warnings back
         }
         
     except Dataset.DoesNotExist:
