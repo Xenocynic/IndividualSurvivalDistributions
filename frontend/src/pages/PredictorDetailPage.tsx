@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation, Link, } from "react-router-dom";
 import { api } from "../lib/apiClient";
 
 // --- Type Definitions ---
@@ -227,7 +227,17 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Card>
           <dl className="space-y-4">
-            <InfoItem label="Dataset" value={<span className="font-mono">{predictor.dataset.dataset_name}</span>} />
+            <InfoItem
+              label="Dataset"
+              value={
+                <Link
+                  to={`/datasets/${predictor.dataset.dataset_id}/view`}
+                  className="font-mono text-blue-600 hover:underline"
+                >
+                  {predictor.dataset.dataset_name}
+                </Link>
+              }
+            />
             <InfoItem label="Dataset ID" value={predictor.dataset.dataset_id} />
             <InfoItem label="MTLR Training File" value={<span className="text-neutral-500">TODO</span>} />
             <InfoItem label="MTLR Feature List File" value={<span className="text-neutral-500">TODO</span>} />
