@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from dataset.models import Dataset
+from folders.models import Folder
 from rest_framework.exceptions import PermissionDenied
 
 
@@ -42,8 +43,15 @@ class PredictorSerializer(serializers.ModelSerializer):
         source='dataset',
         write_only=True # This means it will not appear in responses (get, etc)
     )
-    folder_id = serializers.IntegerField(write_only=True, required=False, allow_null=True, help_text="ID of folder to add predictor to")
     folder = FolderSerializer(read_only=True, help_text="Folder containing this predictor")
+    folder_id = serializers.PrimaryKeyRelatedField(
+        queryset=Folder.objects.all(),
+        source="folder",
+        write_only=True,
+        required=False,
+        allow_null=True,
+        help_text="ID of folder to add predictor to"
+    )
     features = serializers.ListField(child=serializers.CharField(), read_only=True, required=False)
 
     class Meta:
@@ -81,28 +89,19 @@ class PredictorSerializer(serializers.ModelSerializer):
             "predictor_id", "owner", "created_at", "updated_at", "features"
         ]
     
-    def validate_folder_id(self, value):
-        """Validate folder_id field."""
-        if value is None:
-            return value
-            
+    def validate_folder_id(self, folder):
+        """Ensure user owns the folder before assigning it."""
+        if folder is None:
+            return folder
+
         request = self.context.get("request")
         if not request or not request.user:
             raise serializers.ValidationError("User context is required")
-        
-        # Import here to avoid circular imports
-        from folders.models import Folder
-        
-        try:
-            folder = Folder.objects.get(folder_id=value)
-        except Folder.DoesNotExist:
-            raise serializers.ValidationError("Folder does not exist")
-        
-        # Check if user owns the folder
+
         if folder.owner != request.user:
             raise serializers.ValidationError("You can only add predictors to folders you own")
-        
-        return value
+
+        return folder
     
     def to_representation(self, instance):
         """Add folder information to the response."""
@@ -128,52 +127,6 @@ class PredictorSerializer(serializers.ModelSerializer):
             
         return data
     
-    def validate_folder_id(self, value):
-        """Validate folder_id field."""
-        if value is None:
-            return value
-            
-        request = self.context.get("request")
-        if not request or not request.user:
-            raise serializers.ValidationError("User context is required")
-        
-        # Import here to avoid circular imports
-        from folders.models import Folder
-        
-        try:
-            folder = Folder.objects.get(folder_id=value)
-        except Folder.DoesNotExist:
-            raise serializers.ValidationError("Folder does not exist")
-        
-        # Check if user owns the folder
-        if folder.owner != request.user:
-            raise serializers.ValidationError("You can only add predictors to folders you own")
-        
-        return value
-    
-    def to_representation(self, instance):
-        """Add folder information to the response."""
-        data = super().to_representation(instance)
-        
-        # Get folder information if predictor is in a folder
-        from folders.models import FolderItem
-        from django.contrib.contenttypes.models import ContentType
-        
-        predictor_ct = ContentType.objects.get_for_model(Predictor)
-        folder_item = FolderItem.objects.filter(
-            content_type=predictor_ct,
-            object_id=instance.predictor_id
-        ).select_related('folder').first()
-        
-        if folder_item:
-            data['folder'] = {
-                'folder_id': folder_item.folder.folder_id,
-                'name': folder_item.folder.name
-            }
-        else:
-            data['folder'] = None
-            
-        return data
     
     def create(self, validated_data):
         """Automatically attach owner and handle folder assignment during creation."""
