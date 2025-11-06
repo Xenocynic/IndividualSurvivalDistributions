@@ -39,6 +39,8 @@ class DatasetSerializer(serializers.ModelSerializer):
     has_file = serializers.BooleanField(read_only=True)
     folder_id = serializers.IntegerField(write_only=True, required=False, allow_null=True, help_text="ID of folder to add dataset to")
     folder = FolderSerializer(read_only=True, help_text="Folder containing this dataset")
+    num_features = serializers.IntegerField(read_only=True, help_text="Number of feature columns (total columns - 2)")
+    num_labels = serializers.IntegerField(read_only=True, help_text="Number of samples/rows (total rows - 1)")
     
     class Meta:
         model = Dataset
@@ -47,7 +49,8 @@ class DatasetSerializer(serializers.ModelSerializer):
             "file", "file_path", "original_filename", "file_size", 
             "file_size_display", "file_display_name", "has_file",
             "folder", "folder_id",
-            "notes", "time_unit", "is_public", "uploaded_at"
+            "notes", "time_unit", "is_public", "uploaded_at",
+            "num_features", "num_labels"
         ]
         extra_kwargs = {
             'dataset_id': {'read_only': True},
