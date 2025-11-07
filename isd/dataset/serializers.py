@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Dataset, DatasetPermission, PinnedDataset
+from .models import Dataset, DatasetPermission, PinnedDataset, DatasetStatistics
 from .file_utils import FileValidator
 from rest_framework.exceptions import PermissionDenied
 
@@ -424,3 +424,17 @@ class PinnedDatasetSerializer(serializers.ModelSerializer):
 
         validated_data["user"] = user
         return super().create(validated_data)
+# ----------------------------
+# Dataset Statistics Serializer
+# ----------------------------
+class DatasetStatisticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DatasetStatistics
+        fields = [
+            "computed_at",
+            "schema_version",
+            "general_stats",
+            "feature_correlations",
+            "event_time_histogram",
+        ]
+        read_only_fields = fields

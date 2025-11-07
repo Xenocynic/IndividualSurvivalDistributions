@@ -138,4 +138,4 @@ class PredictorPermission(models.Model):
         verbose_name_plural = "Predictor Permissions"
 
     def __str__(self):
-        return f"{self.user.username} - {self.predictor.name} ({self.role})"
+        return f"{self.user.username} - {self.predictor.name}"
