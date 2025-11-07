@@ -11,6 +11,7 @@ from .ml_client import MLAPIClient
 import pandas as pd
 import os
 from django.conf import settings
+from django.utils import timezone
 
 # ----------------------------
 # Custom Permissions
@@ -570,5 +571,193 @@ def ml_list_models(request):
     else:
         return Response(
             {'error': result['error']},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def train_predictor_model(request, predictor_id):
+    """
+    Train an ML model for a specific predictor using its dataset
+    POST /api/predictors/{predictor_id}/train/
+    
+    Request body (optional):
+        - selected_features: Array of feature names to use
+        - parameters: Model training parameters (dropout, neurons, etc.)
+    
+    Response:
+        - Updated predictor with ml_model_id and metrics
+    """
+    try:
+        # Get the predictor
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+        
+        # Check permissions
+        if not CanAccessPredictor().has_object_permission(request, None, predictor):
+            raise PermissionDenied("You don't have permission to train this predictor")
+        
+        # Check if predictor has a dataset
+        if not predictor.dataset or not predictor.dataset.file_path:
+            return Response(
+                {'error': 'Predictor must have a dataset to train'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update status to training
+        predictor.ml_training_status = 'training'
+        predictor.save()
+        
+        # Get dataset file
+        dataset_path = os.path.join(settings.MEDIA_ROOT, predictor.dataset.file_path)
+        
+        if not os.path.exists(dataset_path):
+            predictor.ml_training_status = 'failed'
+            predictor.save()
+            return Response(
+                {'error': 'Dataset file not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get training parameters from request
+        selected_features = request.data.get('selected_features', None)
+        parameters = request.data.get('parameters', None)
+        
+        # Open and upload dataset to ML API
+        with open(dataset_path, 'rb') as f:
+            from django.core.files.uploadedfile import InMemoryUploadedFile
+            import io
+            
+            # Read file content
+            file_content = f.read()
+            dataset_file = InMemoryUploadedFile(
+                file=io.BytesIO(file_content),
+                field_name='dataset',
+                name=os.path.basename(dataset_path),
+                content_type='text/csv',
+                size=len(file_content),
+                charset=None
+            )
+            
+            # Train model using ML API
+            client = MLAPIClient()
+            result = client.train_model(
+                dataset_file=dataset_file,
+                selected_features=selected_features,
+                parameters=parameters,
+                return_cv_predictions=True
+            )
+        
+        if result['success']:
+            data = result['data']
+            
+            # Update predictor with ML model info
+            predictor.ml_model_id = data.get('model_id')
+            predictor.ml_trained_at = timezone.now()
+            predictor.ml_training_status = 'trained'
+            predictor.ml_model_metrics = data.get('metrics', {})
+            predictor.ml_selected_features = selected_features
+            predictor.save()
+            
+            # Return updated predictor
+            serializer = PredictorSerializer(predictor)
+            return Response({
+                'status': 'success',
+                'message': 'Model trained successfully',
+                'predictor': serializer.data,
+                'training_result': data
+            }, status=status.HTTP_200_OK)
+        else:
+            # Training failed
+            predictor.ml_training_status = 'failed'
+            predictor.save()
+            
+            return Response(
+                {'error': result['error']},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except Predictor.DoesNotExist:
+        return Response(
+            {'error': 'Predictor not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        # Update status to failed
+        try:
+            predictor.ml_training_status = 'failed'
+            predictor.save()
+        except:
+            pass
+        
+        return Response(
+            {'error': f'Training failed: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def predict_with_predictor(request, predictor_id):
+    """
+    Make a prediction using a trained predictor
+    POST /api/predictors/{predictor_id}/predict/
+    
+    Request body:
+        - features: Dict of feature_name -> value
+    
+    Response:
+        - predictions: Survival predictions from ML model
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+        
+        # Check permissions
+        if not CanAccessPredictor().has_object_permission(request, None, predictor):
+            raise PermissionDenied("You don't have permission to use this predictor")
+        
+        # Check if model is trained
+        if not predictor.ml_model_id:
+            return Response(
+                {'error': 'This predictor has not been trained yet'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if predictor.ml_training_status != 'trained':
+            return Response(
+                {'error': f'Model is not ready (status: {predictor.ml_training_status})'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get features from request
+        features = request.data.get('features')
+        if not features or not isinstance(features, dict):
+            return Response(
+                {'error': 'features must be a dictionary of feature_name -> value'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Make prediction using ML API
+        client = MLAPIClient()
+        result = client.predict(
+            model_id=predictor.ml_model_id,
+            features=features
+        )
+        
+        if result['success']:
+            return Response(result['data'], status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {'error': result['error']},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except Predictor.DoesNotExist:
+        return Response(
+            {'error': 'Predictor not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Prediction failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

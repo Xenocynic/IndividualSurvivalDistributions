@@ -10,11 +10,15 @@ from .views import (
     PinnedPredictorViewSet, 
     list_public_predictors,
     resolve_username,
+    # ML API views
     ml_health_check,
     ml_train_model,
     ml_retrain_model,
     ml_predict,
     ml_list_models,
+    # Predictor-specific ML views
+    train_predictor_model,
+    predict_with_predictor,
 )
 
 router = DefaultRouter()

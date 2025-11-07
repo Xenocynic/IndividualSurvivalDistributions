@@ -60,12 +60,12 @@ class PredictorSerializer(serializers.ModelSerializer):
             "predictor_id",
             "name",
             "description",
-            "dataset", # Read-only, appears in responses like GET
-            "dataset_id", # Write-only, For POST/PATCH
+            "dataset",
+            "dataset_id",
             "owner",
             "is_private",
-            "folder", # Read-only, folder information
-            "folder_id", # Write-only, for folder assignment
+            "folder",
+            "folder_id",
             "time_unit",
             "num_time_points",
             "regularization",
@@ -84,9 +84,22 @@ class PredictorSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "features",
+            "ml_model_id",
+            "ml_trained_at",
+            "ml_training_status",
+            "ml_model_metrics",
+            "ml_selected_features",
         ]
         read_only_fields = [
-            "predictor_id", "owner", "created_at", "updated_at", "features"
+            "predictor_id", 
+            "owner", 
+            "created_at", 
+            "updated_at", 
+            "features",
+            "ml_model_id",
+            "ml_trained_at", 
+            "ml_training_status",
+            "ml_model_metrics",
         ]
     
     def validate_folder_id(self, folder):
