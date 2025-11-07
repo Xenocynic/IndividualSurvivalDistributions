@@ -39,6 +39,7 @@ export type CreateDatasetRequest = {
   notes?: string;
   time_unit: "year" | "month" | "day" | "hour";
   is_public: boolean;
+  allow_admin_access?: boolean;
   folder_id?: string;
 };
 

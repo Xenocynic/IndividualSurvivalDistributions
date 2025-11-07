@@ -31,6 +31,7 @@ export interface DatasetItem {
   originalFilename?: string;
   folderId?: string;
   folderName?: string;
+  allow_admin_access?: boolean;
   __raw?: any;
 }
 
@@ -51,7 +52,7 @@ export default function DatasetCard({
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
-  onDownload?: (id: string) => void;
+  onDownload?: (id: string, allowAdminAccess: boolean) => void;
   onDrop?: (item: DragItem, folderId?: string) => void;
   isLoading?: boolean;
 }) {
@@ -99,7 +100,7 @@ export default function DatasetCard({
             </button>
             {item.hasFile && onDownload && (
               <button
-                onClick={() => onDownload(item.id)}
+                onClick={() => onDownload(item.id, item.allow_admin_access ?? true)}
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                 title="Download file"
               >
@@ -117,7 +118,7 @@ export default function DatasetCard({
             </button>
             {item.hasFile && onDownload && (
               <button
-                onClick={() => onDownload(item.id)}
+                onClick={() => onDownload(item.id, item.allow_admin_access ?? true)}
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                 title="Download file"
               >

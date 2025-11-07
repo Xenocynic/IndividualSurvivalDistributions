@@ -21,6 +21,7 @@ class Dataset(models.Model):
     dataset_id = models.AutoField(primary_key=True)
     dataset_name = models.CharField(max_length=200)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_datasets')
+    allow_admin_access = models.BooleanField(default=True, help_text="Allow admins to access this dataset")
     
     # File-related fields
     file_path = models.CharField(max_length=500, null=True, blank=True, help_text="Relative path to uploaded file")

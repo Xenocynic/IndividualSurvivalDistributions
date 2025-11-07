@@ -576,8 +576,13 @@ export default function Dashboard() {
   //}
 
   // download dataset file
-  async function downloadItem(id: string) {
+  async function downloadItem(id: string, allowAdminAccess: boolean, isOwner: boolean) {
     try {
+      // if admin access blocked, show alert and return
+      if (!isOwner && !allowAdminAccess){
+        alert("Download blocked: External access to this dataset has been disabled.");
+        return;
+      }
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
 
@@ -926,7 +931,13 @@ export default function Dashboard() {
                               )
                             }
                             onView={viewItem}
-                            onDownload={downloadItem}
+                            onDownload={() =>
+                              downloadItem(
+                                it.id,
+                                'allow_admin_access' in it ? it.allow_admin_access ?? false : false,
+                                Boolean(it.owner)
+                              )
+                            }
                             onDrop={handleDrop}
                             isLoading={isItemLoading(it.id)}
                           />
