@@ -28,9 +28,13 @@ export default function Signup() {
   const [lastName, setLastName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setErrorMsg(null);
+    setMsg(null);
+
     setErrorMsg(null);
     if (pw1 !== pw2) {
       setErrorMsg("Passwords do not match");
@@ -46,7 +50,9 @@ export default function Signup() {
         first_name: firstName || undefined,
         last_name: lastName || undefined,
       });
-      navigate("/dashboard", { replace: true });
+      setMsg("Account created successfully!");
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      navigate("/login");
     } catch (err: any) {
       const d = err?.details;
       // DRF often returns field dict: { username: ["…"], email: ["…"], password: ["…"] }
@@ -173,6 +179,7 @@ export default function Signup() {
           </form>
 
           {errorMsg && <div className="text-red-500">{errorMsg}</div>}
+          {msg && <div className="text-green-500">{msg}</div>}
         </div>
       </div>
     </section>

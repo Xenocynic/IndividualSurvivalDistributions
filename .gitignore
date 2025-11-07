@@ -10,7 +10,6 @@ __pycache__/
 
 # Virtual environment
 venv/
-.env
 .venv/
 
 # Node modules for selenium tests
