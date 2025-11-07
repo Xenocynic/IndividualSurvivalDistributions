@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
+from .ml_client import MLAPIClient
 import pandas as pd
 import os
 from django.conf import settings
@@ -359,3 +360,215 @@ def resolve_username(request):
     if not user:
         return Response({"detail": "User not found"}, status=404)
     return Response({"id": user.id})
+
+
+# ========================================
+# NEW: ML API Integration Views
+# ========================================
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_health_check(request):
+    """
+    Check if ML API is available
+    GET /api/predictors/ml/health/
+    """
+    client = MLAPIClient()
+    result = client.health_check()
+    
+    if result['status'] == 'healthy':
+        return Response(result, status=status.HTTP_200_OK)
+    else:
+        return Response(result, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_train_model(request):
+    """
+    Train a new survival analysis model
+    POST /api/predictors/ml/train/
+    
+    Request:
+        - dataset: File (CSV)
+        - selected_features: JSON array of feature names (optional)
+        - parameters: JSON object with model parameters (optional)
+        - return_cv_predictions: boolean (optional, default true)
+    
+    Response:
+        - model_id: str
+        - metrics: dict
+        - cv_predictions: dict (if requested)
+    """
+    # Validate file upload
+    if 'dataset' not in request.FILES:
+        return Response(
+            {'error': 'No dataset file provided'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    dataset_file = request.FILES['dataset']
+    
+    # Validate file type
+    if not dataset_file.name.endswith('.csv'):
+        return Response(
+            {'error': 'Dataset must be a CSV file'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get optional parameters
+    selected_features = request.data.get('selected_features', None)
+    parameters = request.data.get('parameters', None)
+    return_cv = request.data.get('return_cv_predictions', True)
+    
+    # Parse if JSON strings
+    import json
+    if isinstance(selected_features, str):
+        try:
+            selected_features = json.loads(selected_features)
+        except json.JSONDecodeError:
+            return Response(
+                {'error': 'selected_features must be valid JSON'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    if isinstance(parameters, str):
+        try:
+            parameters = json.loads(parameters)
+        except json.JSONDecodeError:
+            return Response(
+                {'error': 'parameters must be valid JSON'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    # Call ML API
+    client = MLAPIClient()
+    result = client.train_model(
+        dataset_file=dataset_file,
+        selected_features=selected_features,
+        parameters=parameters,
+        return_cv_predictions=return_cv
+    )
+    
+    if result['success']:
+        return Response(result['data'], status=status.HTTP_200_OK)
+    else:
+        return Response(
+            {'error': result['error']},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_retrain_model(request):
+    """
+    Retrain an existing model with different features/parameters
+    POST /api/predictors/ml/retrain/
+    
+    Request:
+        - model_id: str (required)
+        - selected_features: JSON array (optional)
+        - parameters: JSON object (optional)
+        - return_cv_predictions: boolean (optional)
+    
+    Response:
+        - model_id: str (new model ID)
+        - retrained_from: str (original model ID)
+        - metrics: dict
+        - retrain_summary: dict
+    """
+    model_id = request.data.get('model_id')
+    if not model_id:
+        return Response(
+            {'error': 'model_id is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    selected_features = request.data.get('selected_features', None)
+    parameters = request.data.get('parameters', None)
+    return_cv = request.data.get('return_cv_predictions', True)
+    
+    client = MLAPIClient()
+    result = client.retrain_model(
+        model_id=model_id,
+        selected_features=selected_features,
+        parameters=parameters,
+        return_cv_predictions=return_cv
+    )
+    
+    if result['success']:
+        return Response(result['data'], status=status.HTTP_200_OK)
+    else:
+        return Response(
+            {'error': result['error']},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_predict(request):
+    """
+    Make predictions using a trained model
+    POST /api/predictors/ml/predict/
+    
+    Request:
+        - model_id: str (required)
+        - features: dict of feature_name -> value (required)
+    
+    Response:
+        - predictions: {
+            median_survival_time: float,
+            quantile_levels: list,
+            quantile_predictions: list
+          }
+    """
+    model_id = request.data.get('model_id')
+    features = request.data.get('features')
+    
+    if not model_id:
+        return Response(
+            {'error': 'model_id is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not features or not isinstance(features, dict):
+        return Response(
+            {'error': 'features must be a dictionary of feature_name -> value'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    client = MLAPIClient()
+    result = client.predict(model_id=model_id, features=features)
+    
+    if result['success']:
+        return Response(result['data'], status=status.HTTP_200_OK)
+    else:
+        return Response(
+            {'error': result['error']},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_list_models(request):
+    """
+    List all trained models from ML API
+    GET /api/predictors/ml/models/
+    
+    Response:
+        - count: int
+        - models: list of model info
+    """
+    client = MLAPIClient()
+    result = client.list_models()
+    
+    if result['success']:
+        return Response(result['data'], status=status.HTTP_200_OK)
+    else:
+        return Response(
+            {'error': result['error']},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
