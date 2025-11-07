@@ -10,15 +10,15 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-  getFolderPermissions, 
-  grantFolderPermission, 
+import {
+  getFolderPermissions,
+  grantFolderPermission,
   revokeFolderPermission,
-  searchUsers,
-  type Folder, 
-  type FolderPermission, 
-  type User 
+  type Folder,
+  type FolderPermission,
+  type User,
 } from "../../../lib/folders";
+import { searchUsers } from "../../../lib/users";
 
 export interface FolderSharingModalProps {
   isOpen: boolean;

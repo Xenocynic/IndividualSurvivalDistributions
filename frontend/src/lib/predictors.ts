@@ -15,6 +15,17 @@ export type Predictor = {
   folder_name?: string;
 };
 
+export type PredictorPermission = {
+  id: number;
+  predictor: number;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+  role: "owner" | "viewer";
+};
+
 /**
  * Create a new predictor.
  */
@@ -41,18 +52,18 @@ export async function grantPredictorViewer(
   });
 }
 
-export async function resolveUsernameToId(
-  username: string
-): Promise<number | null> {
-  try {
-    const res = await api.get<{ id: number }>(
-      `/api/accounts/resolve/?username=${encodeURIComponent(username)}`
-    );
-    return res.id;
-  } catch (err) {
-    console.warn("Could not resolve username:", username);
-    return null;
+export async function listPredictorPermissions(predictorId?: number) {
+  const data = await api.get<PredictorPermission[]>(
+    "/api/predictors/permissions/"
+  );
+  if (typeof predictorId === "number") {
+    return data.filter((perm) => perm.predictor === predictorId);
   }
+  return data;
+}
+
+export async function revokePredictorPermission(permissionId: number) {
+  return api.del(`/api/predictors/permissions/${permissionId}/`);
 }
 
 /**
