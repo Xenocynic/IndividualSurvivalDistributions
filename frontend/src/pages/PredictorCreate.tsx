@@ -34,7 +34,7 @@ import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
 // TODO[backend]: createPredictor() should accept fields listed below
 // TODO[backend]: listMyPredictors() is used for client-side "name exists" check - maybe make a dedicated exists endpoint?
-import { createPredictor, listMyPredictors, grantPredictorViewer } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictor } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 // import { api } from "../lib/apiClient";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";

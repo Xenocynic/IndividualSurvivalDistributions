@@ -14,7 +14,7 @@ class Predictor(models.Model):
 
     predictor_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=200)
-    description = models.TextField()
+    description = models.TextField(blank=True)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="predictors")
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="predictors")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_predictors")
@@ -54,7 +54,37 @@ class Predictor(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-
+    ml_model_id = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        help_text="ID of the trained ML model from the ML API"
+    )
+    ml_trained_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="When the ML model was trained"
+    )
+    ml_training_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_trained', 'Not Trained'),
+            ('training', 'Training'),
+            ('trained', 'Trained'),
+            ('failed', 'Failed'),
+        ],
+        default='not_trained'
+    )
+    ml_model_metrics = models.JSONField(
+        null=True, 
+        blank=True,
+        help_text="Performance metrics from ML model training (C-index, IBS, etc.)"
+    )
+    ml_selected_features = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="List of features used in ML model training"
+    )
 
     def __str__(self):
         return self.name
