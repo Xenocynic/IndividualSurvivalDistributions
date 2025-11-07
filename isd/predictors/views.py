@@ -10,6 +10,8 @@ from .serializers import PredictorSerializer, PredictorPermissionSerializer, Pin
 from .ml_client import MLAPIClient
 import pandas as pd
 import os
+import requests
+import json
 from django.conf import settings
 from django.utils import timezone
 
@@ -256,6 +258,89 @@ class PredictorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this predictor.")
         PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='train')
+    def train(self, request, pk=None):
+        """
+        Triggers the training job on the separate ML API.
+        This acts as a proxy, sending the dataset and parameters
+        to the ML service.
+        """
+        try:
+            predictor = self.get_object()
+            dataset = predictor.dataset
+            
+            if not dataset or not dataset.file_path:
+                return Response(
+                    {"error": "Predictor has no associated dataset file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                return Response(
+                    {"error": f"Dataset file not found at path: {full_file_path}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # --- Prepare data for the ML API ---
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=0) # Read only header
+            
+            all_cols = df.columns.tolist()
+            if len(all_cols) < 3:
+                raise Exception("Dataset must have at least 3 columns (time, event, features).")
+
+            time_col = all_cols[0]
+            event_col = all_cols[1]
+            
+            # Get features and parameters from the request payload
+            # This matches your `PredictorDetailPage` frontend
+            payload = request.data
+            features = payload.get('features', all_cols[2:]) # Default to all features if not provided
+            parameters = payload.get('settings', {})
+
+            # Get ML API URL from environment variables
+            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
+            train_url = f"{ml_api_url}/train" # This matches your test_api.py
+
+            # Prepare the payload for the ML API
+            params_for_ml = {
+                'features': json.dumps(features),
+                'time_col': time_col,
+                'event_col': event_col,
+                'parameters': json.dumps(parameters) # Send the new parameters
+            }
+
+            with open(full_file_path, 'rb') as f_bin:
+                files = {'dataset': (dataset.original_filename, f_bin, 'text/csv')}
+                
+                # Make the server-to-server request
+                ml_response = requests.post(train_url, data=params_for_ml, files=files, timeout=600)
+
+            if ml_response.ok:
+                # Training started successfully
+                ml_data = ml_response.json()
+                
+                # OPTIONAL: Save the new model ID from the ML API
+                # to your predictor object in the database
+                # (You would need to add an 'ml_model_id' field to your Predictor model)
+                # predictor.ml_model_id = ml_data.get('model_id')
+                # predictor.save()
+                
+                return Response(ml_data, status=status.HTTP_200_OK)
+            else:
+                # The ML API returned an error
+                return Response(
+                    {"error": "ML API training failed", "details": ml_response.text},
+                    status=ml_response.status_code
+                )
+        
+        except Exception as e:
+            return Response(
+                {"error": "Failed to call training API", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
 
 # ----------------------------
