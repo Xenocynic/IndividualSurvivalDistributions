@@ -1,5 +1,5 @@
 from django.db.models import Q
-from django.db import transaction
+from django.db import transaction, DatabaseError
 from django.http import HttpResponse, Http404
 from django.core.files.storage import default_storage
 from rest_framework import viewsets, permissions, status
@@ -9,12 +9,19 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
 from .models import Dataset, DatasetPermission, PinnedDataset
-from .serializers import DatasetSerializer, DatasetPermissionSerializer, PinnedDatasetSerializer
+from .serializers import (
+    DatasetSerializer,
+    DatasetPermissionSerializer,
+    PinnedDatasetSerializer,
+    DatasetStatisticsSerializer,
+)
 from .file_utils import FileStorageManager
 from .tasks import process_feature_imputation
+from .statistics import ensure_dataset_statistics
 import os
 import mimetypes
 import pandas as pd
+import logging
 from django.conf import settings
 from predictors.models import Predictor
 from predictors.serializers import PredictorSerializer
@@ -370,6 +377,70 @@ class DatasetViewSet(viewsets.ModelViewSet):
                 {'error': f'File download failed: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='stats',
+        serializer_class=DatasetStatisticsSerializer,
+    )
+    def statistics(self, request, pk=None):
+        """
+        Return cached statistics for this dataset, recalculating if requested.
+        """
+        dataset = self.get_object()
+        if not dataset.file_path:
+            return Response(
+                {'error': 'Dataset has no associated file – cannot compute statistics.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        refresh_flag = request.query_params.get('refresh', '').lower()
+        force_recalculate = refresh_flag in ('1', 'true', 'yes', 'recompute', 'refresh')
+
+        try:
+            result = ensure_dataset_statistics(
+                dataset,
+                force_recalculate=force_recalculate,
+            )
+        except DatabaseError as exc:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                "Dataset statistics backend unavailable for %s: %s",
+                dataset.dataset_id,
+                exc,
+                exc_info=True,
+            )
+            return Response(
+                {
+                    'error': 'Dataset statistics storage is unavailable. Please run the latest migrations to initialize analytics.',
+                    'code': 'stats_backend_unavailable',
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except Exception as exc:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                "Failed to compute dataset statistics for %s: %s",
+                dataset.dataset_id,
+                exc,
+                exc_info=True,
+            )
+            return Response(
+                {'error': f'Failed to compute statistics: {str(exc)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        serializer = DatasetStatisticsSerializer(result.stats)
+        data = serializer.data
+        general = data.get('general_stats') or {}
+        total_columns = general.get('total_columns')
+        columns = int(total_columns) if total_columns is not None else None
+        data['dataframe_metadata'] = {
+            'columns': columns if columns is not None else 0,
+            'rows': int(general.get('num_samples') or 0),
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         """Automatically assign the authenticated user as the dataset owner."""

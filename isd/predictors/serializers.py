@@ -149,6 +149,7 @@ class PredictorSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+
 # ----------------------------
 # Predictor Permission Serializer
 # ----------------------------
@@ -162,11 +163,24 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(), source="user", write_only=True
     )
     predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
-    role = serializers.ChoiceField(choices=PredictorPermission.ROLE_CHOICES, default="viewer")
+    role = serializers.ChoiceField(
+        choices=PredictorPermission.ROLE_CHOICES,
+        default="viewer",
+        required=False,
+    )
 
     class Meta:
         model = PredictorPermission
         fields = ["id", "predictor", "user", "user_id", "role"]
+
+    def to_internal_value(self, data):
+        """
+        Allow clients to submit either `user_id` (preferred) or `user`.
+        """
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        if "user_id" not in mutable_data and "user" in mutable_data:
+            mutable_data["user_id"] = mutable_data["user"]
+        return super().to_internal_value(mutable_data)
 
     def validate_predictor(self, value):
         """Validate that the user owns the predictor."""
