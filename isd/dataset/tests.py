@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.core.files.uploadedfile import SimpleUploadedFile
-from .models import Dataset
+from .models import Dataset, DatasetStatistics
 from folders.models import Folder, FolderItem
 from django.contrib.contenttypes.models import ContentType
 
@@ -181,3 +181,72 @@ class DatasetFolderIntegrationTestCase(APITestCase):
         self.assertIsNotNone(response.data['folder'])
         self.assertEqual(response.data['folder']['folder_id'], self.folder.folder_id)
         self.assertEqual(response.data['folder']['name'], self.folder.name)
+
+
+class DatasetStatisticsAPITestCase(APITestCase):
+    """Validate dataset statistics are generated and served via the API."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='stats-user',
+            email='stats@example.com',
+            password='testpass123'
+        )
+
+        self.sample_csv_payload = b"time,censored,feature_a\n10,1,0.5\n15,0,1.5\n20,1,3.0\n"
+
+    def _create_dataset(self):
+        file = SimpleUploadedFile(
+            "stats_dataset.csv",
+            self.sample_csv_payload,
+            content_type="text/csv"
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            '/api/datasets/',
+            {
+                'dataset_name': 'Stats Dataset',
+                'time_unit': 'day',
+                'is_public': False,
+                'file': file,
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        dataset_id = response.data['dataset_id']
+        return Dataset.objects.get(dataset_id=dataset_id)
+
+    def test_statistics_created_during_upload(self):
+        dataset = self._create_dataset()
+        self.assertTrue(
+            DatasetStatistics.objects.filter(dataset=dataset).exists(),
+            "Expected dataset statistics to be created when uploading a dataset."
+        )
+
+    def test_statistics_endpoint_returns_expected_structure(self):
+        dataset = self._create_dataset()
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(f'/api/datasets/{dataset.dataset_id}/stats/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('general_stats', response.data)
+        self.assertIn('feature_correlations', response.data)
+        self.assertIn('event_time_histogram', response.data)
+
+        general = response.data['general_stats']
+        self.assertEqual(general['num_samples'], 3)
+        self.assertEqual(general['num_features'], 1)
+        self.assertEqual(general['num_censored'], 2)
+        self.assertEqual(general['total_columns'], 3)
+        self.assertGreaterEqual(len(response.data['feature_correlations']), 1)
+        self.assertGreater(len(response.data['event_time_histogram']), 0)
+        first_bin = response.data['event_time_histogram'][0]
+        self.assertIn('events', first_bin)
+        self.assertIn('censored', first_bin)
+        self.assertEqual(first_bin['events'] + first_bin['censored'], first_bin['count'])
+
+        first_row = response.data['feature_correlations'][0]
+        self.assertIn('non_null_percent', first_row)
+        self.assertIn('mean', first_row)
+        self.assertIn('std_dev', first_row)
+        self.assertIn('cox_score', first_row)
+        self.assertIn('cox_score_log', first_row)

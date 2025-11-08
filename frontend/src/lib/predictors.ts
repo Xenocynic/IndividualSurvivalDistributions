@@ -5,14 +5,34 @@ export type Predictor = {
   predictor_id: number;
   name: string;
   description: string;
-  dataset: number;
-  owner: number;
+  dataset?: {
+    dataset_id: number;
+    dataset_name: string;
+  };
+  dataset_id?: number; // For creating/updating
+  owner?: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+  owner_id?: number; // For creating/updating
   is_private?: boolean;
   created_at: string;
   updated_at: string;
-  time_unit: "year" | "month" | "day" | "hour";
+  time_unit?: "year" | "month" | "day" | "hour";
   folder_id?: string;
   folder_name?: string;
+  // NEW: ML Model fields
+  ml_model_id?: string;
+  ml_trained_at?: string;
+  ml_training_status?: 'not_trained' | 'training' | 'trained' | 'failed';
+  ml_model_metrics?: {
+    'C-index'?: number;
+    IBS?: number;
+    [key: string]: any;
+  };
+  ml_selected_features?: string[];
+  features?: string[];
 };
 
 export type PredictorPermission = {
@@ -171,4 +191,69 @@ export function mapApiPredictorToUi(
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
   };
+}
+
+// ========================================
+// NEW: ML Model Training & Prediction
+// ========================================
+
+export interface TrainPredictorParams {
+  selectedFeatures?: string[];
+  parameters?: {
+    neurons?: number[];
+    dropout?: number;
+    n_epochs?: number;
+    lr?: number;
+    batch_size?: number;
+    weight_decay?: number;
+    n_quantiles?: number;
+    [key: string]: any;
+  };
+}
+
+export interface PredictionResult {
+  predictions: {
+    median_survival_time: number;
+    quantile_levels: number[];
+    quantile_predictions: number[];
+  };
+}
+
+/**
+ * Train an ML model for a specific predictor
+ * Uses the predictor's linked dataset
+ */
+export async function trainPredictor(
+  predictorId: number,
+  params?: TrainPredictorParams
+): Promise<{
+  status: string;
+  message: string;
+  predictor: Predictor;
+  training_result: any;
+}> {
+  return api.post(`/api/predictors/${predictorId}/train/`, {
+    selected_features: params?.selectedFeatures,
+    parameters: params?.parameters,
+  });
+}
+
+/**
+ * Make a prediction using a trained predictor's ML model
+ */
+export async function predictWithPredictor(
+  predictorId: number,
+  features: Record<string, number>
+): Promise<PredictionResult> {
+  return api.post(`/api/predictors/${predictorId}/predict/`, {
+    features,
+  });
+}
+
+/**
+ * Get detailed predictor information including ML model status
+ * (This is the same as getPredictor but more explicit)
+ */
+export async function getPredictorDetails(predictorId: number): Promise<Predictor> {
+  return api.get<Predictor>(`/api/predictors/${predictorId}/`);
 }
