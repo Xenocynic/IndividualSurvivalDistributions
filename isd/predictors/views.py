@@ -15,6 +15,9 @@ import json
 from django.conf import settings
 from django.utils import timezone
 
+from folders.models import Folder
+from dataset.models import Dataset
+
 # ----------------------------
 # Custom Permissions
 # ----------------------------
@@ -544,6 +547,60 @@ def ml_train_model(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+@api_view(['POST'])
+def ml_save_draft(request):
+    """
+    Save a predictor draft without training.
+    POST /api/predictors/ml/save_draft/
+    """
+    # Validate dataset reference
+    dataset_id = request.data.get('dataset_id')
+    if not dataset_id:
+        return Response({'error': 'dataset_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        dataset = Dataset.objects.get(dataset_id=dataset_id)
+    except Dataset.DoesNotExist:
+        return Response({'error': 'Dataset not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Ensure dataset is named
+    name = request.data.get('name')
+    if not name:
+        return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    description = request.data.get('description', '')
+    folder_id = request.data.get('folder_id')
+    folder = Folder.objects.get(folder_id=folder_id) if folder_id else None
+
+    selected_features = request.data.get('selected_features')
+    parameters = request.data.get('parameters')
+    try:
+        if isinstance(selected_features, str):
+            selected_features = json.loads(selected_features)
+        if isinstance(parameters, str):
+            parameters = json.loads(parameters)
+    except json.JSONDecodeError:
+        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
+
+    predictor = Predictor.objects.create(
+        name=name,
+        description=description,
+        dataset=dataset,
+        folder=folder,
+        owner=request.user,
+        is_private=True,  # always private by default
+        ml_training_status='not_trained',
+        ml_selected_features=selected_features or [],
+        ml_model_metrics=None,
+    )
+
+    return Response({
+        'predictor_id': predictor.predictor_id,
+        'name': predictor.name,
+        'ml_training_status': predictor.ml_training_status,
+        'is_private': predictor.is_private,
+        'message': 'Predictor saved as draft successfully.'
+    }, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])

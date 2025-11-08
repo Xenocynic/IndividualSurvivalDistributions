@@ -13,6 +13,7 @@ from .views import (
     # ML API views
     ml_health_check,
     ml_train_model,
+    ml_save_draft,
     ml_retrain_model,
     ml_predict,
     ml_list_models,
@@ -36,6 +37,7 @@ urlpatterns = [
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
     path("ml/train/", ml_train_model, name="ml-train"),
+    path("ml/save-draft/", ml_save_draft, name="ml-save-draft"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
     path("ml/predict/", ml_predict, name="ml-predict"),
     path("ml/models/", ml_list_models, name="ml-list-models"),

@@ -65,7 +65,12 @@ export default function PredictorCard({
       footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
       footerRight={
         item.status ? (
-          <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-neutral-700">
+          <span
+            className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
+              item.status === "DRAFT"
+                ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+                : "border-green-300 bg-green-50 text-green-700"
+            }`}>
             {item.status}
           </span>
         ) : null

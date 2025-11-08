@@ -56,9 +56,23 @@ export async function createPredictor(body: {
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
   folder_id?: string;
+  selected_features?: string[];
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
+
+export async function savePredictorDraft(body: {
+  name: string;
+  description?: string;
+  dataset_id?: number;
+  is_private?: boolean;
+  selected_features?: string[];
+  permissions?: { username: string; role: "owner" | "viewer" }[];
+  folder_id?: string;  
+}) {
+  return api.post<Predictor>("/api/predictors/ml/save-draft/", body);
+}
+
 
 export async function grantPredictorViewer(
   predictorId: number,

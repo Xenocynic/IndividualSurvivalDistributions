@@ -41,7 +41,7 @@ import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
 import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
-import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictor } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictor , savePredictorDraft} from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
@@ -208,6 +208,27 @@ export default function PredictorCreate() {
     }
   }
 
+  async function onSaveDraft() {
+    if (!name.trim()) return;
+
+    try {
+      const draft = await savePredictorDraft({
+        name: name.trim(),
+        description: notes.trim() || undefined,
+        dataset_id: selectedDatasetId ? Number(selectedDatasetId) : undefined,
+        folder_id: selectedFolderId || undefined,
+        is_private: true, // drafts are always private
+        selected_features: [], // optional
+      });
+
+      navigate("/dashboard", { state: { tab: "predictors" } });
+
+    } catch (err: any) {
+      console.error("Failed to save draft:", err);
+      alert("Failed to save draft: " + (err.message || "Unknown error"));
+    }
+  }
+
   function onBack() {
     if (trainingStep !== 'idle') {
       // Don't allow navigation during training
@@ -245,6 +266,13 @@ export default function PredictorCreate() {
             Back
           </button>
           <div className="text-sm font-semibold tracking-wide">Create New Predictor</div>
+          <button
+              onClick={onSaveDraft}
+              disabled={!canSave}
+              className="rounded-md border border-neutral-400 bg-neutral-100 px-3 py-1.5 text-sm text-neutral-800 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save as Draft
+          </button>
           <button
             onClick={onTrainAndSave}
             disabled={!canSave}
