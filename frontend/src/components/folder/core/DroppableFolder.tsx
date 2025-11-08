@@ -45,7 +45,6 @@ export default function DroppableFolder({
 
   drop(ref);
 
-  const isMainCollection = !folderId;
   const folderLoading = folderId ? isLoading('') : false; // Check if this specific folder is loading
   
   return (

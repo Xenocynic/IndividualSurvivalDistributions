@@ -60,12 +60,12 @@ class PredictorSerializer(serializers.ModelSerializer):
             "predictor_id",
             "name",
             "description",
-            "dataset", # Read-only, appears in responses like GET
-            "dataset_id", # Write-only, For POST/PATCH
+            "dataset",
+            "dataset_id",
             "owner",
             "is_private",
-            "folder", # Read-only, folder information
-            "folder_id", # Write-only, for folder assignment
+            "folder",
+            "folder_id",
             "time_unit",
             "num_time_points",
             "regularization",
@@ -84,9 +84,22 @@ class PredictorSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "features",
+            "ml_model_id",
+            "ml_trained_at",
+            "ml_training_status",
+            "ml_model_metrics",
+            "ml_selected_features",
         ]
         read_only_fields = [
-            "predictor_id", "owner", "created_at", "updated_at", "features"
+            "predictor_id", 
+            "owner", 
+            "created_at", 
+            "updated_at", 
+            "features",
+            "ml_model_id",
+            "ml_trained_at", 
+            "ml_training_status",
+            "ml_model_metrics",
         ]
     
     def validate_folder_id(self, folder):
@@ -136,6 +149,7 @@ class PredictorSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+
 # ----------------------------
 # Predictor Permission Serializer
 # ----------------------------
@@ -149,11 +163,24 @@ class PredictorPermissionSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(), source="user", write_only=True
     )
     predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
-    role = serializers.ChoiceField(choices=PredictorPermission.ROLE_CHOICES, default="viewer")
+    role = serializers.ChoiceField(
+        choices=PredictorPermission.ROLE_CHOICES,
+        default="viewer",
+        required=False,
+    )
 
     class Meta:
         model = PredictorPermission
         fields = ["id", "predictor", "user", "user_id", "role"]
+
+    def to_internal_value(self, data):
+        """
+        Allow clients to submit either `user_id` (preferred) or `user`.
+        """
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        if "user_id" not in mutable_data and "user" in mutable_data:
+            mutable_data["user_id"] = mutable_data["user"]
+        return super().to_internal_value(mutable_data)
 
     def validate_predictor(self, value):
         """Validate that the user owns the predictor."""
