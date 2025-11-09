@@ -39,7 +39,6 @@ class MLAPIClient:
         selected_features: Optional[List[str]] = None,
         parameters: Optional[Dict] = None,
         return_cv_predictions: bool = True,
-        predictor_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Train a new model by uploading a dataset
@@ -82,9 +81,6 @@ class MLAPIClient:
                 'parameters': json.dumps(default_params),
                 'return_cv_predictions': 'true' if return_cv_predictions else 'false'
             }
-
-            if predictor_id is not None:
-                data['predictor_id'] = str(predictor_id)
             
             # Add features if provided
             if selected_features:
