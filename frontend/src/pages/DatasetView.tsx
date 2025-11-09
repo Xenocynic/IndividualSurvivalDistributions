@@ -23,7 +23,6 @@ export default function DatasetView() {
   // is good for routing
   const handleBack = () => {
     // if there's a prior location, use it
-    // will add the view button to the dashboard card so this applies appropriately; it is strange that its not there
     if (window.history.length > 1) {
       navigate(-1);
       return;
