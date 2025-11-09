@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate, useParams,  useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getDataset, downloadDatasetFile, type Dataset } from "../lib/datasets";
 import LinkedPredictorsList from "../components/LinkedPredictorsList";
 
