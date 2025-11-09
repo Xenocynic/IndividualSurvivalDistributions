@@ -1,6 +1,5 @@
 /**
  * React service for calling the ML API through Django backend
- * Place this in: frontend/src/services/mlApi.ts
  */
 
 const API_BASE_URL = 'http://localhost:8000/api/ml';
@@ -38,7 +37,7 @@ class MLApiService {
   private getAuthHeaders(): HeadersInit {
     // Get JWT token from localStorage or your auth context
     const token = localStorage.getItem('access_token');
-    
+
     return {
       'Authorization': `Bearer ${token}`,
     };

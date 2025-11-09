@@ -18,17 +18,9 @@
  * - Calls createPredictor()
  * - (Later) iterate manage-permissions rows
  * - Navigates back to Dashboard -> Predictors tab with a PredictorItem preview
- */
-
-/**
- * Create New Predictor — unified grey UI, sharp edges, sticky header offset.
- */
-
-/**
- * Create New Predictor with ML Training
  * 
  * Flow:
- * 1. Fill out form → Click "Train & Save"
+ * 1. Fill out form -> Click "Train & Save"
  * 2. Creates predictor in database
  * 3. Shows training modal
  * 4. Trains ML model
@@ -46,7 +38,7 @@ import { type PredictorItem } from "../components/PredictorCard";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 
-type PermRow = { 
+type PermRow = {
   id: number;
   username: string;
   role: "owner" | "viewer";
@@ -150,10 +142,10 @@ export default function PredictorCreate() {
 
   async function onTrainAndSave() {
     if (!canSave) return;
-    
+
     setTrainingStep('creating');
     setTrainingError(null);
-    
+
     try {
       // Step 1: Create predictor
       const created = await createPredictor({
@@ -184,7 +176,7 @@ export default function PredictorCreate() {
 
       // Step 3: Train the model
       setTrainingStep('training');
-      
+
       await trainPredictor(created.predictor_id, {
         parameters: {
           n_epochs: 100,
@@ -195,7 +187,7 @@ export default function PredictorCreate() {
 
       // Step 4: Complete!
       setTrainingStep('complete');
-      
+
       // Navigate after a brief delay
       setTimeout(() => {
         navigate(`/predictors/${created.predictor_id}`);
@@ -237,8 +229,8 @@ export default function PredictorCreate() {
       {/* Sticky sub-header */}
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2.5">
-          <button 
-            onClick={onBack} 
+          <button
+            onClick={onBack}
             disabled={isProcessing}
             className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -250,9 +242,9 @@ export default function PredictorCreate() {
             disabled={!canSave}
             className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {trainingStep === 'creating' ? 'Creating…' : 
-             trainingStep === 'training' ? 'Training…' : 
-             'Train & Save'}
+            {trainingStep === 'creating' ? 'Creating…' :
+              trainingStep === 'training' ? 'Training…' :
+                'Train & Save'}
           </button>
         </div>
         <div className="h-1 w-full bg-neutral-600" />
@@ -323,10 +315,10 @@ export default function PredictorCreate() {
               Choose a dataset
             </label>
             <div className="w-64">
-              <SearchBar 
-                value={query} 
-                onChange={setQuery} 
-                placeholder="Search datasets…" 
+              <SearchBar
+                value={query}
+                onChange={setQuery}
+                placeholder="Search datasets…"
                 onClear={() => setQuery("")}
                 disabled={isProcessing}
               />
@@ -346,9 +338,8 @@ export default function PredictorCreate() {
                         type="button"
                         onClick={() => setSelectedDatasetId(ds.id)}
                         disabled={isProcessing}
-                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 disabled:cursor-not-allowed ${
-                          selected ? "bg-neutral-100" : ""
-                        }`}
+                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 disabled:cursor-not-allowed ${selected ? "bg-neutral-100" : ""
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{ds.title}</div>
@@ -369,12 +360,12 @@ export default function PredictorCreate() {
         <section className="space-y-2">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Visibility</div>
           <label className="flex items-center gap-3">
-            <input 
-              type="checkbox" 
-              checked={isPublic} 
+            <input
+              type="checkbox"
+              checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
               disabled={isProcessing}
-              className="h-4 w-4 accent-neutral-900 disabled:opacity-50" 
+              className="h-4 w-4 accent-neutral-900 disabled:opacity-50"
             />
             <span className="text-sm">Make Predictor Public</span>
           </label>
@@ -429,8 +420,8 @@ export default function PredictorCreate() {
             </div>
 
             <div className="flex items-center justify-between border-t bg-neutral-100 px-3 py-2">
-              <button 
-                onClick={addRow} 
+              <button
+                onClick={addRow}
                 disabled={isProcessing}
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
               >
@@ -446,8 +437,8 @@ export default function PredictorCreate() {
 
       {/* Training Modal */}
       {isProcessing && (
-        <TrainingModal 
-          step={trainingStep} 
+        <TrainingModal
+          step={trainingStep}
           error={trainingError}
           onRetry={() => {
             setTrainingStep('idle');
@@ -462,22 +453,22 @@ export default function PredictorCreate() {
       )}
 
       {showLeavePrompt && (
-        <ConfirmLeave 
-          onCancel={() => setShowLeavePrompt(false)} 
-          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })} 
+        <ConfirmLeave
+          onCancel={() => setShowLeavePrompt(false)}
+          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })}
         />
       )}
     </div>
   );
 }
 
-function TrainingModal({ 
-  step, 
-  error, 
-  onRetry, 
-  onViewPredictor 
-}: { 
-  step: TrainingStep; 
+function TrainingModal({
+  step,
+  error,
+  onRetry,
+  onViewPredictor
+}: {
+  step: TrainingStep;
   error: string | null;
   onRetry: () => void;
   onViewPredictor: () => void;

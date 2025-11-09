@@ -233,6 +233,7 @@ export async function trainPredictor(
   training_result: any;
 }> {
   return api.post(`/api/predictors/${predictorId}/train/`, {
+    predictor_id: predictorId,
     selected_features: params?.selectedFeatures,
     parameters: params?.parameters,
   });

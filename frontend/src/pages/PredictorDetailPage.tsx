@@ -18,6 +18,7 @@ interface PredictorDetail {
     username: string;
   };
   is_private: boolean;
+  folder: string | null;
   time_unit: 'hour' | 'day' | 'month' | 'year';
   num_time_points: number | null;
   regularization: 'l1' | 'l2';
@@ -33,6 +34,11 @@ interface PredictorDetail {
   allow_admin_access: boolean;
   created_at: string;
   updated_at: string;
+  ml_model_id: string | null;
+  ml_trained_at: string | null;
+  ml_training_status: string | null;
+  ml_model_metrics: any;
+  ml_selected_features: string[] | null;
   features: string[];
   run_cross_validation: boolean;
   standardize_features: boolean;
@@ -73,7 +79,7 @@ export default function PredictorDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-                const data = await api.get<PredictorDetail>(
+        const data = await api.get<PredictorDetail>(
           `/api/predictors/${predictorId}/`
         );
         setPredictor(data);
@@ -166,11 +172,10 @@ export default function PredictorDetailPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${
-                    isActive
-                      ? "bg-neutral-800 text-white"
-                      : "border bg-white text-neutral-700 hover:bg-neutral-50"
-                  }`}
+                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${isActive
+                    ? "bg-neutral-800 text-white"
+                    : "border bg-white text-neutral-700 hover:bg-neutral-50"
+                    }`}
                 >
                   {tab === "retrain" ? "Predictor Settings / Retrain" : tab.replace("-", " ")}
                 </button>
@@ -307,8 +312,7 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
 
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
-      `rounded-md px-3 py-1.5 text-sm transition ${
-        activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
+      `rounded-md px-3 py-1.5 text-sm transition ${activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
       }`,
     [activeView]
   );
@@ -872,9 +876,17 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   // --- Retrain Handler ---
   const handleRetrain = async () => {
+    console.log("Full predictor object:", predictor);
+    console.log("predictor_id:", predictor.predictor_id);
+    console.log("ml_model_id:", predictor.ml_model_id);
+    console.log("All predictor keys:", Object.keys(predictor));
     setIsRetraining(true);
     const retrainingConfig = {
-      features: Array.from(selectedFeatures),
+      model_id: predictor.predictor_id,
+      selected_features:
+        selectedFeatures.size === predictor.features.length
+          ? "all"
+          : Array.from(selectedFeatures),
       parameters: {
         num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
         regularization,
@@ -891,12 +903,32 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
         standardize_features: standardizeFeatures,
       },
     };
-    console.log("TODO: Start retraining with config:", retrainingConfig);
-    // TODO: Replace with actual API call to the backend retraining endpoint
-    // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
-    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay
-    setIsRetraining(false);
-    alert("Retraining job started! (See console for config)");
+    try {
+      console.log("Sending retraining config:", retrainingConfig);
+      const response = await fetch("http://localhost:5001/retrain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(retrainingConfig),
+      });
+
+      // Check if the response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Retraining response:", data);
+      alert(`Retraining job started! New model ID: ${data.model_id}`);
+
+    } catch (err: any) {
+      console.error("Retrain failed:", err);
+      alert(`Retraining failed: ${err.message}`);
+    } finally {
+      setIsRetraining(false);
+    }
   };
 
   return (
@@ -909,7 +941,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
             Auto-filled from current predictor settings. Adjust in “Advanced Settings”.
           </p>
 
-        {/* darker bubble for readability */}
+          {/* darker bubble for readability */}
           <div className="mt-3 space-y-1 rounded-md bg-neutral-100 p-3 text-sm text-neutral-800">
             <div>
               Regularization: <span className="font-mono">{regularization.toUpperCase()}</span>
