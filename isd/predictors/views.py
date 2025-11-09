@@ -148,7 +148,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         """Assign the logged-in user as the owner and handle folders + permissions."""
         print("RAW request.data:", self.request.data)
 
-        # Save predictor instance, attaching owner
         predictor = serializer.save(owner=self.request.user)
 
         # -------------------------
@@ -258,89 +257,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to unpin this predictor.")
         PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
-    
-    @action(detail=True, methods=['post'], url_path='train')
-    def train(self, request, pk=None):
-        """
-        Triggers the training job on the separate ML API.
-        This acts as a proxy, sending the dataset and parameters
-        to the ML service.
-        """
-        try:
-            predictor = self.get_object()
-            dataset = predictor.dataset
-            
-            if not dataset or not dataset.file_path:
-                return Response(
-                    {"error": "Predictor has no associated dataset file."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
-            if not os.path.exists(full_file_path):
-                return Response(
-                    {"error": f"Dataset file not found at path: {full_file_path}"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            # --- Prepare data for the ML API ---
-            with open(full_file_path, 'rb') as f:
-                df = pd.read_csv(f, nrows=0) # Read only header
-            
-            all_cols = df.columns.tolist()
-            if len(all_cols) < 3:
-                raise Exception("Dataset must have at least 3 columns (time, event, features).")
-
-            time_col = all_cols[0]
-            event_col = all_cols[1]
-            
-            # Get features and parameters from the request payload
-            # This matches your `PredictorDetailPage` frontend
-            payload = request.data
-            features = payload.get('features', all_cols[2:]) # Default to all features if not provided
-            parameters = payload.get('settings', {})
-
-            # Get ML API URL from environment variables
-            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
-            train_url = f"{ml_api_url}/train" # This matches your test_api.py
-
-            # Prepare the payload for the ML API
-            params_for_ml = {
-                'features': json.dumps(features),
-                'time_col': time_col,
-                'event_col': event_col,
-                'parameters': json.dumps(parameters) # Send the new parameters
-            }
-
-            with open(full_file_path, 'rb') as f_bin:
-                files = {'dataset': (dataset.original_filename, f_bin, 'text/csv')}
-                
-                # Make the server-to-server request
-                ml_response = requests.post(train_url, data=params_for_ml, files=files, timeout=600)
-
-            if ml_response.ok:
-                # Training started successfully
-                ml_data = ml_response.json()
-                
-                # OPTIONAL: Save the new model ID from the ML API
-                # to your predictor object in the database
-                # (You would need to add an 'ml_model_id' field to your Predictor model)
-                # predictor.ml_model_id = ml_data.get('model_id')
-                # predictor.save()
-                
-                return Response(ml_data, status=status.HTTP_200_OK)
-            else:
-                # The ML API returned an error
-                return Response(
-                    {"error": "ML API training failed", "details": ml_response.text},
-                    status=ml_response.status_code
-                )
-        
-        except Exception as e:
-            return Response(
-                {"error": "Failed to call training API", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
     
 
 # ----------------------------
@@ -468,81 +384,6 @@ def ml_health_check(request):
         return Response(result, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def ml_train_model(request):
-    """
-    Train a new survival analysis model
-    POST /api/predictors/ml/train/
-    
-    Request:
-        - dataset: File (CSV)
-        - selected_features: JSON array of feature names (optional)
-        - parameters: JSON object with model parameters (optional)
-        - return_cv_predictions: boolean (optional, default true)
-    
-    Response:
-        - model_id: str
-        - metrics: dict
-        - cv_predictions: dict (if requested)
-    """
-    # Validate file upload
-    if 'dataset' not in request.FILES:
-        return Response(
-            {'error': 'No dataset file provided'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    dataset_file = request.FILES['dataset']
-    
-    # Validate file type
-    if not dataset_file.name.endswith('.csv'):
-        return Response(
-            {'error': 'Dataset must be a CSV file'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Get optional parameters
-    selected_features = request.data.get('selected_features', None)
-    parameters = request.data.get('parameters', None)
-    return_cv = request.data.get('return_cv_predictions', True)
-    
-    # Parse if JSON strings
-    import json
-    if isinstance(selected_features, str):
-        try:
-            selected_features = json.loads(selected_features)
-        except json.JSONDecodeError:
-            return Response(
-                {'error': 'selected_features must be valid JSON'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    if isinstance(parameters, str):
-        try:
-            parameters = json.loads(parameters)
-        except json.JSONDecodeError:
-            return Response(
-                {'error': 'parameters must be valid JSON'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    # Call ML API
-    client = MLAPIClient()
-    result = client.train_model(
-        dataset_file=dataset_file,
-        selected_features=selected_features,
-        parameters=parameters,
-        return_cv_predictions=return_cv
-    )
-    
-    if result['success']:
-        return Response(result['data'], status=status.HTTP_200_OK)
-    else:
-        return Response(
-            {'error': result['error']},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
 @api_view(['POST'])
