@@ -49,6 +49,25 @@ type DatasetSubTab = "correlations" | "eventHistogram" | "survivalHistogram";
 export default function PredictorDetailPage() {
   const { predictorId } = useParams<{ predictorId: string }>();
   const navigate = useNavigate();
+    const location = useLocation();
+
+  // fall back to the parent page + correct tab
+  type NavOrigin = "browse" | "dashboard";
+  const navOrigin: NavOrigin =
+    (location.state as any)?.from === "browse" ? "browse" : "dashboard";
+
+  const fallbackBackPath =
+    navOrigin === "browse" ? "/browse?tab=predictors" : "/dashboard?tab=predictors";
+
+  const handleBack = () => {
+    // if we have browser history to return to, use it
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    // else, go to the appropriate parent with the right tab preselected
+    navigate(fallbackBackPath, { replace: true });
+  };
 
   // State for data, loading, and errors
   const [predictor, setPredictor] = useState<PredictorDetail | null>(null);
@@ -56,10 +75,6 @@ export default function PredictorDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("meta");
-
-  // navigation handling - we want it to go the respective page the card was accessed from when 'back' is pressed
-  const location = useLocation();
-  const backTo = location.state?.from === "browse" ? "/browse" : "/dashboard";
 
   // Fetch predictor data when the component mounts
   useEffect(() => {
@@ -105,7 +120,7 @@ export default function PredictorDetailPage() {
       <div className="flex h-full flex-col items-center justify-center text-center">
         <p className="text-red-600">{error || "Predictor not found."}</p>
         <button
-          onClick={() => navigate(backTo)}
+          onClick={handleBack}
           className="mt-4 rounded-md bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200"
         >
           Back
@@ -119,7 +134,7 @@ export default function PredictorDetailPage() {
       case "meta":
         return <MetaTab predictor={predictor} />;
       case "dataset":
-        return <DatasetTab predictor={predictor} />;
+        return <DatasetTab predictor={predictor} navOrigin={navOrigin} />;
       case "retrain":
         return <RetrainTab predictor={predictor} />;
       case "cross-validation":
@@ -137,7 +152,7 @@ export default function PredictorDetailPage() {
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <button
-            onClick={() => navigate(backTo)}
+            onClick={handleBack}
             className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
             aria-label="Back"
           >
@@ -225,12 +240,20 @@ function MetaTab({ predictor }: { predictor: PredictorDetail }) {
   );
 }
 
-function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
+function DatasetTab({
+  predictor,
+  navOrigin,
+}: {
+  predictor: PredictorDetail;
+  navOrigin: "browse" | "dashboard";
+}) {
   const [activeView, setActiveView] = useState<DatasetSubTab>("correlations");
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+
+  
 
   const datasetId = predictor.dataset?.dataset_id;
 
@@ -363,12 +386,13 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
             <InfoItem
               label="Dataset"
               value={
-                <Link
-                  to={`/datasets/${predictor.dataset.dataset_id}/view`}
-                  className="font-mono text-blue-600 hover:underline"
-                >
-                  {predictor.dataset.dataset_name}
-                </Link>
+              <Link
+                to={`/datasets/${predictor.dataset.dataset_id}/view`}
+                state={{ from: navOrigin }}
+                className="font-mono text-blue-600 hover:underline"
+              >
+                {predictor.dataset.dataset_name}
+              </Link>
               }
             />
             <InfoItem label="Dataset ID" value={predictor.dataset.dataset_id} />
