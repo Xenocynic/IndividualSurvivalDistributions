@@ -295,14 +295,13 @@ class PredictorViewSet(viewsets.ModelViewSet):
             event_col = all_cols[1]
             
             # Get features and parameters from the request payload
-            # This matches your `PredictorDetailPage` frontend
             payload = request.data
             features = payload.get('features', all_cols[2:]) # Default to all features if not provided
             parameters = payload.get('settings', {})
 
             # Get ML API URL from environment variables
-            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
-            train_url = f"{ml_api_url}/train" # This matches your test_api.py
+            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5001")
+            train_url = f"{ml_api_url}/train"
 
             # Prepare the payload for the ML API
             params_for_ml = {
@@ -321,12 +320,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
             if ml_response.ok:
                 # Training started successfully
                 ml_data = ml_response.json()
-                
-                # OPTIONAL: Save the new model ID from the ML API
-                # to your predictor object in the database
-                # (You would need to add an 'ml_model_id' field to your Predictor model)
-                # predictor.ml_model_id = ml_data.get('model_id')
-                # predictor.save()
                 
                 return Response(ml_data, status=status.HTTP_200_OK)
             else:
@@ -449,7 +442,7 @@ def resolve_username(request):
 
 
 # ========================================
-# NEW: ML API Integration Views
+# ML API Integration Views
 # ========================================
 
 @api_view(['GET'])
@@ -486,6 +479,8 @@ def ml_train_model(request):
         - metrics: dict
         - cv_predictions: dict (if requested)
     """
+    # print(f"📦 Predictor ID received in Django view: {predictor_id}")
+
     # Validate file upload
     if 'dataset' not in request.FILES:
         return Response(
@@ -533,7 +528,7 @@ def ml_train_model(request):
         dataset_file=dataset_file,
         selected_features=selected_features,
         parameters=parameters,
-        return_cv_predictions=return_cv
+        return_cv_predictions=return_cv,
     )
     
     if result['success']:
@@ -549,46 +544,54 @@ def ml_train_model(request):
 @permission_classes([permissions.IsAuthenticated])
 def ml_retrain_model(request):
     """
-    Retrain an existing model with different features/parameters
-    POST /api/predictors/ml/retrain/
-    
-    Request:
-        - model_id: str (required)
-        - selected_features: JSON array (optional)
-        - parameters: JSON object (optional)
-        - return_cv_predictions: boolean (optional)
-    
-    Response:
-        - model_id: str (new model ID)
-        - retrained_from: str (original model ID)
-        - metrics: dict
-        - retrain_summary: dict
+    Retrain an existing predictor model with a new dataset.
     """
-    model_id = request.data.get('model_id')
-    if not model_id:
-        return Response(
-            {'error': 'model_id is required'},
-            status=status.HTTP_400_BAD_REQUEST
+    try:
+        client = MLAPIClient()
+
+        model_id = request.data.get("model_id")
+        selected_features = request.data.get("selected_features")
+        parameters = request.data.get("parameters")
+        return_cv_predictions = request.data.get("return_cv_predictions", True)
+
+        if not model_id:
+            return Response({"error": "model_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Call ML API retrain
+        result = client.retrain_model(
+            model_id=model_id,
+            selected_features=selected_features,
+            parameters=parameters,
+            return_cv_predictions=return_cv_predictions,
         )
-    
-    selected_features = request.data.get('selected_features', None)
-    parameters = request.data.get('parameters', None)
-    return_cv = request.data.get('return_cv_predictions', True)
-    
-    client = MLAPIClient()
-    result = client.retrain_model(
-        model_id=model_id,
-        selected_features=selected_features,
-        parameters=parameters,
-        return_cv_predictions=return_cv
-    )
-    
-    if result['success']:
-        return Response(result['data'], status=status.HTTP_200_OK)
-    else:
+
+        if not result.get("success"):
+            return Response(
+                {"error": result.get("error", "Retraining failed")},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # If this retraining is tied to a Predictor, update metadata
+        predictor = Predictor.objects.filter(ml_model_id=model_id).first()
+        if predictor:
+            data = result.get("data", {})
+            predictor.ml_model_id = data.get("model_id", model_id)
+            predictor.ml_trained_at = timezone.now()
+            predictor.ml_training_status = "trained"
+            predictor.ml_model_metrics = data.get("metrics", {})
+            predictor.ml_selected_features = selected_features or predictor.ml_selected_features
+            predictor.save(update_fields=[
+                "ml_model_id", "ml_trained_at", "ml_training_status",
+                "ml_model_metrics", "ml_selected_features"
+            ])
+
+        return Response(result.get("data"), status=status.HTTP_200_OK)
+
+    except Exception as e:
+        traceback.print_exc()
         return Response(
-            {'error': result['error']},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"Retraining failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
@@ -656,126 +659,6 @@ def ml_list_models(request):
     else:
         return Response(
             {'error': result['error']},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def train_predictor_model(request, predictor_id):
-    """
-    Train an ML model for a specific predictor using its dataset
-    POST /api/predictors/{predictor_id}/train/
-    
-    Request body (optional):
-        - selected_features: Array of feature names to use
-        - parameters: Model training parameters (dropout, neurons, etc.)
-    
-    Response:
-        - Updated predictor with ml_model_id and metrics
-    """
-    try:
-        # Get the predictor
-        predictor = Predictor.objects.get(predictor_id=predictor_id)
-        
-        # Check permissions
-        if not CanAccessPredictor().has_object_permission(request, None, predictor):
-            raise PermissionDenied("You don't have permission to train this predictor")
-        
-        # Check if predictor has a dataset
-        if not predictor.dataset or not predictor.dataset.file_path:
-            return Response(
-                {'error': 'Predictor must have a dataset to train'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Update status to training
-        predictor.ml_training_status = 'training'
-        predictor.save()
-        
-        # Get dataset file
-        dataset_path = os.path.join(settings.MEDIA_ROOT, predictor.dataset.file_path)
-        
-        if not os.path.exists(dataset_path):
-            predictor.ml_training_status = 'failed'
-            predictor.save()
-            return Response(
-                {'error': 'Dataset file not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Get training parameters from request
-        selected_features = request.data.get('selected_features', None)
-        parameters = request.data.get('parameters', None)
-        
-        # Open and upload dataset to ML API
-        with open(dataset_path, 'rb') as f:
-            from django.core.files.uploadedfile import InMemoryUploadedFile
-            import io
-            
-            # Read file content
-            file_content = f.read()
-            dataset_file = InMemoryUploadedFile(
-                file=io.BytesIO(file_content),
-                field_name='dataset',
-                name=os.path.basename(dataset_path),
-                content_type='text/csv',
-                size=len(file_content),
-                charset=None
-            )
-            
-            # Train model using ML API
-            client = MLAPIClient()
-            result = client.train_model(
-                dataset_file=dataset_file,
-                selected_features=selected_features,
-                parameters=parameters,
-                return_cv_predictions=True
-            )
-        
-        if result['success']:
-            data = result['data']
-            
-            # Update predictor with ML model info
-            predictor.ml_model_id = data.get('model_id')
-            predictor.ml_trained_at = timezone.now()
-            predictor.ml_training_status = 'trained'
-            predictor.ml_model_metrics = data.get('metrics', {})
-            predictor.ml_selected_features = selected_features
-            predictor.save()
-            
-            # Return updated predictor
-            serializer = PredictorSerializer(predictor)
-            return Response({
-                'status': 'success',
-                'message': 'Model trained successfully',
-                'predictor': serializer.data,
-                'training_result': data
-            }, status=status.HTTP_200_OK)
-        else:
-            # Training failed
-            predictor.ml_training_status = 'failed'
-            predictor.save()
-            
-            return Response(
-                {'error': result['error']},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            
-    except Predictor.DoesNotExist:
-        return Response(
-            {'error': 'Predictor not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        # Update status to failed
-        try:
-            predictor.ml_training_status = 'failed'
-            predictor.save()
-        except:
-            pass
-        
-        return Response(
-            {'error': f'Training failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

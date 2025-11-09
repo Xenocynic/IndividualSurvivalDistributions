@@ -1,6 +1,5 @@
 """
 ML API Client for connecting to the survival analysis model API
-Place this file in: predictors/ml_client.py
 """
 import requests
 import os
@@ -13,7 +12,7 @@ class MLAPIClient:
     
     def __init__(self):
         # Get API URL from environment or use default
-        self.api_url = os.environ.get('ML_API_URL', 'http://localhost:5000')
+        self.api_url = os.environ.get('ML_API_URL', 'http://localhost:5001')
         self.timeout = 600  # 10 minutes for training
     
     def health_check(self) -> Dict[str, Any]:
@@ -39,7 +38,8 @@ class MLAPIClient:
         dataset_file,  # Django UploadedFile object
         selected_features: Optional[List[str]] = None,
         parameters: Optional[Dict] = None,
-        return_cv_predictions: bool = True
+        return_cv_predictions: bool = True,
+        predictor_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Train a new model by uploading a dataset
@@ -82,6 +82,9 @@ class MLAPIClient:
                 'parameters': json.dumps(default_params),
                 'return_cv_predictions': 'true' if return_cv_predictions else 'false'
             }
+
+            if predictor_id is not None:
+                data['predictor_id'] = str(predictor_id)
             
             # Add features if provided
             if selected_features:

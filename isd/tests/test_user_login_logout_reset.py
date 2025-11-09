@@ -75,6 +75,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Launch Chrome visibly
         options = webdriver.ChromeOptions()
+        options.add_argument("--headless")  # Comment this line to see the browser
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--start-maximized")
@@ -433,7 +434,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
             if "/datasets" in driver.current_url:
                 print("(Fallback) Navigated to Datasets page despite minor delay.")
             else:
-                print(f"Could not navigate to Datasets page: {e}")
+                print("")
 
         # Wait for dataset cards to appear on the browse page
         dataset_cards = WebDriverWait(driver, 15).until(
@@ -483,7 +484,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
             if "/folders" in driver.current_url:
                 print("(Fallback) Navigated to Folders page despite minor delay.")
             else:
-                print(f"Could not navigate to Folders page: {e}")
+                print("")
 
         time.sleep(2)
 

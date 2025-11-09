@@ -17,7 +17,6 @@ from .views import (
     ml_predict,
     ml_list_models,
     # Predictor-specific ML views
-    train_predictor_model,
     predict_with_predictor,
 )
 
@@ -32,7 +31,7 @@ urlpatterns = [
     path("resolve-username/", resolve_username, name="resolve-username"),
     
     # ===================================
-    # NEW: ML API Integration Routes
+    # ML API Integration Routes
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
     path("ml/train/", ml_train_model, name="ml-train"),
