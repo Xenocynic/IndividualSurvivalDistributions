@@ -28,7 +28,7 @@ export default function DatasetView() {
       return;
     }
     // fallback: Dashboard, Datasets tab - not sure why this tab-specific routing fails ngl
-    navigate("/dashboard", { state: { tab: "datasets" }, replace: true });
+      navigate("/dashboard?tab=datasets", { replace: true });
   };
 
   useEffect(() => {
