@@ -193,7 +193,7 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
   <div className={`rounded-md border border-neutral-200 bg-neutral-50 p-4 ${className}`}>{children}</div>
 );
 
-const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
+export const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="space-y-1">
     <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{label}</dt>
     <dd className="text-sm text-neutral-900">{value}</dd>
@@ -448,7 +448,7 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
 type FeatureCorrelationRow = DatasetStats["feature_correlations"][number];
 type HistogramBin = DatasetStats["event_time_histogram"][number];
 
-function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
+export function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
@@ -600,7 +600,7 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
   );
 }
 
-function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUnit?: string | null }) {
+export function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUnit?: string | null }) {
   if (!bins.length) {
     return (
       <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
@@ -729,7 +729,7 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
   );
 }
 
-function formatInteger(value: number | null | undefined): string {
+export function formatInteger(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -772,7 +772,7 @@ function formatScientific(value: number | null | undefined): string {
   return value.toExponential(5);
 }
 
-function formatWithUnit(value: number | null | undefined, unit?: string | null): string {
+export function formatWithUnit(value: number | null | undefined, unit?: string | null): string {
   const formatted = formatFloat(value);
   if (formatted === "—") {
     return formatted;
