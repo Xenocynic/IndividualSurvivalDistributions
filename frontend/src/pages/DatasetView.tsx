@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams,  useLocation } from "react-router-dom";
 import { getDataset, downloadDatasetFile, type Dataset } from "../lib/datasets";
 import LinkedPredictorsList from "../components/LinkedPredictorsList";
 
@@ -17,6 +17,20 @@ export default function DatasetView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+
+  // super cool function to handle going back to pages + maintaining a history of them
+  // will update the PredictorDetailPage handling of this because I think maintaining a history
+  // is good for routing
+  const handleBack = () => {
+    // if there's a prior location, use it
+    // will add the view button to the dashboard card so this applies appropriately; it is strange that its not there
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    // fallback: Dashboard, Datasets tab - not sure why this tab-specific routing fails ngl
+    navigate("/dashboard", { state: { tab: "datasets" }, replace: true });
+  };
 
   useEffect(() => {
     if (!datasetId) {
@@ -93,7 +107,7 @@ export default function DatasetView() {
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-2.5">
           <button
-            onClick={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+            onClick={handleBack}
             className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
           >
             Back

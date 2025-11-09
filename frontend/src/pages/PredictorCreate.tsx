@@ -21,10 +21,6 @@
  */
 
 /**
- * Create New Predictor — unified grey UI, sharp edges, sticky header offset.
- */
-
-/**
  * Create New Predictor with ML Training
  * 
  * Flow:
