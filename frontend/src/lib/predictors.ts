@@ -276,3 +276,26 @@ export async function predictWithPredictor(
 export async function getPredictorDetails(predictorId: number): Promise<Predictor> {
   return api.get<Predictor>(`/api/predictors/${predictorId}/`);
 }
+
+export interface CvPredictions {
+  test_indices?: number[];
+  actual_times?: number[];
+  actual_events?: number[];
+  median_predictions?: number[];
+  mean_predictions?: number[];
+  prob_at_actual_time?: number[];
+  quantile_levels?: number[];
+  quantile_predictions?: number[][];
+}
+
+export async function getPredictorCvPredictions(
+  predictorId: number
+): Promise<CvPredictions> {
+  return api.get<CvPredictions>(`/api/predictors/${predictorId}/cv-predictions/`);
+}
+
+export async function getPredictorFullPredictions(
+  predictorId: number
+): Promise<CvPredictions> {
+  return api.get<CvPredictions>(`/api/predictors/${predictorId}/full-predictions/`);
+}

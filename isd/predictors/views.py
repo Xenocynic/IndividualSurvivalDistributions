@@ -258,6 +258,105 @@ class PredictorViewSet(viewsets.ModelViewSet):
         PinnedPredictor.objects.filter(user=request.user, predictor=predictor).delete()
         return Response({"status": "unpinned"}, status=status.HTTP_200_OK)
     
+    @action(detail=True, methods=['post'], url_path='train')
+    def train(self, request, pk=None):
+        """
+        Triggers the training job on the separate ML API.
+        This acts as a proxy, sending the dataset and parameters
+        to the ML service.
+        """
+        try:
+            predictor = self.get_object()
+            dataset = predictor.dataset
+            
+            if not dataset or not dataset.file_path:
+                return Response(
+                    {"error": "Predictor has no associated dataset file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # mark training
+            predictor.ml_training_status = 'training'
+            predictor.save(update_fields=['ml_training_status'])
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                predictor.ml_training_status = 'failed'
+                predictor.save(update_fields=['ml_training_status'])
+                return Response(
+                    {"error": f"Dataset file not found at path: {full_file_path}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # --- Prepare data for the ML API ---
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=0) # Read only header
+            
+            all_cols = df.columns.tolist()
+            if len(all_cols) < 3:
+                raise Exception("Dataset must have at least 3 columns (time, event, features).")
+
+            time_col = all_cols[0]
+            event_col = all_cols[1]
+            
+            # Get features and parameters from the request payload
+            # This matches your `PredictorDetailPage` frontend
+            payload = request.data
+            features = payload.get('features', all_cols[2:]) # Default to all features if not provided
+            parameters = payload.get('settings', {})
+
+            # Get ML API URL from environment variables
+            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
+            train_url = f"{ml_api_url}/train" # This matches your test_api.py
+
+            # Prepare the payload for the ML API
+            params_for_ml = {
+                'features': json.dumps(features),
+                'time_col': time_col,
+                'event_col': event_col,
+                'parameters': json.dumps(parameters) # Send the new parameters
+            }
+
+            with open(full_file_path, 'rb') as f_bin:
+                files = {'dataset': (dataset.original_filename, f_bin, 'text/csv')}
+                
+                # Make the server-to-server request
+                ml_response = requests.post(train_url, data=params_for_ml, files=files, timeout=600)
+
+            if ml_response.ok:
+                ml_data = ml_response.json()
+
+                predictor.model_id = ml_data.get('model_id')
+                predictor.ml_trained_at = timezone.now()
+                predictor.ml_training_status = 'trained'
+                predictor.ml_model_metrics = ml_data.get('metrics')
+                predictor.ml_selected_features = features
+                predictor.save(update_fields=[
+                    'model_id',
+                    'ml_trained_at',
+                    'ml_training_status',
+                    'ml_model_metrics',
+                    'ml_selected_features',
+                ])
+
+                return Response(ml_data, status=status.HTTP_200_OK)
+            else:
+                # The ML API returned an error
+                predictor.ml_training_status = 'failed'
+                predictor.save(update_fields=['ml_training_status'])
+                return Response(
+                    {"error": "ML API training failed", "details": ml_response.text},
+                    status=ml_response.status_code
+                )
+        
+        except Exception as e:
+            predictor.ml_training_status = 'failed'
+            predictor.save(update_fields=['ml_training_status'])
+            return Response(
+                {"error": "Failed to call training API", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
 
 # ----------------------------
 # PredictorPermission ViewSet
@@ -364,6 +463,114 @@ def resolve_username(request):
     return Response({"id": user.id})
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def predictor_cv_predictions(request, predictor_id):
+    """
+    Fetch CV predictions for a trained predictor from local storage.
+    Uses cv_predictions.json which contains cross-validation predictions.
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+    except Predictor.DoesNotExist:
+        return Response({"error": "Predictor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not CanAccessPredictor().has_object_permission(request, None, predictor):
+        raise PermissionDenied("You do not have permission to access this predictor.")
+
+    if not predictor.model_id:
+        return Response(
+            {"error": "Predictor has not been trained yet"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Build path to local CV predictions file
+    cv_predictions_path = os.path.join(
+        settings.MEDIA_ROOT, 
+        'models', 
+        predictor.model_id, 
+        'cv_predictions.json'
+    )
+    
+    # Check if file exists
+    if not os.path.exists(cv_predictions_path):
+        return Response(
+            {
+                "error": "CV predictions not available for this predictor.",
+                "details": "The CV predictions file was not found in local storage."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    
+    # Read and return the CV predictions
+    try:
+        with open(cv_predictions_path, 'r') as f:
+            cv_data = json.load(f)
+        return Response(cv_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {
+                "error": "Failed to read CV predictions",
+                "details": str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def predictor_full_predictions(request, predictor_id):
+    """
+    Fetch full dataset predictions for a trained predictor from local storage.
+    Uses full_predictions.json which contains predictions for all samples in the dataset.
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+    except Predictor.DoesNotExist:
+        return Response({"error": "Predictor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not CanAccessPredictor().has_object_permission(request, None, predictor):
+        raise PermissionDenied("You do not have permission to access this predictor.")
+
+    if not predictor.model_id:
+        return Response(
+            {"error": "Predictor has not been trained yet"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Build path to local full predictions file
+    full_predictions_path = os.path.join(
+        settings.MEDIA_ROOT, 
+        'models', 
+        predictor.model_id, 
+        'full_predictions.json'
+    )
+    
+    # Check if file exists
+    if not os.path.exists(full_predictions_path):
+        return Response(
+            {
+                "error": "Full predictions not available for this predictor.",
+                "details": "The full predictions file was not found in local storage."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    
+    # Read and return the full predictions
+    try:
+        with open(full_predictions_path, 'r') as f:
+            predictions_data = json.load(f)
+        return Response(predictions_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {
+                "error": "Failed to read full predictions",
+                "details": str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 # ========================================
 # NEW: ML API Integration Views
 # ========================================
@@ -414,14 +621,13 @@ def ml_retrain_model(request):
     
     selected_features = request.data.get('selected_features', None)
     parameters = request.data.get('parameters', None)
-    return_cv = request.data.get('return_cv_predictions', True)
     
     client = MLAPIClient()
     result = client.retrain_model(
         model_id=model_id,
         selected_features=selected_features,
         parameters=parameters,
-        return_cv_predictions=return_cv
+        return_cv_predictions=True
     )
     
     if result['success']:
@@ -512,7 +718,7 @@ def train_predictor_model(request, predictor_id):
         - parameters: Model training parameters (dropout, neurons, etc.)
     
     Response:
-        - Updated predictor with ml_model_id and metrics
+        - Updated predictor with model_id and metrics
     """
     try:
         # Get the predictor
@@ -577,7 +783,7 @@ def train_predictor_model(request, predictor_id):
             data = result['data']
             
             # Update predictor with ML model info
-            predictor.ml_model_id = data.get('model_id')
+            predictor.model_id = data.get('model_id')
             predictor.ml_trained_at = timezone.now()
             predictor.ml_training_status = 'trained'
             predictor.ml_model_metrics = data.get('metrics', {})
@@ -642,7 +848,7 @@ def predict_with_predictor(request, predictor_id):
             raise PermissionDenied("You don't have permission to use this predictor")
         
         # Check if model is trained
-        if not predictor.ml_model_id:
+        if not predictor.model_id:
             return Response(
                 {'error': 'This predictor has not been trained yet'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -665,7 +871,7 @@ def predict_with_predictor(request, predictor_id):
         # Make prediction using ML API
         client = MLAPIClient()
         result = client.predict(
-            model_id=predictor.ml_model_id,
+            model_id=predictor.model_id,
             features=features
         )
         

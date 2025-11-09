@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import type { TooltipProps, NameType, ValueType } from "recharts";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
+import { getPredictorFullPredictions, type CvPredictions } from "../lib/predictors";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -37,6 +49,7 @@ interface PredictorDetail {
   run_cross_validation: boolean;
   standardize_features: boolean;
   model_id: string;
+  ml_training_status?: string;
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
@@ -44,8 +57,27 @@ type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
 const NAVBAR_HEIGHT = 64;   // px
 const HEADER_HEIGHT = 60;   // px (approx: header row + 1px progress bar + padding)
 const MAX_HISTOGRAM_BARS = 20;
+const SURVIVAL_X_TICKS = 6;
+const SURVIVAL_Y_TICKS = 5;
+const EVENT_X_TICKS = 6;
+const EVENT_Y_TICKS = 5;
 
 type DatasetSubTab = "correlations" | "eventHistogram" | "survivalHistogram";
+type SurvivalHistogramBin = { bin_start: number; bin_end: number; count: number };
+interface SurvivalHistogramData {
+  bins: SurvivalHistogramBin[];
+  axisMin: number;
+  axisMax: number;
+}
+interface SurvivalChartDatum extends SurvivalHistogramBin {
+  center: number;
+}
+interface EventHistogramDatum extends HistogramBin {
+  center: number;
+  events: number;
+  censored: number;
+  total: number;
+}
 
 export default function PredictorDetailPage() {
   const { predictorId } = useParams<{ predictorId: string }>();
@@ -253,6 +285,9 @@ function DatasetTab({
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [cvPredictions, setCvPredictions] = useState<CvPredictions | null>(null);
+  const [cvError, setCvError] = useState<string | null>(null);
+  const [isCvLoading, setIsCvLoading] = useState(false);
 
   
 
@@ -316,6 +351,12 @@ function DatasetTab({
     };
   }, [datasetId]);
 
+  useEffect(() => {
+    setCvPredictions(null);
+    setCvError(null);
+    setIsCvLoading(false);
+  }, [predictor?.predictor_id]);
+
   const generalStats = stats?.general_stats;
   const timeUnitLabel = generalStats?.time_unit || predictor.time_unit;
   const hasTimeStats =
@@ -328,6 +369,71 @@ function DatasetTab({
     () => stats?.event_time_histogram?.slice(0, MAX_HISTOGRAM_BARS) ?? [],
     [stats]
   );
+
+  const survivalHistogram = useMemo<SurvivalHistogramData | null>(() => {
+    if (!cvPredictions) return null;
+    const predicted = (cvPredictions.median_predictions ?? []).filter(
+      (val): val is number => typeof val === "number" && Number.isFinite(val)
+    );
+    if (!predicted.length) return null;
+
+    const rawMin = Math.min(...predicted);
+    const rawMax = Math.max(...predicted);
+    const padding = Math.max((rawMax - rawMin) * 0.05, 1);
+    const axisMin = getNiceFloor(Math.max(0, rawMin - padding));
+    const axisMaxCandidate = getNiceCeiling(rawMax + padding);
+    const axisMax = axisMaxCandidate <= axisMin ? axisMin + 1 : axisMaxCandidate;
+    const range = axisMax - axisMin || 1;
+    const fdBinWidth = getFreedmanDiaconisBinWidth(predicted);
+    const estimatedBins = fdBinWidth > 0 ? Math.round(range / fdBinWidth) : Math.round(Math.sqrt(predicted.length));
+    const binCount = Math.max(5, Math.min(MAX_HISTOGRAM_BARS, estimatedBins || 1));
+    const binWidth = range / binCount;
+
+    const bins: SurvivalHistogramBin[] = Array.from({ length: binCount }, (_, idx) => ({
+      bin_start: axisMin + idx * binWidth,
+      bin_end: axisMin + (idx + 1) * binWidth,
+      count: 0,
+    }));
+
+    const toIndex = (value: number) => {
+      if (value <= axisMin) return 0;
+      if (value >= axisMax) return binCount - 1;
+      const relative = (value - axisMin) / binWidth;
+      return Math.min(binCount - 1, Math.max(0, Math.floor(relative)));
+    };
+
+    predicted.forEach((value) => {
+      bins[toIndex(value)].count += 1;
+    });
+
+    return { bins, axisMin, axisMax };
+  }, [cvPredictions]);
+
+  useEffect(() => {
+    if (activeView !== "survivalHistogram") return;
+    if (!predictor || !predictor.predictor_id) return;
+    if (!predictor.model_id) {
+      setCvPredictions(null);
+      setCvError("This predictor has not been trained yet.");
+      return;
+    }
+    if (cvPredictions || isCvLoading) return;
+    setCvError(null);
+    setIsCvLoading(true);
+    getPredictorFullPredictions(predictor.predictor_id)
+      .then((data) => setCvPredictions(data))
+      .catch((err) => {
+        console.error("Failed to load full predictions", err);
+        const apiDetails = (err as { details?: unknown })?.details as Record<string, unknown> | undefined;
+        const message =
+          (apiDetails && typeof apiDetails.error === "string" && apiDetails.error) ||
+          (apiDetails && typeof apiDetails.message === "string" && apiDetails.message) ||
+          (typeof err?.message === "string" ? err.message : "Failed to load predicted survival data.");
+        setCvPredictions(null);
+        setCvError(message);
+      })
+      .finally(() => setIsCvLoading(false));
+  }, [activeView, predictor, cvPredictions, isCvLoading]);
 
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
@@ -370,14 +476,31 @@ function DatasetTab({
         return <EventHistogramChart bins={histogramBins} timeUnit={timeUnitLabel} />;
       case "survivalHistogram":
         return (
-          <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-            <p>Predicted survival histogram will be available once modelling outputs are produced.</p>
-          </div>
+          <PredictedSurvivalHistogram
+            histogram={survivalHistogram}
+            timeUnit={timeUnitLabel}
+            isLoading={isCvLoading}
+            error={cvError}
+            hasModel={Boolean(predictor.model_id)}
+          />
         );
       default:
         return null;
     }
-  }, [activeView, datasetId, handleRefreshStats, histogramBins, isInitialLoading, isRefreshing, stats, timeUnitLabel]);
+  }, [
+    activeView,
+    datasetId,
+    handleRefreshStats,
+    histogramBins,
+    isInitialLoading,
+    isRefreshing,
+    stats,
+    timeUnitLabel,
+    survivalHistogram,
+    cvError,
+    isCvLoading,
+    predictor,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -634,7 +757,12 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     );
   }
 
-  const normalizedBins = bins.map((bin) => {
+  const normalizedBins: EventHistogramDatum[] = bins.map((bin) => {
+    const start = typeof bin.bin_start === "number" ? bin.bin_start : 0;
+    const end =
+      typeof bin.bin_end === "number"
+        ? bin.bin_end
+        : start + (typeof bin.bin_size === "number" ? bin.bin_size : 0);
     const events = typeof bin.events === "number" ? bin.events : bin.count ?? 0;
     const censored =
       typeof bin.censored === "number"
@@ -643,113 +771,264 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     const total = typeof bin.count === "number" ? bin.count : events + censored;
     return {
       ...bin,
+      bin_start: start,
+      bin_end: end,
+      center: (start + end) / 2,
       events,
       censored,
       total,
     };
   });
 
-  const maxCount = Math.max(
-    ...normalizedBins.map((bin) => Math.max(bin.events, bin.censored, bin.total)),
-    1
+  const axisMin = Math.min(...normalizedBins.map((bin) => bin.bin_start ?? 0));
+  const axisMax = Math.max(...normalizedBins.map((bin) => bin.bin_end ?? 0));
+  const resolvedMin = Number.isFinite(axisMin) ? axisMin : 0;
+  const resolvedMax = Number.isFinite(axisMax) && axisMax > resolvedMin ? axisMax : resolvedMin + 1;
+  const range = resolvedMax - resolvedMin || 1;
+
+  const maxCount = Math.max(...normalizedBins.map((bin) => bin.total), 1);
+  const yTicks = Array.from({ length: EVENT_Y_TICKS }, (_, idx) =>
+    Math.round((maxCount / (EVENT_Y_TICKS - 1 || 1)) * idx)
   );
-
-  const chartHeight = 260;
-  const barWidth = 22;
-  const gap = 28;
-  const svgWidth = normalizedBins.length * (barWidth * 2 + gap) + gap;
-
-  const yTicks = [0.25, 0.5, 0.75, 1].map((fraction) => Math.round(maxCount * fraction));
+  const xTicks = Array.from({ length: EVENT_X_TICKS }, (_, idx) =>
+    resolvedMin + (range / (EVENT_X_TICKS - 1 || 1)) * idx
+  );
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <svg
-          width="100%"
-          height={chartHeight + 60}
-          viewBox={`0 0 ${Math.max(svgWidth, 700)} ${chartHeight + 60}`}
-          className="rounded border border-neutral-200 bg-white"
-        >
-          {yTicks.map((tick) => {
-            const y = chartHeight - (tick / maxCount) * chartHeight;
-            return (
-              <g key={tick}>
-                <line
-                  x1={0}
-                  x2={svgWidth}
-                  y1={y}
-                  y2={y}
-                  stroke="#e5e7eb"
-                  strokeDasharray="4 6"
-                />
-                <text
-                  x={5}
-                  y={y - 4}
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {normalizedBins.map((bin, index) => {
-            const baseX = gap + index * (barWidth * 2 + gap);
-            const eventsHeight = (bin.events / maxCount) * chartHeight;
-            const censoredHeight = (bin.censored / maxCount) * chartHeight;
-            return (
-              <g key={`${bin.bin_start}-${bin.bin_end}-${index}`}>
-                <rect
-                  x={baseX}
-                  y={chartHeight - eventsHeight}
-                  width={barWidth}
-                  height={eventsHeight}
-                  fill="#1d4ed8"
-                  rx={2}
-                />
-                <rect
-                  x={baseX + barWidth + 4}
-                  y={chartHeight - censoredHeight}
-                  width={barWidth}
-                  height={censoredHeight}
-                  fill="#e11d48"
-                  rx={2}
-                />
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 16}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-500"
-                >
-                  {formatHistogramLabel(bin.bin_start)}
-                </text>
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 30}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {formatHistogramLabel(bin.bin_end)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+      <div className="rounded border border-neutral-200 bg-white p-4">
+        <div className="h-[340px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={normalizedBins}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barGap={8}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[resolvedMin, resolvedMax]}
+                ticks={xTicks}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTicks}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<EventHistogramTooltip timeUnit={timeUnit} />} />
+              <Legend
+                verticalAlign="top"
+                height={32}
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Bar
+                dataKey="events"
+                name="Uncensored"
+                fill="#1d4ed8"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+              <Bar
+                dataKey="censored"
+                name="Censored"
+                fill="#e11d48"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <p className="text-xs text-neutral-500">
         Counts represent samples per time bucket{timeUnit ? ` (${timeUnit})` : ""}.
       </p>
-      <div className="flex flex-wrap gap-4 text-xs text-neutral-500">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-          Uncensored
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
-          Censored
-        </span>
+    </div>
+  );
+}
+
+function PredictedSurvivalHistogram({
+  histogram,
+  timeUnit,
+  isLoading,
+  error,
+  hasModel,
+}: {
+  histogram: SurvivalHistogramData | null;
+  timeUnit?: string | null;
+  isLoading: boolean;
+  error: string | null;
+  hasModel: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <p>Loading predicted survival distribution…</p>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!hasModel) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>This predictor has not been trained yet.</p>
+      </div>
+    );
+  }
+
+  if (!histogram || !histogram.bins.length) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>Predicted survival data is not available.</p>
+      </div>
+    );
+  }
+
+  const { bins, axisMin, axisMax } = histogram;
+  const maxValue = Math.max(...bins.map((bin) => bin.count), 1);
+  const range = axisMax - axisMin || 1;
+
+  const yTickValues = Array.from({ length: SURVIVAL_Y_TICKS }, (_, idx) =>
+    Math.round((maxValue / (SURVIVAL_Y_TICKS - 1 || 1)) * idx)
+  );
+  const xTickValues = Array.from({ length: SURVIVAL_X_TICKS }, (_, idx) =>
+    axisMin + (range / (SURVIVAL_X_TICKS - 1 || 1)) * idx
+  );
+
+  const chartData: SurvivalChartDatum[] = bins.map((bin) => ({
+    ...bin,
+    center: (bin.bin_start + bin.bin_end) / 2,
+  }));
+  const barSize = Math.max(8, Math.floor(600 / bins.length));
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-neutral-200 bg-white p-4">
+        <div className="h-[360px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barSize={barSize}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[axisMin, axisMax]}
+                ticks={xTickValues}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTickValues}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<SurvivalTooltip timeUnit={timeUnit} />} />
+              <Bar
+                dataKey="count"
+                fill="#2563eb"
+                radius={[4, 4, 0, 0]}
+                name="Predicted median survival"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <p className="text-xs text-neutral-500">
+        Each bar counts test patients whose predicted median survival falls inside the matching time bucket.
+      </p>
+    </div>
+  );
+}
+
+function SurvivalTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<ValueType, NameType> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
+
+  const datum = payload[0].payload as SurvivalChartDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Median survival</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} – {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Count: {datum.count}</p>
+    </div>
+  );
+}
+
+function EventHistogramTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<ValueType, NameType> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) return null;
+  const datum = payload[0].payload as EventHistogramDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Time bucket</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} – {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Uncensored: {datum.events}</p>
+      <p className="text-neutral-500">Censored: {datum.censored}</p>
+      <p className="text-neutral-500">Total: {datum.total}</p>
     </div>
   );
 }
@@ -830,6 +1109,57 @@ function formatHistogramLabel(value: number | null | undefined): string {
   }
   const digits = Math.abs(value) >= 100 ? 0 : 1;
   return Number(value.toFixed(digits)).toLocaleString();
+}
+
+function getNiceCeiling(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 1;
+  }
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized <= 1) niceNormalized = 1;
+  else if (normalized <= 2) niceNormalized = 2;
+  else if (normalized <= 5) niceNormalized = 5;
+  else niceNormalized = 10;
+  return niceNormalized * magnitude;
+}
+
+function getNiceFloor(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized >= 5) niceNormalized = 5;
+  else if (normalized >= 2) niceNormalized = 2;
+  else niceNormalized = 1;
+  const candidate = niceNormalized * magnitude;
+  return candidate > value ? candidate - magnitude : candidate;
+}
+
+function getFreedmanDiaconisBinWidth(values: number[]): number {
+  if (values.length < 2) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const q1 = getPercentile(sorted, 0.25);
+  const q3 = getPercentile(sorted, 0.75);
+  const iqr = q3 - q1;
+  if (iqr <= 0) return 0;
+  return (2 * iqr) / Math.cbrt(values.length);
+}
+
+function getPercentile(sortedValues: number[], percentile: number): number {
+  if (!sortedValues.length) return 0;
+  const index = (sortedValues.length - 1) * percentile;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+  const weight = index - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
 }
 
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
@@ -919,6 +1249,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     };
     try {
       console.log("Sending retraining config:", retrainingConfig);
+
       const response = await fetch("http://localhost:5000/retrain", {
         method: "POST",
         headers: {
