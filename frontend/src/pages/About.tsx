@@ -11,11 +11,11 @@ import fig4 from "../assets/Fig_4.png";
 
 const LINKS = {
   // Replace these with real URLs later
-  analyzeSite: "http://pssp.srv.ualberta.ca/home/instructions",
+  analyzeSite: "http://localhost:5173/instructions",
   downloadCli: "http://pssp.srv.ualberta.ca/downloads/new",
-  slides: "https://webdocs.cs.ualberta.ca/~greiner/index.php?section=Presentations#PSSP",
+  slides: "https://www.ualberta.ca/en/computing-science/resources/technical-support/your-web-presence/setting-up-your-web-space.html",
   tutorial: "https://docs.google.com/presentation/d/1QynSDJYSKZvB2mR8GBg5jH2fuVYr_QmlzXEN6q3QvpY/pub#slide=id.p",
-  predictors: "http://pssp.srv.ualberta.ca/predictors/public",
+  predictors: "http://localhost:5173/browse",
   demo: "http://pssp.srv.ualberta.ca/home/index",
   summary2025: "https://docs.google.com/document/d/1cgClW-OZOmlQdK_D7BGl00aaJLG0v9Jau0ES3T6hhdQ/edit?tab=t.0",
 };
@@ -141,7 +141,7 @@ export default function About() {
           {" "}or
           {" "}
           <a href={LINKS.downloadCli} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">download the source for the command-line ISD tool</a>.
-          {" "}To better understand PSSP, see the slides and presentation
+          {" "}To better understand ISD, see the slides and presentation
           {" "}
           <a href={LINKS.slides} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">here</a>;
           {" "}and how to use this website, see the
