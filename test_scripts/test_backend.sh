@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "Activating virtual environment..."
-source venv/bin/activate
 
 echo "Installing Python dependencies..."
 pip install -r requirements.txt
