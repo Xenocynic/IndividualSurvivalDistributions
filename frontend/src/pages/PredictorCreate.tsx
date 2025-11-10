@@ -10,22 +10,6 @@
  * - Visibility: public / private toggle (matches datasets)
  * - Manage permissions table:
  *   - Add usernames and choose role (Owner / Viewer)
- *   - For now, this is UI-only; we wanna wire
- *     - Owner
- *     - Viewer
- *
- * Save:
- * - Calls createPredictor()
- * - (Later) iterate manage-permissions rows
- * - Navigates back to Dashboard -> Predictors tab with a PredictorItem preview
- */
-
-/**
- * Create New Predictor — unified grey UI, sharp edges, sticky header offset.
- */
-
-/**
- * Create New Predictor with ML Training
  * 
  * Flow:
  * 1. Fill out form → Click "Train & Save"
