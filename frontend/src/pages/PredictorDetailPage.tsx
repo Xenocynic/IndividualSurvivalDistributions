@@ -36,6 +36,7 @@ interface PredictorDetail {
   features: string[];
   run_cross_validation: boolean;
   standardize_features: boolean;
+  model_id: string;
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
@@ -874,7 +875,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   const handleRetrain = async () => {
     setIsRetraining(true);
     const retrainingConfig = {
-      features: Array.from(selectedFeatures),
+      selected_features: Array.from(selectedFeatures),
       parameters: {
         num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
         regularization,
@@ -890,13 +891,34 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
         run_cross_validation: runCrossValidation,
         standardize_features: standardizeFeatures,
       },
+      model_id: predictor.model_id
     };
-    console.log("TODO: Start retraining with config:", retrainingConfig);
-    // TODO: Replace with actual API call to the backend retraining endpoint
-    // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
-    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay
-    setIsRetraining(false);
-    alert("Retraining job started! (See console for config)");
+    try {
+      console.log("Sending retraining config:", retrainingConfig);
+      const response = await fetch("http://localhost:5000/retrain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(retrainingConfig),
+      });
+
+      // Check if the response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Retraining response:", data);
+      alert(`Retraining job started! New model ID: ${data.model_id}`);
+
+    } catch (err: any) {
+      console.error("Retrain failed:", err);
+      alert(`Retraining failed: ${err.message}`);
+    } finally {
+      setIsRetraining(false);
+    }
   };
 
   return (
