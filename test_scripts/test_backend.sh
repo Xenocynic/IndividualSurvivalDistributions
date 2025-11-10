@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+PORT=8001  # choose a free port
+
+echo "Killing any process on port $PORT..."
+lsof -ti :$PORT | xargs -r kill -9 || true
+
 echo "Setting up Python environment..."
 python3 -m venv venv
 source venv/bin/activate
@@ -9,28 +14,30 @@ echo "Installing Python dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-echo "Running all backend tests..."
-cd isd
-python3 manage.py test --noinput
-
 echo "Starting Django server in background..."
-# Let Django pick a free port dynamically
-python3 manage.py runserver 0.0.0.0:0 &
+cd isd
+python3 manage.py runserver 0.0.0.0:$PORT &
 PID=$!
 
 # Wait a few seconds for server to start
 sleep 5
 
-# Check if the process is alive
-if ps -p $PID > /dev/null; then
-    echo "Backend server started successfully (PID: $PID)"
+# Test if server is running
+if lsof -i :$PORT > /dev/null; then
+    echo "Backend started successfully!"
 else
-    echo "Backend server failed to start"
+    echo "Backend failed to start"
+    # Try to kill process if it exists
+    if ps -p $PID > /dev/null; then
+        kill $PID
+    fi
     exit 1
 fi
 
 # Kill the background process
-kill $PID || true
-wait $PID 2>/dev/null || true
+if ps -p $PID > /dev/null; then
+    kill $PID
+    wait $PID 2>/dev/null || true
+fi
 
 echo "Backend test completed."
