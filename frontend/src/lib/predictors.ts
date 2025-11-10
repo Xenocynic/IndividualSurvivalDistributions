@@ -23,7 +23,7 @@ export type Predictor = {
   folder_id?: string;
   folder_name?: string;
   // NEW: ML Model fields
-  ml_model_id?: string;
+  model_id?: string;
   ml_trained_at?: string;
   ml_training_status?: 'not_trained' | 'training' | 'trained' | 'failed';
   ml_model_metrics?: {
@@ -31,7 +31,7 @@ export type Predictor = {
     IBS?: number;
     [key: string]: any;
   };
-  ml_selected_features?: string[];
+  ml_selected_features: string;
   features?: string[];
 };
 
@@ -56,6 +56,11 @@ export async function createPredictor(body: {
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
   folder_id?: string;
+  model_id: string;
+  ml_trained_at: string;
+  ml_model_metrics: Record<string, any>;
+  ml_training_status: string;
+  ml_selected_features: string;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -198,7 +203,6 @@ export function mapApiPredictorToUi(
 // ========================================
 
 export interface TrainPredictorParams {
-  selectedFeatures?: string[];
   parameters?: {
     neurons?: number[];
     dropout?: number;
@@ -219,21 +223,36 @@ export interface PredictionResult {
   };
 }
 
+interface TrainPredictorResponse {
+  status: string;
+  model_id: string;
+  metrics?: Record<string, any>;
+  selected_features: string;
+  model_config?: string;
+  model_file?: {
+    encoder: string;
+    icp_state: string;
+  };
+  cv_predictions?: {
+    summary_csv: string;
+    full_predictions: string;
+    n_folds: number;
+    total_predictions: number;
+  };
+  trained_at: string;       // ISO date string
+  train_duration?: number;   // in seconds
+  timestamp?: string;
+}
+
 /**
  * Train an ML model for a specific predictor
  * Uses the predictor's linked dataset
  */
 export async function trainPredictor(
-  predictorId: number,
+  datasetId: number,
   params?: TrainPredictorParams
-): Promise<{
-  status: string;
-  message: string;
-  predictor: Predictor;
-  training_result: any;
-}> {
-  return api.post(`/api/predictors/${predictorId}/train/`, {
-    selected_features: params?.selectedFeatures,
+): Promise<TrainPredictorResponse> {
+  return api.post(`/api/datasets/${datasetId}/ml/train/`, {
     parameters: params?.parameters,
   });
 }

@@ -22,6 +22,8 @@ import os
 import mimetypes
 import pandas as pd
 import logging
+import json
+import requests
 from django.conf import settings
 from predictors.models import Predictor
 from predictors.serializers import PredictorSerializer
@@ -651,3 +653,75 @@ def list_public_datasets(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_train_model(request, dataset_id):
+        """
+        Triggers the training job on the separate ML API.
+        This acts as a proxy, sending the dataset and parameters
+        to the ML service.
+        """
+        try:
+            dataset = Dataset.objects.get(dataset_id=dataset_id)
+            
+            if not dataset or not dataset.file_path:
+                return Response(
+                    {"error": "Predictor has no associated dataset file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                return Response(
+                    {"error": f"Dataset file not found at path: {full_file_path}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # --- Check if # of features in dataset is >= 1 ---
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=0) 
+            
+            all_cols = df.columns.tolist()
+            if len(all_cols) < 3:
+                raise Exception("Dataset must have at least 3 columns (time, censored, features).")
+
+            
+            # Removed passing selected features because creating a predictor = auto train on all features
+            # ML API /train endpoint automatically trains on all features of the dataset
+            payload = request.data
+            parameters = payload.get('parameters', {})
+
+            # Get ML API URL from environment variables
+            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
+            train_url = f"{ml_api_url}/train" 
+
+            # Prepare the payload for the ML API
+            # Removed time and event column because model assumes column 0 = time and column 1 = censored/event
+            data = {
+                'parameters': json.dumps(parameters), # Send the new parameters
+            }
+
+            with open(full_file_path, 'rb') as f_bin:
+                files = {'dataset': (dataset.original_filename, f_bin, 'text/csv')}
+                
+                # Make the server-to-server request
+                ml_response = requests.post(train_url, data=data, files=files, timeout=600)
+
+            if ml_response.ok:
+                # Training started successfully
+                ml_data = ml_response.json()
+                
+                return Response(ml_data, status=status.HTTP_200_OK)
+            else:
+                # The ML API returned an error
+                return Response(
+                    {"error": "ML API training failed", "details": ml_response.text},
+                    status=ml_response.status_code
+                )
+        
+        except Exception as e:
+            return Response(
+                {"error": "Failed to call training API", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

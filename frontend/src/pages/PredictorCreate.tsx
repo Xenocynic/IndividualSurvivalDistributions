@@ -26,7 +26,6 @@ import { FolderSelector } from "../components/folder";
 import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
 import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictor } from "../lib/predictors";
-import { type PredictorItem } from "../components/PredictorCard";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 
@@ -132,65 +131,85 @@ export default function PredictorCreate() {
 
   const canSave = !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === 'idle';
 
-  async function onTrainAndSave() {
-    if (!canSave) return;
-    
-    setTrainingStep('creating');
-    setTrainingError(null);
-    
-    try {
-      // Step 1: Create predictor
-      const created = await createPredictor({
-        name: name.trim(),
-        description: notes.trim(),
-        dataset_id: Number(selectedDatasetId),
-        folder_id: selectedFolderId || undefined,
-        is_private: !isPublic,
-      });
 
-      setCreatedPredictorId(created.predictor_id);
+// Try to train the dataset first 
+async function onTrainAndSave() {
+  if (!canSave) return;
 
-      // Step 2: Grant permissions
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          userId = await resolveUsernameToId(username);
-        }
-        if (!userId) continue;
-        try {
-          await grantPredictorViewer(created.predictor_id, userId, row.role);
-        } catch (e) {
-          console.error("Grant failed", e);
-        }
-      }
+  setTrainingStep('training');
+  setTrainingError(null);
 
-      // Step 3: Train the model
-      setTrainingStep('training');
-      
-      await trainPredictor(created.predictor_id, {
-        parameters: {
-          n_epochs: 100,
-          dropout: 0.2,
-          neurons: [64, 64],
-        },
-      });
+  try {
+    const datasetId = Number(selectedDatasetId)
+    // Step 1: Train first (no predictor yet)
+    const trainingResult = await trainPredictor(datasetId, {
+      parameters: {
+        n_epochs: 100,
+        dropout: 0.2,
+        neurons: [64, 64],
+        n_exp: 10
+      },
+    });
 
-      // Step 4: Complete!
-      setTrainingStep('complete');
-      
-      // Navigate after a brief delay
-      setTimeout(() => {
-        navigate(`/predictors/${created.predictor_id}`);
-      }, 2000);
-
-    } catch (error: any) {
-      setTrainingStep('error');
-      setTrainingError(error.message || 'Failed to create and train predictor');
-      console.error('Training error:', error);
+    // Validate training result
+    if (!trainingResult || !trainingResult.model_id) {
+      throw new Error('Training did not return a valid model_id');
     }
+
+    // Step 2: Create predictor with ML metadata
+    setTrainingStep('creating');
+
+    const created = await createPredictor({
+      name: name.trim(),
+      description: notes.trim(),
+      dataset_id: Number(selectedDatasetId),
+      folder_id: selectedFolderId || undefined,
+      is_private: !isPublic,
+      model_id: trainingResult.model_id, // required for future predictors
+      ml_trained_at: trainingResult.trained_at,
+      ml_training_status: 'trained',
+      ml_model_metrics: trainingResult.metrics || {},
+      ml_selected_features: trainingResult.selected_features,
+    });
+
+    setCreatedPredictorId(created.predictor_id);
+
+    // Step 3: Grant permissions
+    for (const row of rows) {
+      const username = row.username.trim();
+      if (!username) continue;
+      let userId = row.userId;
+      if (!userId) {
+        userId = await resolveUsernameToId(username);
+      }
+      if (!userId) continue;
+
+      try {
+        await grantPredictorViewer(created.predictor_id, userId, row.role);
+      } catch (e) {
+        console.error("Grant failed", e);
+      }
+    }
+
+    // Step 4: Complete!
+    setTrainingStep('complete');
+
+    setTimeout(() => {
+      navigate(`/predictors/${created.predictor_id}`);
+    }, 2000);
+
+  } catch (error: any) {
+    // Update ML training status for error scenario
+    setTrainingStep('error');
+    setTrainingError(error.message || 'Failed to train and create predictor!');
+    console.error('Training error:', error);
+
+    // Optionally, you could create a predictor in "failed" state if needed
+    // await createPredictor({ name, ... , ml_training_status: 'failed' });
   }
+}
+
+
 
   function onBack() {
     if (trainingStep !== 'idle') {
@@ -518,12 +537,6 @@ function TrainingModal({
               <h3 className="text-lg font-semibold">Training Failed</h3>
               <p className="mt-2 text-sm text-red-600">{error}</p>
               <div className="mt-4 flex gap-2 justify-center">
-                <button
-                  onClick={onViewPredictor}
-                  className="rounded-md bg-neutral-200 px-4 py-2 text-sm hover:bg-neutral-300"
-                >
-                  View Predictor
-                </button>
                 <button
                   onClick={onRetry}
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
