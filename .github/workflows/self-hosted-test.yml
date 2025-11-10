@@ -19,7 +19,6 @@ jobs:
         run: |
           chmod +x test_scripts/test_backend.sh
           chmod +x test_scripts/test_frontend.sh
-          chmod +x test_scripts/test_backend_tests.sh
 
 
       # --- Set up Python ---
