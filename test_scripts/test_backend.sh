@@ -15,10 +15,10 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "Running all backend tests..."
+cd isd
 python3 manage.py test
 
 echo "Starting Django server in background..."
-cd isd
 python3 manage.py runserver 0.0.0.0:$PORT &
 PID=$!
 
