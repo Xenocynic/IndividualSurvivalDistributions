@@ -418,3 +418,18 @@ export async function renameFolder(folderId: string, newName: string): Promise<F
 export async function updateFolderDescription(folderId: string, description: string): Promise<Folder> {
   return updateFolder(folderId, { description });
 }
+
+/** List folders the user pinned */
+export async function listPinnedFolders(): Promise<any[]> {
+  return api.get<any[]>("/api/folders/pinned/");
+}
+
+/** Pin a folder */
+export async function pinFolder(folderId: string): Promise<void> {
+  return api.post(`/api/folders/${folderId}/pin/`, {});
+}
+
+/** Unpin a folder */
+export async function unpinFolder(folderId: string): Promise<void> {
+  return api.post(`/api/folders/${folderId}/unpin/`, {});
+}
