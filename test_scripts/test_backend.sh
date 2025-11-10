@@ -16,7 +16,7 @@ pip install -r requirements.txt
 
 echo "Running all backend tests..."
 cd isd
-python3 manage.py test
+python3 manage.py test --noinput
 
 echo "Starting Django server in background..."
 python3 manage.py runserver 0.0.0.0:$PORT &
