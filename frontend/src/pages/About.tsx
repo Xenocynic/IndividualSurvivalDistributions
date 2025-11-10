@@ -1,207 +1,183 @@
 // src/pages/About.tsx
-// Wireframe-aligned About page + tweaks:
-// - Centered team avatars/names
-// - Bottom card uses a light gray background
-// - Top-right 2x2 figure grid with click-to-zoom lightbox
+// ISD About page — preserves the exact order of the client’s provided text
+// Inline hyperlinks styled in blue as shown in the mock; figures labeled Fig 1–4.
 
 import { useState } from "react";
-
-import fig1 from "../assets/Kaplan_Meier_curve_for_Stage_4_stomach_cancer_patients.png";
-import fig2 from "../assets/Predicted_survival_curve_Patient_A.png";
-import fig3 from "../assets/Predicted_survival_curve_Patient_B.png";
-import fig4 from "../assets/Predicted_survival_curves_for_many_subjects.png";
-
-type Person = { id: string; name: string; subtitle: string; photoUrl?: string; href?: string };
-type Figure = { id: string; caption: string; src: string; alt: string };
-
-const TEAM: Person[] = [
-  { id: "rg", name: "Russ Greiner",   subtitle: "Professor, Computing Science" },
-  { id: "vb", name: "Vickie Baracos", subtitle: "Professor, Oncology" },
-  { id: "cny", name: "Chun-Nam Yu",   subtitle: "Postdoctoral Fellow, Computing Science" },
-];
-
-const FIGURES: Figure[] = [
-  { id: "fig1", caption: "Fig. 1", src: fig1, alt: "Kaplan–Meier curve for Stage 4 stomach cancer patients" },
-  { id: "fig2", caption: "Fig. 2", src: fig2, alt: "Predicted survival curve – Patient A" },
-  { id: "fig3", caption: "Fig. 3", src: fig3, alt: "Predicted survival curve – Patient B" },
-  { id: "fig4", caption: "Fig. 4", src: fig4, alt: "Predicted survival curves for many subjects" },
-];
+import fig1 from "../assets/Fig_1.png";
+import fig2 from "../assets/Fig_2.png";
+import fig3_left from "../assets/Predicted_survival_curve_Patient_B.png";
+import fig3_right from "../assets/Predicted_survival_curve_Patient_A.png";
+import fig4 from "../assets/Fig_4.png";
 
 const LINKS = {
-  nipsPaper:
-    "https://papersdb.cs.ualberta.ca/~papersdb/view_publication.php?pub_id=1060",
-  nipsPoster:
-    "https://papersdb.cs.ualberta.ca/~papersdb/uploaded_files/1060/additional_survival_poster.pdf",
+  // Replace these with real URLs later
+  analyzeSite: "http://localhost:5173/instructions",
+  downloadCli: "http://pssp.srv.ualberta.ca/downloads/new",
+  slides: "https://www.ualberta.ca/en/computing-science/resources/technical-support/your-web-presence/setting-up-your-web-space.html",
+  tutorial: "https://docs.google.com/presentation/d/1QynSDJYSKZvB2mR8GBg5jH2fuVYr_QmlzXEN6q3QvpY/pub#slide=id.p",
+  predictors: "http://localhost:5173/browse",
+  demo: "http://pssp.srv.ualberta.ca/home/index",
+  summary2025: "https://docs.google.com/document/d/1cgClW-OZOmlQdK_D7BGl00aaJLG0v9Jau0ES3T6hhdQ/edit?tab=t.0",
 };
 
-function InitialsCircle({ name }: { name: string }) {
-  const initials = name
-    .split(" ")
-    .map((s) => s[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">
-      {initials}
-    </div>
-  );
-}
-
 export default function About() {
-  const [preview, setPreview] = useState<Figure | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   return (
-    <main className="mx-auto max-w-6xl space-y-12 px-4 py-8">
-      {/* HERO: left copy, right figure grid in a box */}
-      <section className="grid gap-8 md:grid-cols-2">
-        {/* Left: copy */}
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-            About Patient-Specific Survival Prediction (PSSP)
-          </h1>
-
-          <div className="mt-4 space-y-4 text-gray-700">
-            <p>
-              The most commonly used approach for predicting survival times is to create a survival curve for each
-              category of patient (often using the Kaplan–Meier estimator) such as the curve shown in Figure 1.
-            </p>
-            <p>
-              The problem with this approach is that it aggregates individual patient characteristics. Our system
-              provides truly personalized predictions of patient survival times. Figures 2 and 3 show PSSP produced
-              predicted survival times for 2 patients who would receive the same predicted survival time using an
-              aggregated approach (as they were both stage 4 stomach cancer). However, when examined individually, we
-              see that PSSP (accurately) predicted these patients to have very different survival curves. When looking
-              at many patient survival curves at once (Figure 4), we can see that an aggregate approach would obscure
-              the wide range of patient-specific survival curves.
-            </p>
-            <p>This website happens to be where you can access these tools.</p>
-          </div>
-        </div>
-
-        {/* Right: graphs box with 2x2 grid of figures */}
-        <div className="flex items-center justify-center">
-          <div className="relative aspect-[4/3] w-full rounded-3xl border border-black/10 bg-gray-100 p-2 shadow-sm">
-            <div className="grid h-full grid-cols-2 grid-rows-2 gap-2">
-              {FIGURES.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setPreview(f)}
-                  className="group relative overflow-hidden rounded-xl bg-white shadow-sm transition hover:shadow-md"
-                  title="Click to enlarge"
-                >
-                  <img
-                    src={f.src}
-                    alt={f.alt}
-                    className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-                  />
-                  <span className="pointer-events-none absolute bottom-1 right-2 rounded bg-white/80 px-1.5 text-[10px] font-medium text-gray-700 shadow">
-                    {f.caption}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+    <main className="mx-auto max-w-5xl px-4 py-10 space-y-10 text-gray-900">
+      {/* Title */}
+      <section>
+        <h1 className="text-xl md:text-3xl font-extrabold leading-tight">Individual Survival Distribution (ISD)</h1>
       </section>
 
-      {/* WHO ARE WE */}
+      {/* Opening paragraphs + Fig 1 */}
       <section>
-        <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">Who are we?</h2>
-        <p className="mt-2 max-w-3xl text-gray-700">
-          PSSP was created by researchers at the University of Alberta who wanted to make survival predictions more
-          accurate and personal. Our team combines expertise in computer science, oncology, and machine learning.
+        <p className="mt-2 leading-7">
+          A “survival prediction” model predicts the time to an event for each individual. While the standard example is
+          “time to death” for a specific patient, there are many other applications – eg, in medicine, this could be the time
+          to relapse, or the time to recovery; in business, this could be the time until a specific customer stops shopping at
+          a particular store (customer churn); in engineering, the time until a part stops functioning; etc.
         </p>
-
-        <div className="mt-8 grid gap-8 sm:grid-cols-3">
-          {TEAM.map((p) => (
-            <figure
-              key={p.id}
-              className="flex flex-col items-center text-center"
-            >
-              <div className="mx-auto">
-                {/* Swap with a real headshot if available */}
-                <InitialsCircle name={p.name} />
-                {/* If you have headshots, use:
-                <img src={p.photoUrl!} alt={p.name} className="h-16 w-16 rounded-full object-cover" />
-                */}
-              </div>
-              <figcaption className="mt-3 text-center">
-                <div className="font-medium leading-tight">{p.name}</div>
-                <div className="text-sm text-gray-600">{p.subtitle}</div>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+        <p className="mt-6 leading-7">
+          Here, we provide a way to learn this survival prediction model from a “survival dataset”, which describes many
+          previous subjects, including a specific time for each subject.  This resembles regression, as we want to learn a
+          real-valued function (mapping each subject to a non-negative real value) from a dataset, but differs as our dataset
+          includes “censored instances”, which provides only a lower bound on the time. Consider, for example, a 5-year study
+          that began in 1990.  Over that 5-year interval, some patients died, but many were still alive when the study ended;
+          others left the study before, and so were “lost to follow-up” – see left part of the following figure.
+        </p>
+        <figure className="mt-6">
+          <img
+            src={fig1}
+            alt="Censoring timeline and patient table showing Time and Censored bit"
+            className="mx-auto rounded-xl border border-gray-300 shadow"
+            onClick={() => setPreview(fig1)}
+          />
+          <figcaption className="mt-2 text-sm">Fig 1: …</figcaption>
+        </figure>
       </section>
 
-      {/* PAPER SUMMARY CARD (light gray) */}
+      {/* Censoring explanation + KM description + Fig 2 */}
       <section>
-        <div className="rounded-2xl border border-black/10 bg-gray-50 p-6 shadow-sm md:p-8">
-          <p className="text-gray-700">
-            An accurate model of patient survival time can help in the treatment and care of patients. The common
-            practice of providing survival time estimates based only on population averages for the site and stage of
-            the disease ignores many important individual differences among patients. Here, we present a novel machine
-            learning algorithm, PSSP (for “patient-specific survival predictor”), for learning patient-specific survival
-            time distribution based on patient attributes, such as blood tests and clinical assessments. The predicted
-            distribution can be regarded as a personalized version of Kaplan–Meier curve, and can be used as a tool for
-            doctors to visualize the survival rate of individual patients. PSSP can also easily incorporate the
-            time-varying effects of prognostic factors and handle censored survival times. When tested on a cohort of
-            more than 2000 cancer patients from northern Alberta, our method gives survival time predictions that are
-            much more accurate than popular survival analysis models such as the Cox and Aalen regression models. Our
-            results show that using patient-specific attributes can reduce the prediction error on survival time by as
-            much as 20% when compared to using cancer site and stage only. We anticipate this same technology can be
-            used for learning and predicting personalized Kaplan–Meier curves for patients suffering from other
-            diseases.
-          </p>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <a
-              href={LINKS.nipsPaper}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-gray-50"
-            >
-              NIPS Paper (2011)
-            </a>
-            <a
-              href={LINKS.nipsPoster}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:bg-gray-50"
-            >
-              NIPS poster
-            </a>
-          </div>
-        </div>
+        <p className="leading-7">
+          These patients are considered “censored” – see the table on the right side of that figure, and note the “label” for
+          every patient includes both a real-valued “Time”, and also a “Censored” bit: by convention, with “1” meaning
+          uncensored [think “death”] and “0” for censored [meaning the time shown is a lower-bound on the time-to-death”].  If
+          only a few percent were censored, we could easily just ignore those censored instances at training time.  However,
+          many datasets have many many censored instances – think &gt;80% !
+        </p>
+        <p className="mt-6 leading-7">
+          This means we cannot simply use the standard regression algorithms that require that the label be completely
+          specified, which has forced the Survival Prediction community to develop different types of learned models.  Some
+          approaches instead learn “risk scores” – a number predicting who will die first (n.b., this number is typically not a
+          time) – while others learn single-time probability – like a 25% chance of dying within 1 year.  Note that neither of
+          these describe a TIME to Death.  Another approach produces a survival distribution for all patients (often using the
+          Kaplan-Meier estimator) such as the curve shown in the figure below – here, for patients with Stage 4 Stomach Cancer.
+          Each point on the line gives the probability that an individual will live (at least) this long – so here we see that
+          75% of these patients will live ≥ 9.5 months, 50% will live ≥ 20.5 months, and 25%, ≥ 50 months. We can then use the
+          median value (corresponding to the 50% probability) as our estimated time to the event – here, this is 20.5 months.
+        </p>
+        <figure className="mt-6">
+          <img
+            src={fig2}
+            alt="Kaplan–Meier curve with median at 20.5 months"
+            className="mx-auto rounded-xl border border-gray-300 shadow"
+            onClick={() => setPreview(fig2)}
+          />
+          <figcaption className="mt-2 text-sm">Fig 2: …</figcaption>
+        </figure>
       </section>
 
-      {/* Lightbox (click any figure) */}
+      {/* ISD vs aggregate + Fig 3 (left, right) */}
+      <section>
+        <p className="leading-7">
+          The problem with this approach is that the graph, at each time, just reflects the probability, over a set of
+          patients.  Our "Individual Survival Distribution (ISD)” approach differs by providing truly personalized predictions
+          of each patient’s survival times. Figure 3 shows the ISDs produced for 2 of these stage 4 stomach cancer patients.
+          While the aggregated approach (Fig 2) shows that these patients, in general, would live around 20.5 months, when
+          considered individually, we see that their ISDs (accurately) predicted these patients to have very different survival
+          curves – and hence, very different estimated survival times: 3 months for (left) and 18 months for (right).
+        </p>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <img
+            src={fig3_left}
+            alt="ISD example — left patient (~3 months)"
+            className="rounded-xl border border-gray-300 shadow"
+            onClick={() => setPreview(fig3_left)}
+          />
+          <img
+            src={fig3_right}
+            alt="ISD example — right patient (~18 months)"
+            className="rounded-xl border border-gray-300 shadow"
+            onClick={() => setPreview(fig3_right)}
+          />
+        </div>
+        <p className="mt-2 text-sm">Fig 3 (left, right)</p>
+      </section>
+
+      {/* Many ISDs + Fig 4 */}
+      <section>
+        <p className="leading-7">
+          Figure 5 shows many ISDs, to illustrate the wide range of curves – and range of expected survival times - for this
+          single disease.
+        </p>
+        <figure className="mt-6">
+          <img
+            src={fig4}
+            alt="Overlay of many predicted individual survival curves"
+            className="mx-auto rounded-xl border border-gray-300 shadow"
+            onClick={() => setPreview(fig4)}
+          />
+          <figcaption className="mt-2 text-sm">Fig 4 …</figcaption>
+        </figure>
+      </section>
+
+      {/* Links paragraph + CTA button + final paragraph with link */}
+      <section className="space-y-6">
+        <p className="leading-7">
+          This website provides access to the ISD codebase. You can either
+          {" "}
+          <a href={LINKS.analyzeSite} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">analyze your data set on this site</a>,
+          {" "}or
+          {" "}
+          <a href={LINKS.downloadCli} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">download the source for the command-line ISD tool</a>.
+          {" "}To better understand ISD, see the slides and presentation
+          {" "}
+          <a href={LINKS.slides} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">here</a>;
+          {" "}and how to use this website, see the
+          {" "}
+          <a href={LINKS.tutorial} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">Tutorial</a>.
+        </p>
+        <p className="leading-7">
+          You can also look at our publicly accessible predictors
+          {" "}
+          <a href={LINKS.predictors} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">here</a>.
+        </p>
+        <div className="flex justify-center">
+          <a
+            href={LINKS.demo}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center rounded-xl bg-neutral-700 px-6 py-2 text-base font-semibold text-white shadow-sm hover:bg-neutral-800"
+          >
+            View The Demo
+          </a>
+        </div>
+        <p className="leading-7">
+          For more information about Survival Prediction in general, and about ISDs in particular, check out
+          {" "}
+          <a href={LINKS.summary2025} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">Survival Prediction Summary (2025)</a>
+          {" "}– which also includes tutorials, slides, and recent results.
+        </p>
+      </section>
+
+      {/* Lightbox */}
       {preview && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setPreview(null)}
-        >
-          <figure
-            className="max-h-[90vh] max-w-[90vw] rounded-2xl bg-white p-3 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={preview.src}
-              alt={preview.alt}
-              className="max-h-[80vh] max-w-[85vw] object-contain"
-            />
-            <figcaption className="mt-2 text-center text-xs text-gray-600">
-              {preview.caption} — {preview.alt}
-            </figcaption>
-          </figure>
-          <button
-            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-medium shadow hover:bg-white"
-            onClick={() => setPreview(null)}
-          >
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setPreview(null)}>
+          <div className="max-h-[90vh] max-w-[90vw] rounded-2xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <img src={preview} alt="Preview" className="max-h-[80vh] max-w-[85vw] object-contain" />
+          </div>
+          <button className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm shadow hover:bg-white" onClick={() => setPreview(null)}>
             Close
           </button>
         </div>
