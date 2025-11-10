@@ -14,7 +14,15 @@ import {
 } from "../components/folder";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
 import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor } from "../lib/predictors";
-import { listPublicFolders, getPublicFolderContents, mapApiFolderToUi, type Folder } from "../lib/folders";
+import {
+  listPublicFolders,
+  getPublicFolderContents,
+  mapApiFolderToUi,
+  type Folder,
+  listPinnedFolders,
+  pinFolder,
+  unpinFolder,
+} from "../lib/folders";
 import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, downloadDatasetFile } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
@@ -123,18 +131,38 @@ export default function Browse() {
     }
   }
 
-  // Load pinned predictors from backend on mount
-  // Call on mount or whenever the active tab is "predictors"
+  // ----------------------------
+  // Fetch pinned folders
+  // ----------------------------
+  async function fetchPinnedFolders() {
+    if (!user) {
+      return;
+    }
+    try {
+      const pinned = await listPinnedFolders();
+      const pinnedSet = new Set(
+        pinned.map((f: any) =>
+          String((f.folder_id ?? f.folder?.folder_id ?? f.id ?? f.pk) as string)
+        )
+      );
+      setPinnedFolderIds(pinnedSet);
+    } catch (err) {
+      console.error("Failed to fetch pinned folders:", err);
+    }
+  }
+
+  // Load pinned predictors/datasets/folders from backend on mount or when tab changes
   useEffect(() => {
     if (activeTab === "predictors") fetchPinnedPredictors();
     else if (activeTab === "datasets") fetchPinnedDatasets();
+    else if (activeTab === "folders") fetchPinnedFolders();
   }, [user, activeTab]);
 
   // ----------------------------
   // Fetch data for active tab
   // ----------------------------
 
-  // Fetch & map once on mount or when tab changes
+  // fetsch and map once on mount or when tab changes
   useEffect(() => {
     let mounted = true;
     const controller = new AbortController();
@@ -143,7 +171,7 @@ export default function Browse() {
 
     const SHOW_LOADING_DELAY = 300;
 
-    // Track whether we've already fetched data for this tab
+    // track whether we've already fetched data for this tab
     const isInitialPredictorFetch = predictors.length === 0 && activeTab === "predictors";
     const isInitialDatasetFetch = datasets.length === 0 && activeTab === "datasets";
     const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
@@ -290,7 +318,17 @@ export default function Browse() {
   const pinnedSet =
     activeTab === "predictors" ? pinnedPredictorIds :
     activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
-  const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
+
+  // for predictors/datasets, we use the current "list".
+  // for folders, construct a minimal {id,title} list from the folders data.
+  const pinned = useMemo(() => {
+    if (activeTab === "folders") {
+      return folders
+        .filter((f) => pinnedFolderIds.has(String(f.folder_id)))
+        .map((f) => ({ id: String(f.folder_id), title: f.name }));
+    }
+    return list.filter((it) => pinnedSet.has(it.id));
+  }, [activeTab, folders, list, pinnedFolderIds, pinnedSet]);
 
   // ----------------------------
   // Toggle pin (predictors & datasets)
@@ -340,13 +378,34 @@ export default function Browse() {
   }
 
   // Separate function for folder pinning
-  function toggleFolderPin(folderId: string) {
+  async function toggleFolderPin(folderId: string) {
+    const id = String(folderId);
+    const isPinned = pinnedFolderIds.has(id);
+
+    // optimistic update
     setPinnedFolderIds((prev) => {
       const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
+      if (isPinned) next.delete(id);
+      else next.add(id);
       return next;
     });
+
+    try {
+      if (isPinned) {
+        await unpinFolder(id);
+      } else {
+        await pinFolder(id);
+      }
+    } catch (err) {
+      console.error("Failed to toggle folder pin:", err);
+      // rollback
+      setPinnedFolderIds((prev) => {
+        const next = new Set(prev);
+        if (isPinned) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    }
   }
 
   // download dataset file
