@@ -27,7 +27,7 @@ export default function About() {
     <main className="mx-auto max-w-5xl px-4 py-10 space-y-10 text-gray-900">
       {/* Title */}
       <section>
-        <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">Individual Survival Distribution<br className="hidden md:block" /> (ISD)</h1>
+        <h1 className="text-xl md:text-3xl font-extrabold leading-tight">Individual Survival Distribution (ISD)</h1>
       </section>
 
       {/* Opening paragraphs + Fig 1 */}
@@ -158,7 +158,7 @@ export default function About() {
             href={LINKS.demo}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-blue-700 px-6 py-2 text-base font-semibold text-white shadow-sm hover:bg-blue-800"
+            className="inline-flex items-center justify-center rounded-xl bg-neutral-700 px-6 py-2 text-base font-semibold text-white shadow-sm hover:bg-neutral-800"
           >
             View The Demo
           </a>
