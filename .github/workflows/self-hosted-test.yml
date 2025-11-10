@@ -20,6 +20,12 @@ jobs:
           chmod +x test_scripts/test_backend.sh
           chmod +x test_scripts/test_frontend.sh
 
+      # --- Set up Python ---
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10.12"  # adjust as needed
+
       - name: Test Backend Startup
         run: |
           echo "Testing backend startup..."
