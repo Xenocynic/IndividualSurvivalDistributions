@@ -14,6 +14,9 @@ echo "Installing Python dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
+echo "Running all backend tests..."
+python3 manage.py test
+
 echo "Starting Django server in background..."
 cd isd
 python3 manage.py runserver 0.0.0.0:$PORT &
