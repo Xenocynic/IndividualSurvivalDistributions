@@ -86,6 +86,12 @@ export default function DatasetCard({
         (item.owner ? (
           <>
             <button
+              onClick={() => onView?.(item.id)}
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+            >
+              View
+            </button>
+            <button
               onClick={() => onEdit?.(item.id)}
               className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >

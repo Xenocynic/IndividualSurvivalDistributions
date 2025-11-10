@@ -5,14 +5,45 @@ export type Predictor = {
   predictor_id: number;
   name: string;
   description: string;
-  dataset: number;
-  owner: number;
+  dataset?: {
+    dataset_id: number;
+    dataset_name: string;
+  };
+  dataset_id?: number; // For creating/updating
+  owner?: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+  owner_id?: number; // For creating/updating
   is_private?: boolean;
   created_at: string;
   updated_at: string;
-  time_unit: "year" | "month" | "day" | "hour";
+  time_unit?: "year" | "month" | "day" | "hour";
   folder_id?: string;
   folder_name?: string;
+  // NEW: ML Model fields
+  model_id?: string;
+  ml_trained_at?: string;
+  ml_training_status?: 'not_trained' | 'training' | 'trained' | 'failed';
+  ml_model_metrics?: {
+    'C-index'?: number;
+    IBS?: number;
+    [key: string]: any;
+  };
+  ml_selected_features: string;
+  features?: string[];
+};
+
+export type PredictorPermission = {
+  id: number;
+  predictor: number;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+  role: "owner" | "viewer";
 };
 
 /**
@@ -25,6 +56,11 @@ export async function createPredictor(body: {
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
   folder_id?: string;
+  model_id: string;
+  ml_trained_at: string;
+  ml_model_metrics: Record<string, any>;
+  ml_training_status: string;
+  ml_selected_features: string;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -41,18 +77,18 @@ export async function grantPredictorViewer(
   });
 }
 
-export async function resolveUsernameToId(
-  username: string
-): Promise<number | null> {
-  try {
-    const res = await api.get<{ id: number }>(
-      `/api/accounts/resolve/?username=${encodeURIComponent(username)}`
-    );
-    return res.id;
-  } catch (err) {
-    console.warn("Could not resolve username:", username);
-    return null;
+export async function listPredictorPermissions(predictorId?: number) {
+  const data = await api.get<PredictorPermission[]>(
+    "/api/predictors/permissions/"
+  );
+  if (typeof predictorId === "number") {
+    return data.filter((perm) => perm.predictor === predictorId);
   }
+  return data;
+}
+
+export async function revokePredictorPermission(permissionId: number) {
+  return api.del(`/api/predictors/permissions/${permissionId}/`);
 }
 
 /**
@@ -160,4 +196,83 @@ export function mapApiPredictorToUi(
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
   };
+}
+
+// ========================================
+// NEW: ML Model Training & Prediction
+// ========================================
+
+export interface TrainPredictorParams {
+  parameters?: {
+    neurons?: number[];
+    dropout?: number;
+    n_epochs?: number;
+    lr?: number;
+    batch_size?: number;
+    weight_decay?: number;
+    n_quantiles?: number;
+    [key: string]: any;
+  };
+}
+
+export interface PredictionResult {
+  predictions: {
+    median_survival_time: number;
+    quantile_levels: number[];
+    quantile_predictions: number[];
+  };
+}
+
+interface TrainPredictorResponse {
+  status: string;
+  model_id: string;
+  metrics?: Record<string, any>;
+  selected_features: string;
+  model_config?: string;
+  model_file?: {
+    encoder: string;
+    icp_state: string;
+  };
+  cv_predictions?: {
+    summary_csv: string;
+    full_predictions: string;
+    n_folds: number;
+    total_predictions: number;
+  };
+  trained_at: string;       // ISO date string
+  train_duration?: number;   // in seconds
+  timestamp?: string;
+}
+
+/**
+ * Train an ML model for a specific predictor
+ * Uses the predictor's linked dataset
+ */
+export async function trainPredictor(
+  datasetId: number,
+  params?: TrainPredictorParams
+): Promise<TrainPredictorResponse> {
+  return api.post(`/api/datasets/${datasetId}/ml/train/`, {
+    parameters: params?.parameters,
+  });
+}
+
+/**
+ * Make a prediction using a trained predictor's ML model
+ */
+export async function predictWithPredictor(
+  predictorId: number,
+  features: Record<string, number>
+): Promise<PredictionResult> {
+  return api.post(`/api/predictors/${predictorId}/predict/`, {
+    features,
+  });
+}
+
+/**
+ * Get detailed predictor information including ML model status
+ * (This is the same as getPredictor but more explicit)
+ */
+export async function getPredictorDetails(predictorId: number): Promise<Predictor> {
+  return api.get<Predictor>(`/api/predictors/${predictorId}/`);
 }

@@ -59,7 +59,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH = "/api/auth";
-const ACCOUNTS = "/api/accounts"; 
+const ACCOUNTS = "/api/accounts";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Load persisted tokens and prefetch profile on mount
   useEffect(() => {
     const hasTokens = !!localStorage.getItem("auth_tokens");
-    try { if (hasTokens) loadTokensFromStorage(); } catch {}
+    try { if (hasTokens) loadTokensFromStorage(); } catch { }
     const p = hasTokens ? refreshProfile() : Promise.resolve();
     p.finally(() => setLoading(false));
   }, []);
@@ -88,8 +88,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     // create account
     await api.post(`${AUTH}/register/`, body);
-    // then login automatically
-    await login(body.username, body.password);
   };
 
   const logout = async () => {
@@ -99,8 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // We don't have direct access to refresh in this file; store it in context and send it.
       // For now, best-effort clear server & client:
-      await api.post(`${AUTH}/logout/`, {} as any).catch(() => {});
-    } catch {}
+      await api.post(`${AUTH}/logout/`, {} as any).catch(() => { });
+    } catch { }
     setTokens(null);
     setUser(null);
   };

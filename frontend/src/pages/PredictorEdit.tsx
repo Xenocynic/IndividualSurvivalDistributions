@@ -13,9 +13,29 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { listMyPredictors, getPredictor, updatePredictor, type Predictor } from "../lib/predictors";
+import {
+  listMyPredictors,
+  getPredictor,
+  updatePredictor,
+  listPredictorPermissions,
+  grantPredictorViewer,
+  revokePredictorPermission,
+  type Predictor,
+  type PredictorPermission,
+} from "../lib/predictors";
+import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
+import { resolveUsernameToId } from "../lib/users";
 
 type TimeUnit = "year" | "month" | "day" | "hour";
+
+type ShareRow = {
+  id: number;
+  username: string;
+  role: "owner" | "viewer";
+  userId?: number;
+  permissionId?: number;
+  isProcessing?: boolean;
+};
 
 
 export default function PredictorEdit() {
@@ -32,6 +52,10 @@ export default function PredictorEdit() {
   // predictor info
   const [predictor, setPredictor] = useState<Predictor | null>(null);
   const [originalName, setOriginalName] = useState("");
+
+  // sharing state
+  const [shareRows, setShareRows] = useState<ShareRow[]>([]);
+  const [sharingError, setSharingError] = useState<string | null>(null);
 
   // meta state
   const [loading, setLoading] = useState(true);
@@ -90,6 +114,36 @@ export default function PredictorEdit() {
     loadPredictor();
   }, [predictorId]);
 
+  useEffect(() => {
+    if (!predictorId) {
+      setShareRows([{ id: 1, username: "", role: "viewer" }]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const permissions: PredictorPermission[] =
+          await listPredictorPermissions(predictorId);
+        const mapped: ShareRow[] = permissions.map((perm, idx) => ({
+          id: idx + 1,
+          username: perm.user.username,
+          role: perm.role,
+          userId: perm.user.id,
+          permissionId: perm.id,
+        }));
+        if (mapped.length === 0) {
+          mapped.push({ id: 1, username: "", role: "viewer" });
+        }
+        setShareRows(mapped);
+        setSharingError(null);
+      } catch (err) {
+        console.error("Failed to load predictor permissions", err);
+        setSharingError("Failed to load sharing settings.");
+        setShareRows([{ id: 1, username: "", role: "viewer" }]);
+      }
+    })();
+  }, [predictorId]);
+
   // check name availability (client-side, excluding current predictor)
   useEffect(() => {
     let cancelled = false;
@@ -125,28 +179,79 @@ export default function PredictorEdit() {
   }, [name, originalName, predictorId]);
 
   // "valid" when the required bits are present and changed
+  const pendingShareRows = useMemo(
+    () => shareRows.filter((row) => !row.permissionId && row.username.trim()),
+    [shareRows]
+  );
+
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
     if (nameTaken) return false;
-    if (!isDirty) return false; // No changes made
+    if (!isDirty && pendingShareRows.length === 0) return false;
     return true;
-  }, [name, nameTaken, isDirty]);
+  }, [name, nameTaken, isDirty, pendingShareRows]);
 
   // Save - update predictor
   const onSave = async () => {
     if (!canSave || saving || !predictorId) return;
     setSaving(true);
     try {
-      const updateData = {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        time_unit: timeUnit,
-        is_private: isPrivate,
-      };
+      const predictorHasChanges = isDirty;
+      const pendingShares = pendingShareRows;
 
-      await updatePredictor(predictorId, updateData)
+      if (predictorHasChanges) {
+        const updateData = {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          time_unit: timeUnit,
+          is_private: isPrivate,
+        };
+        await updatePredictor(predictorId, updateData);
+      }
 
-      // Route back to dashboard
+      const failedShares: string[] = [];
+      if (pendingShares.length > 0) {
+        const existingUserIds = new Set(
+          shareRows
+            .filter((row) => row.permissionId && typeof row.userId === "number")
+            .map((row) => row.userId as number)
+        );
+        const processedUserIds = new Set<number>();
+
+        for (const row of pendingShares) {
+          const username = row.username.trim();
+          if (!username) continue;
+
+          let userId = row.userId;
+          if (!userId) {
+            userId = await resolveUsernameToId(username);
+          }
+          if (!userId) {
+            failedShares.push(username);
+            continue;
+          }
+          if (existingUserIds.has(userId) || processedUserIds.has(userId)) {
+            continue;
+          }
+
+          try {
+            await grantPredictorViewer(predictorId, userId, row.role);
+            processedUserIds.add(userId);
+          } catch (grantErr) {
+            console.error("Failed to grant predictor access", grantErr);
+            failedShares.push(username);
+          }
+        }
+      }
+
+      if (failedShares.length) {
+        alert(
+          `Predictor updated, but sharing failed for: ${failedShares.join(
+            ", "
+          )}. Please check the usernames and try again.`
+        );
+      }
+
       navigate("/dashboard", { state: { tab: "predictors" } });
     } catch (err: any) {
       let errorMessage = "Failed to update predictor. Please try again.";
@@ -176,12 +281,63 @@ export default function PredictorEdit() {
   };
 
   const onBack = () => {
-    if (isDirty) {
+    if (isDirty || pendingShareRows.length > 0) {
       setShowLeavePrompt(true);
     } else {
       navigate("/dashboard", { state: { tab: "predictors" } });
     }
   };
+
+  function addShareRow() {
+    setSharingError(null);
+    setShareRows((prev) => {
+      const nextId = (prev.at(-1)?.id ?? 0) + 1;
+      return [...prev, { id: nextId, username: "", role: "viewer" }];
+    });
+  }
+
+  function removeShareRowFromState(rowId: number) {
+    setShareRows((prev) => {
+      const filtered = prev.filter((row) => row.id !== rowId);
+      if (filtered.length === 0) {
+        return [{ id: 1, username: "", role: "viewer" }];
+      }
+      return filtered;
+    });
+  }
+
+  function updateShareRow(id: number, patch: Partial<ShareRow>) {
+    setSharingError(null);
+    setShareRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+  }
+
+  function handleUserSelect(id: number, user: UserSuggestion) {
+    updateShareRow(id, { username: user.username, userId: user.id });
+  }
+
+  function handleRoleChange(id: number, role: "owner" | "viewer") {
+    updateShareRow(id, { role });
+  }
+
+  async function removeShareRow(row: ShareRow) {
+    if (row.permissionId) {
+      updateShareRow(row.id, { isProcessing: true });
+      try {
+        await revokePredictorPermission(row.permissionId);
+        removeShareRowFromState(row.id);
+        setSharingError(null);
+      } catch (err) {
+        console.error("Failed to revoke predictor access", err);
+        setSharingError(`Failed to revoke access for ${row.username}.`);
+        updateShareRow(row.id, { isProcessing: false });
+      }
+      return;
+    }
+
+    removeShareRowFromState(row.id);
+  }
 
   if (loading) {
     return (
@@ -388,6 +544,108 @@ export default function PredictorEdit() {
             Also, the results of training (including access to your dataset)
             will be publicly accessible. Do not check this option if you want
             your data or predictor to remain private.
+          </div>
+        </section>
+
+        {/* Sharing */}
+        <section className='space-y-3'>
+          <h3 className='text-sm font-semibold text-gray-900'>
+            Share with other users
+          </h3>
+          {sharingError && (
+            <div className='rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700'>
+              {sharingError}
+            </div>
+          )}
+          <div className='rounded-md border border-black/10'>
+            <div className='grid grid-cols-2 border-b bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700'>
+              <div>Users</div>
+              <div>Permissions</div>
+            </div>
+
+            <div className='divide-y'>
+              {shareRows.length === 0 ? (
+                <div className='px-3 py-2 text-xs text-gray-500'>
+                  No additional collaborators yet.
+                </div>
+              ) : (
+                shareRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className='grid grid-cols-2 items-center gap-2 px-3 py-2'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <button
+                        className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
+                        title='Remove'
+                        onClick={() => removeShareRow(row)}
+                        disabled={saving || row.isProcessing}
+                      >
+                        ✕
+                      </button>
+                      {row.permissionId ? (
+                        <div>
+                          <div className='text-sm font-medium'>
+                            {row.username}
+                          </div>
+                          <div className='text-xs text-gray-500 capitalize'>
+                            Existing {row.role}
+                          </div>
+                        </div>
+                      ) : (
+                        <UserSearchInput
+                          value={row.username}
+                          onValueChange={(val) =>
+                            updateShareRow(row.id, {
+                              username: val,
+                              userId: undefined,
+                            })
+                          }
+                          onSelect={(user) => handleUserSelect(row.id, user)}
+                          placeholder='Search username'
+                          disabled={saving}
+                        />
+                      )}
+                    </div>
+                    <div>
+                      {row.permissionId ? (
+                        <span className='text-sm text-gray-700 capitalize'>
+                          {row.role}
+                        </span>
+                      ) : (
+                        <select
+                          value={row.role}
+                          onChange={(e) =>
+                            handleRoleChange(
+                              row.id,
+                              e.target.value as "owner" | "viewer"
+                            )
+                          }
+                          className='w-32 rounded-md border border-black/10 px-2 py-1 text-sm capitalize'
+                          disabled={saving}
+                        >
+                          <option value='owner'>Owner</option>
+                          <option value='viewer'>Viewer</option>
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className='flex items-center justify-between border-t bg-gray-100 px-3 py-2'>
+              <button
+                onClick={addShareRow}
+                className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
+                disabled={saving}
+              >
+                + Add
+              </button>
+              <div className='text-[11px] text-gray-600'>
+                Owners can edit & retrain. Viewers can run predictions only.
+              </div>
+            </div>
           </div>
         </section>
       </div>
