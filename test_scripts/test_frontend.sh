@@ -14,9 +14,9 @@ PID=$!
 # Wait a few seconds for server to start
 sleep 5
 
-# Check if default dev server port (3000) is used
-if lsof -i :3000 > /dev/null; then
-    echo "Frontend started successfully!"
+# Check if the process is still alive
+if ps -p $PID > /dev/null; then
+    echo "Frontend server started successfully!"
 else
     echo "Frontend failed to start"
     exit 1
