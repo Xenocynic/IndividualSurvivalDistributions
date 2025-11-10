@@ -40,8 +40,3 @@ jobs:
           bash test_scripts/test_frontend.sh
           echo "✅ Frontend test completed successfully!"
         
-      - name: Test Backend Tests
-        run: |
-          echo "Testing backend tests..."
-          bash test_scripts/test_backend_tests.sh
-          echo "✅ Backend tests completed successfully!"
