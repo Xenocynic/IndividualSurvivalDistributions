@@ -23,7 +23,7 @@ import {
   filterFoldersByType,
   DEFAULT_FOLDER_SORT,
 } from "../lib/folderUtils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 type Tab = "predictors" | "datasets" | "folders";
 
@@ -45,7 +45,24 @@ type Item = {
 
 export default function Browse() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("predictors");
+
+  // tab navigation ahndling (same thing as Dashboard mostly)
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeTab: Tab = (() => {
+    const q = searchParams.get("tab");
+    return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
+  })();
+
+  const selectTab = (t: Tab) => {
+    setSearchParams(prev => {
+      const sp = new URLSearchParams(prev);
+      sp.set("tab", t);
+      return sp;
+    }, { replace: true });
+    setSelectedPredictorId(null);
+    setSelectedDatasetId(null);
+  };
 
   // Separate search states for each tab
   const [predictorQuery, setPredictorQuery] = useState("");
@@ -440,19 +457,19 @@ export default function Browse() {
               <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white">
                 <button
                   className={`px-3 text-sm ${activeTab === "predictors" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
-                  onClick={() => setActiveTab("predictors")}
+                  onClick={() => selectTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
                   className={`px-3 text-sm ${activeTab === "datasets" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
-                  onClick={() => setActiveTab("datasets")}
+                  onClick={() => selectTab("datasets")}
                 >
                   Datasets
                 </button>
                 <button
                   className={`px-3 text-sm ${activeTab === "folders" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
-                  onClick={() => setActiveTab("folders")}
+                  onClick={() => selectTab("folders")}
                 >
                   Folders
                 </button>

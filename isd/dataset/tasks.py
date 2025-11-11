@@ -9,6 +9,7 @@ from django.core.files.storage import default_storage
 from django.conf import settings
 from .models import Dataset
 from .file_utils import FileStorageManager
+from .statistics import calculate_and_store_dataset_statistics
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,16 @@ def process_feature_imputation(dataset_id):
         new_file_size = storage_manager.get_file_size(dataset.file_path)
         dataset.file_size = new_file_size
         dataset.save()
+
+        # --- 4. Persist statistics ---
+        try:
+            calculate_and_store_dataset_statistics(dataset, dataframe=df)
+        except Exception as stats_error:
+            logger.warning(
+                "Dataset statistics calculation failed for dataset %s: %s",
+                dataset.dataset_id,
+                stats_error,
+            )
         
         logger.info(f"Data processing completed for dataset {dataset_id}. New shape: {df.shape}")
 

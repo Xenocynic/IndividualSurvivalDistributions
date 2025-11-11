@@ -48,6 +48,54 @@ export interface CreateDatasetResponse extends Dataset {
   warnings?: string[];
 }
 
+export type DatasetPermission = {
+  id: number;
+  dataset: number;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+};
+export interface DatasetStats {
+  computed_at: string;
+  schema_version: string;
+  general_stats: {
+    num_samples: number;
+    num_features: number;
+    num_numeric_features: number;
+    num_censored: number | null;
+    num_events: number | null;
+    time_min: number | null;
+    time_max: number | null;
+    time_mean: number | null;
+    time_median: number | null;
+    time_unit: string | null;
+  };
+  feature_correlations: Array<{
+    feature: string;
+    feature_type: string | null;
+    non_null_percent: number | null;
+    correlation_with_time: number | null;
+    abs_correlation: number | null;
+    mean: number | null;
+    std_dev: number | null;
+    cox_score: number | null;
+    cox_score_log: number | null;
+  }>;
+  event_time_histogram: Array<{
+    bin_start: number;
+    bin_end: number;
+    count: number;
+    events?: number;
+    censored?: number;
+  }>;
+  dataframe_metadata?: {
+    rows: number;
+    columns: number;
+  };
+}
+
 /**
  * Create a dataset object with file upload.
  * Sends multipart form data with all required fields.
@@ -112,7 +160,19 @@ export async function listPublicDatasets(folderId?: string) {
  * Grant a user viewer access (permissions are "viewer" only for datasets).
  */
 export async function grantDatasetViewer(dataset: number, user: number) {
-  return api.post("/api/datasets/permissions/", { dataset, user });
+  return api.post("/api/datasets/permissions/", { dataset, user_id: user });
+}
+
+export async function listDatasetPermissions(datasetId?: number) {
+  const data = await api.get<DatasetPermission[]>("/api/datasets/permissions/");
+  if (typeof datasetId === "number") {
+    return data.filter((perm) => perm.dataset === datasetId);
+  }
+  return data;
+}
+
+export async function revokeDatasetPermission(permissionId: number) {
+  return api.del(`/api/datasets/permissions/${permissionId}/`);
 }
 
 /**
@@ -120,6 +180,17 @@ export async function grantDatasetViewer(dataset: number, user: number) {
  */
 export async function getDataset(datasetId: number): Promise<Dataset> {
   return api.get<Dataset>(`/api/datasets/${datasetId}/`);
+}
+
+/**
+ * Fetch cached statistics for a dataset. Pass `refresh: true` to force recomputation.
+ */
+export async function getDatasetStats(
+  datasetId: number,
+  options?: { refresh?: boolean }
+): Promise<DatasetStats> {
+  const query = options?.refresh ? "?refresh=1" : "";
+  return api.get<DatasetStats>(`/api/datasets/${datasetId}/stats/${query}`);
 }
 
 /**

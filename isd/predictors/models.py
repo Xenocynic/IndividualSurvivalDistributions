@@ -14,11 +14,18 @@ class Predictor(models.Model):
 
     predictor_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=200)
-    description = models.TextField()
+    description = models.TextField(blank=True)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="predictors")
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="predictors")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_predictors")
     is_private = models.BooleanField(default=False)  # False = public, True = private
+    # The model_id from the ML server
+    model_id = models.CharField(
+        unique=True,     # if each ML model is used by only one predictor
+        null=True,       # predictor might exist before training completes
+        blank=True,
+        help_text="Unique identifier for the trained model from the ML server."
+    )
 
     class Meta:
         ordering = ["name"]
@@ -54,7 +61,31 @@ class Predictor(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-
+    ml_trained_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="When the ML model was trained"
+    )
+    ml_training_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_trained', 'Not Trained'),
+            ('training', 'Training'),
+            ('trained', 'Trained'),
+            ('failed', 'Failed'),
+        ],
+        default='not_trained'
+    )
+    ml_model_metrics = models.JSONField(
+        null=True, 
+        blank=True,
+        help_text="Performance metrics from ML model training (C-index, IBS, etc.)"
+    )
+    ml_selected_features = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="List of features used in ML model training"
+    )
 
     def __str__(self):
         return self.name
@@ -108,4 +139,4 @@ class PredictorPermission(models.Model):
         verbose_name_plural = "Predictor Permissions"
 
     def __str__(self):
-        return f"{self.user.username} - {self.predictor.name} ({self.role})"
+        return f"{self.user.username} - {self.predictor.name}"

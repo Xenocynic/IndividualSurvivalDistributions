@@ -37,6 +37,7 @@ class Dataset(models.Model):
         help_text="Time unit for survival analysis"
     )
     is_public = models.BooleanField(default=False, help_text="Whether the dataset is publicly visible")
+    allow_admin_access = models.BooleanField(default=False, help_text="Allow administrators to access this dataset")
     uploaded_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp when dataset was created")
     
     class Meta:
@@ -125,6 +126,29 @@ class Dataset(models.Model):
                 logger.error(error_msg)
         
         return deleted_count, file_cleanup_errors
+
+
+class DatasetStatistics(models.Model):
+    """Cached analytics for a dataset so we do not recompute on every request."""
+
+    dataset = models.OneToOneField(
+        Dataset,
+        on_delete=models.CASCADE,
+        related_name="statistics"
+    )
+    computed_at = models.DateTimeField(auto_now=True)
+    general_stats = models.JSONField(default=dict, blank=True)
+    feature_correlations = models.JSONField(default=list, blank=True)
+    event_time_histogram = models.JSONField(default=list, blank=True)
+    schema_version = models.CharField(max_length=20, default="v1")
+
+    class Meta:
+        verbose_name = "Dataset Statistics"
+        verbose_name_plural = "Dataset Statistics"
+
+    def __str__(self):
+        return f"Statistics for dataset {self.dataset.dataset_id}"
+
 
 # ----------------------------
 # PinnedDataset Model

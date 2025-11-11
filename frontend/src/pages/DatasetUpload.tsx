@@ -17,15 +17,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createDataset,
+  grantDatasetViewer,
   listMyDatasets,
   type CreateDatasetRequest,
 } from "../lib/datasets";
 import { FolderSelector } from "../components/folder";
+import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
+import { resolveUsernameToId } from "../lib/users";
 
 type PermRow = {
   id: number; // local row id
   username: string; // text the user typed (later - lookup user id)
   role: "owner" | "viewer"; // UI role
+  userId?: number;
 };
 
 type TimeUnit = "year" | "month" | "day" | "hour";
@@ -45,7 +49,7 @@ export default function DatasetUpload() {
 
   // permissions rows (UI-only for now)
   const [rows, setRows] = useState<PermRow[]>([
-    { id: 1, username: "", role: "owner" }, // example empty line to start
+    { id: 1, username: "", role: "viewer" }, // example empty line to start
   ]);
 
   // meta state
@@ -135,6 +139,32 @@ export default function DatasetUpload() {
         alert(warningMessage);
       }
 
+      const datasetId = created.dataset_id;
+      const failedGrants: string[] = [];
+
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
+        if (row.role !== "viewer") continue; // datasets only support viewer grants post-creation
+
+        let userId = row.userId;
+        if (!userId) {
+          const resolvedId = await resolveUsernameToId(username);
+          userId = resolvedId ?? undefined;
+        }
+        if (!userId) {
+          failedGrants.push(username);
+          continue;
+        }
+
+        try {
+          await grantDatasetViewer(datasetId, userId);
+        } catch (grantErr) {
+          console.error("Failed to grant dataset access:", grantErr);
+          failedGrants.push(username);
+        }
+      }
+
       // Route to dashboard with the Datasets tab selected
       navigate("/dashboard", {
         state: {
@@ -144,6 +174,14 @@ export default function DatasetUpload() {
           folderName: selectedFolderId ? "folder" : undefined,
         },
       });
+
+      if (failedGrants.length) {
+        alert(
+          `Dataset created, but sharing failed for: ${failedGrants.join(
+            ", "
+          )}. Please check the usernames and try again.`
+        );
+      }
     } catch (err: any) {
       // Handle different types of errors
       let errorMessage = "Failed to save dataset. Please try again.";
@@ -193,6 +231,9 @@ export default function DatasetUpload() {
   }
   function updateRow(id: number, patch: Partial<PermRow>) {
     setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }
+  function handleUserSelect(id: number, user: UserSuggestion) {
+    updateRow(id, { username: user.username, userId: user.id });
   }
 
   // simple drop handler (visual only)
@@ -456,11 +497,12 @@ export default function DatasetUpload() {
                     >
                       ✕
                     </button>
-                    <input
+                    <UserSearchInput
                       value={r.username}
-                      onChange={(e) => updateRow(r.id, { username: e.target.value })}
-                      placeholder="Username"
-                      className="w-full rounded-md border px-2 py-1 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200"
+                      onValueChange={(val) => updateRow(r.id, { username: val, userId: undefined })}
+                      onSelect={(user) => handleUserSelect(r.id, user)}
+                      placeholder="Search username"
+                      disabled={saving}
                     />
                   </div>
                   <div>
@@ -505,6 +547,8 @@ export default function DatasetUpload() {
             }
           />
         )}
+
+        {saving && <SavingOverlay />}
       </div>
     </div>
   );
@@ -544,3 +588,16 @@ function ConfirmLeave({
   );
 }
 
+function SavingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
+        <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <h3 className="text-lg font-semibold">Uploading dataset…</h3>
+        <p className="mt-2 text-sm text-neutral-600">
+          Larger files can take a minute. Please stay on this page until it's done.
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -14,12 +14,12 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export default function Signup() {
   const { signup } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [pw1, setPw1] = useState("");
@@ -42,30 +42,17 @@ export default function Signup() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/register/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          email,
-          password: pw1,
-          password2: pw2,
-          first_name: firstName,
-          last_name: lastName,
-        }),
+      await signup({
+        username,
+        email,
+        password: pw1,
+        password2: pw2,
+        first_name: firstName || undefined,
+        last_name: lastName || undefined,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error("Signup error:", data);
-        throw { details: data };
-      }
-
-      console.log("Signup success:", data);
       setMsg("Account created successfully!");
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      navigate("/login");
     } catch (err: any) {
       const d = err?.details;
       // DRF often returns field dict: { username: ["…"], email: ["…"], password: ["…"] }
@@ -198,4 +185,3 @@ export default function Signup() {
     </section>
   );
 }
-

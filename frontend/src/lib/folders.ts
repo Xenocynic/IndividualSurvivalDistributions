@@ -187,11 +187,6 @@ export async function revokeFolderPermission(folderId: string, userId: number): 
   return api.post(`/api/folders/${folderId}/permissions/revoke/`, { user_id: userId });
 }
 
-// User search for sharing functionality
-export async function searchUsers(query: string, limit: number = 10): Promise<User[]> {
-  return api.get<User[]>(`/api/accounts/users/search/?q=${encodeURIComponent(query)}&limit=${limit}`);
-}
-
 // Utility functions for error handling
 export function isFolderError(error: any): error is FolderError {
   return error && typeof error.code === 'string' && Object.values(FolderErrorCodes).includes(error.code);

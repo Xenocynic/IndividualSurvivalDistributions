@@ -18,6 +18,19 @@ export default function DatasetView() {
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
 
+  // super cool function to handle going back to pages + maintaining a history of them
+  // will update the PredictorDetailPage handling of this because I think maintaining a history
+  // is good for routing
+  const handleBack = () => {
+    // if there's a prior location, use it
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    // fallback: Dashboard, Datasets tab - not sure why this tab-specific routing fails ngl
+      navigate("/dashboard?tab=datasets", { replace: true });
+  };
+
   useEffect(() => {
     if (!datasetId) {
       setError("Invalid dataset ID");
@@ -93,7 +106,7 @@ export default function DatasetView() {
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-2.5">
           <button
-            onClick={() => navigate("/dashboard", { state: { tab: "datasets" } })}
+            onClick={handleBack}
             className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
           >
             Back
@@ -159,21 +172,21 @@ export default function DatasetView() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-2 flex gap-4 border-t pt-2">
-                        <div>
-                          <div className="text-xs text-neutral-500">Features</div>
-                          <div className="text-sm font-medium text-neutral-800">
-                            {dataset.num_features ?? 'N/A'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-neutral-500">Labels (Samples)</div>
-                          <div className="text-sm font-medium text-neutral-800">
-                            {dataset.num_labels ?? 'N/A'}
-                          </div>
-                        </div>
-                      </div>
+                  <div>
+                    <div className="text-xs text-neutral-500">Features</div>
+                    <div className="text-sm font-medium text-neutral-800">
+                      {dataset.num_features ?? 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-500">Labels (Samples)</div>
+                    <div className="text-sm font-medium text-neutral-800">
+                      {dataset.num_labels ?? 'N/A'}
+                    </div>
+                  </div>
+                </div>
 
                 <button
                   onClick={handleDownload}

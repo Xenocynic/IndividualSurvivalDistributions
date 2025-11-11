@@ -11,3 +11,4 @@ selenium                                # for browser automation in tests
 webdriver-manager                       # for browser automation in tests
 django-extensions                       # for additional management commands
 pandas
+requests>=2.31.0                        # for ML API HTTP client
