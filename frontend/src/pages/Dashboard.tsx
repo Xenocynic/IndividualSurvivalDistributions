@@ -68,6 +68,7 @@ import {
   DEFAULT_FOLDER_SORT,
 } from "../lib/folderUtils";
 import type { FolderSortOption, FolderType } from "../components/folder";
+import { searchAndSort, searchFolders } from "../lib/searchUtils";
 
 type Tab = "predictors" | "datasets" | "folders";
 
@@ -338,23 +339,42 @@ export default function Dashboard() {
 
   // filter functionality for predictors and datasets - uses tab-specific states
   const filteredPredictors = useMemo(() => {
-    const q = predictorQuery.trim().toLowerCase();
-    let list = predictors.filter((it) =>
-      q ? it.title.toLowerCase().includes(q) : true
-    );
+    // Apply ownership filter first
+    let list = predictors;
     if (predictorOwnership === "owner") list = list.filter((it) => it.owner);
     if (predictorOwnership === "viewer") list = list.filter((it) => !it.owner);
+
+    // Apply smart search with prioritization
+    const q = predictorQuery.trim();
+    if (q) {
+      list = searchAndSort(list, q);
+    } else {
+      // Sort alphabetically when no search query
+      list = [...list].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+      );
+    }
+
     return list;
   }, [predictors, predictorQuery, predictorOwnership]);
 
   const filteredDatasets = useMemo(() => {
-    const q = datasetQuery.trim().toLowerCase();
-    let list = datasets.filter((it) => {
-      const title = it?.title ?? "";
-      return q ? title.toLowerCase().includes(q) : true;
-    });
+    // Apply ownership filter first
+    let list = datasets;
     if (datasetOwnership === "owner") list = list.filter((it) => it.owner);
     if (datasetOwnership === "viewer") list = list.filter((it) => !it.owner);
+
+    // Apply smart search with prioritization
+    const q = datasetQuery.trim();
+    if (q) {
+      list = searchAndSort(list, q);
+    } else {
+      // Sort alphabetically when no search query
+      list = [...list].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+      );
+    }
+
     return list;
   }, [datasets, datasetQuery, datasetOwnership]);
 
@@ -373,31 +393,19 @@ export default function Dashboard() {
       return true;
     });
 
-    // Apply search query (searches both folders and items)
-    if (folderQuery.trim()) {
-      const q = folderQuery.trim().toLowerCase();
-      list = list.filter((folder) => {
-        // Search in folder name and description
-        const folderMatch =
-          folder.name.toLowerCase().includes(q) ||
-          (folder.description && folder.description.toLowerCase().includes(q));
-
-        // Search in folder contents
-        const contentMatch = folder.items?.some(
-          (item) =>
-            item.title.toLowerCase().includes(q) ||
-            (item.notes && item.notes.toLowerCase().includes(q))
-        );
-
-        return folderMatch || contentMatch;
-      });
+    // Apply smart search with prioritization (searches folders and their contents)
+    const q = folderQuery.trim();
+    if (q) {
+      list = searchFolders(list, q);
     }
 
     // Apply type filter
     list = filterFoldersByType(list, folderTypeFilter);
 
-    // Apply sorting
-    list = sortFolders(list, folderSortOption);
+    // Apply sorting (only if no search query, as search already sorts by relevance)
+    if (!q) {
+      list = sortFolders(list, folderSortOption);
+    }
 
     return list;
   }, [
