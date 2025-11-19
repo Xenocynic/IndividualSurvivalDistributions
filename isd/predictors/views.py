@@ -113,7 +113,7 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     def get_object(self):
         """
-        Override to run permission checks first, so unauthorized users get 403 instead of 404.
+        Override to runn permission checks first, so unauthorized users get 403 instead of 404.
         (Basically sends 403 to let us know object exists, user just doesn't have access)
         """
         # Get the object from all predictors, not just the filtered queryset
