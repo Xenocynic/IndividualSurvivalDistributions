@@ -52,7 +52,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Inject Django test server into frontend env
         cls.frontend = subprocess.Popen(
-            ["npm", "run", "dev"],
+            ["npm", "run", "dev", "--", "--host"],
             cwd="../frontend",
             env={**os.environ, "VITE_API_BASE_URL": backend_url},
             stdout=subprocess.PIPE,
@@ -75,6 +75,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Launch Chrome visibly
         options = webdriver.ChromeOptions()
+        options.add_argument("--remote-allow-origins=*")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--start-maximized")
