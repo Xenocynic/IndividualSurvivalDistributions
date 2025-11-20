@@ -276,3 +276,82 @@ export async function predictWithPredictor(
 export async function getPredictorDetails(predictorId: number): Promise<Predictor> {
   return api.get<Predictor>(`/api/predictors/${predictorId}/`);
 }
+
+export interface CvPredictions {
+  test_indices?: number[];
+  actual_times?: number[];
+  actual_events?: number[];
+  median_predictions?: number[];
+  mean_predictions?: number[];
+  prob_at_actual_time?: number[];
+  quantile_levels?: number[];
+  quantile_predictions?: number[][];
+}
+
+export async function getPredictorCvPredictions(
+  predictorId: number
+): Promise<CvPredictions> {
+  return api.get<CvPredictions>(`/api/predictors/${predictorId}/cv-predictions/`);
+}
+
+export async function getPredictorFullPredictions(
+  predictorId: number
+): Promise<CvPredictions> {
+  return api.get<CvPredictions>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+export interface SurvivalCurve {
+  times: number[];
+  survival_probabilities: number[];
+}
+
+export interface SurvivalCurvesData {
+  quantile_levels: number[];
+  survival_probabilities: number[];
+  curves: Record<string, SurvivalCurve>;
+}
+
+export async function getPredictorSurvivalCurves(
+  predictorId: number
+): Promise<SurvivalCurvesData> {
+  // Fetch from the API endpoint
+  return api.get<SurvivalCurvesData>(`/api/predictors/${predictorId}/survival-curves/`);
+}
+
+export interface PredictionSummaryRow {
+  identifier: number;
+  censored: string;
+  event_time: number;
+  predicted_prob_event: number;
+  predicted_median_survival: number;
+  predicted_mean_survival: number;
+  absolute_error: number | null;
+}
+
+export interface PredictionsSummaryData {
+  predictions: PredictionSummaryRow[];
+  total: number;
+}
+
+export async function getPredictorPredictionsSummary(
+  predictorId: number
+): Promise<PredictionsSummaryData> {
+  return api.get<PredictionsSummaryData>(`/api/predictors/${predictorId}/predictions-summary/`);
+}
+
+export interface FullPredictionsData {
+  test_indices: number[];
+  actual_times: number[];
+  actual_events: number[];
+  median_predictions: number[];
+  mean_predictions: number[];
+  prob_at_actual_time: number[];
+  quantile_levels: number[];
+  quantile_predictions: number[][];
+}
+
+export async function getPredictorFullPredictionsData(
+  predictorId: number
+): Promise<FullPredictionsData> {
+  return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
+}

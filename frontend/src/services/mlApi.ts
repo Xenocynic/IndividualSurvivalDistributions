@@ -98,7 +98,7 @@ class MLApiService {
         model_id: params.modelId,
         selected_features: params.selectedFeatures,
         parameters: params.parameters,
-        return_cv_predictions: params.returnCvPredictions,
+        return_cv_predictions: True,
       }),
     });
 
