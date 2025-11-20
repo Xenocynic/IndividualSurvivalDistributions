@@ -357,6 +357,46 @@ class PredictorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=True, methods=['get'], url_path='survival-curves')
+    def survival_curves(self, request, pk=None):
+        """
+        Returns the survival curves JSON file for a trained predictor.
+        The file is located at media/models/<model_id>/survival_curves.json
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the survival curves file
+            survival_curves_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'survival_curves.json'
+            )
+            
+            if not os.path.exists(survival_curves_path):
+                return Response(
+                    {"error": f"Survival curves file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the JSON file
+            with open(survival_curves_path, 'r') as f:
+                survival_curves_data = json.load(f)
+            
+            return Response(survival_curves_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load survival curves", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # PredictorPermission ViewSet

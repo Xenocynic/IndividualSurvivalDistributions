@@ -10,11 +10,12 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import type { TooltipProps, NameType, ValueType } from "recharts";
+import type { TooltipProps } from "recharts";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
-import { getPredictorFullPredictions, type CvPredictions } from "../lib/predictors";
+import { getPredictorFullPredictions, getPredictorSurvivalCurves, type CvPredictions, type SurvivalCurvesData } from "../lib/predictors";
+import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -171,7 +172,7 @@ export default function PredictorDetailPage() {
       case "retrain":
         return <RetrainTab predictor={predictor} />;
       case "cross-validation":
-        return <CrossValidationTab />;
+        return <CrossValidationTab predictor={predictor} />;
       default:
         return null;
     }
@@ -759,10 +760,7 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
 
   const normalizedBins: EventHistogramDatum[] = bins.map((bin) => {
     const start = typeof bin.bin_start === "number" ? bin.bin_start : 0;
-    const end =
-      typeof bin.bin_end === "number"
-        ? bin.bin_end
-        : start + (typeof bin.bin_size === "number" ? bin.bin_size : 0);
+    const end = typeof bin.bin_end === "number" ? bin.bin_end : start;
     const events = typeof bin.events === "number" ? bin.events : bin.count ?? 0;
     const censored =
       typeof bin.censored === "number"
@@ -994,7 +992,7 @@ function SurvivalTooltip({
   active,
   payload,
   timeUnit,
-}: TooltipProps<ValueType, NameType> & { timeUnit?: string | null }) {
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
   if (!active || !payload || !payload.length) {
     return null;
   }
@@ -1016,7 +1014,7 @@ function EventHistogramTooltip({
   active,
   payload,
   timeUnit,
-}: TooltipProps<ValueType, NameType> & { timeUnit?: string | null }) {
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
   if (!active || !payload || !payload.length) return null;
   const datum = payload[0].payload as EventHistogramDatum;
   return (
@@ -1248,8 +1246,6 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       model_id: predictor.model_id
     };
     try {
-      console.log("Sending retraining config:", retrainingConfig);
-
       const response = await fetch("http://localhost:5000/retrain", {
         method: "POST",
         headers: {
@@ -1265,7 +1261,6 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       }
 
       const data = await response.json();
-      console.log("Retraining response:", data);
       alert(`Retraining job started! New model ID: ${data.model_id}`);
 
     } catch (err: any) {
@@ -1542,25 +1537,98 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   );
 }
 
-function CrossValidationTab() {
+function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
+  const [activeView, setActiveView] = useState<"statistics" | "individual">("statistics");
+  const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
+  const [isLoadingCurves, setIsLoadingCurves] = useState(false);
+  const [curvesError, setCurvesError] = useState<string | null>(null);
+
+  const handleViewIndividualPredictions = useCallback(async () => {
+    // Switch to individual view immediately
+    setActiveView("individual");
+    
+    if (!predictor.model_id) {
+      setCurvesError("This predictor has not been trained yet.");
+      return;
+    }
+
+    if (survivalCurves) {
+      return;
+    }
+
+    setIsLoadingCurves(true);
+    setCurvesError(null);
+    try {
+      const data = await getPredictorSurvivalCurves(predictor.predictor_id);
+      setSurvivalCurves(data);
+    } catch (err) {
+      console.error("Failed to load survival curves", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load survival curves data. Please try again.";
+      setCurvesError(errorMessage);
+    } finally {
+      setIsLoadingCurves(false);
+    }
+  }, [predictor.predictor_id, predictor.model_id, survivalCurves]);
+
   return (
     <div className="space-y-6">
       {/* centered actions row */}
       <div className="flex flex-wrap justify-center gap-2">
-        <button className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white">
+        <button
+          onClick={() => setActiveView("statistics")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "statistics"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
           5-Fold Cross-Validation Statistics
         </button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">
           Download Predictions (CSV)
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Individual Predictions</button>
+        <button
+          onClick={handleViewIndividualPredictions}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "individual"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Individual Predictions
+        </button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">D-Calibration Histogram</button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Kaplan Meier Visualization</button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Show Feature Weights</button>
       </div>
 
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
+      {activeView === "individual" ? (
+        <Card>
+          {curvesError ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p className="text-red-600">{curvesError}</p>
+            </div>
+          ) : isLoadingCurves ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+              <p>Loading survival curves...</p>
+            </div>
+          ) : survivalCurves ? (
+            <IndividualSurvivalCurves 
+              data={survivalCurves} 
+              timeUnit={predictor.time_unit} 
+              predictorId={predictor.predictor_id}
+            />
+          ) : (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p>No survival curves data available.</p>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-neutral-100">
@@ -1626,6 +1694,8 @@ function CrossValidationTab() {
           <div className="h-56 w-full rounded border-2 border-neutral-300" />
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }
