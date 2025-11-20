@@ -16,6 +16,7 @@ import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
 import { getPredictorFullPredictions, getPredictorSurvivalCurves, type CvPredictions, type SurvivalCurvesData } from "../lib/predictors";
 import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
+import DCalibrationHistogram from "../components/DCalibrationHistogram";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -1538,7 +1539,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 }
 
 function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
-  const [activeView, setActiveView] = useState<"statistics" | "individual">("statistics");
+  const [activeView, setActiveView] = useState<"statistics" | "individual" | "dcalibration">("statistics");
   const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
   const [isLoadingCurves, setIsLoadingCurves] = useState(false);
   const [curvesError, setCurvesError] = useState<string | null>(null);
@@ -1597,12 +1598,28 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         >
           Individual Predictions
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">D-Calibration Histogram</button>
+        <button
+          onClick={() => setActiveView("dcalibration")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "dcalibration"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          D-Calibration Histogram
+        </button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Kaplan Meier Visualization</button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Show Feature Weights</button>
       </div>
 
-      {activeView === "individual" ? (
+      {activeView === "dcalibration" ? (
+        <Card>
+          <DCalibrationHistogram 
+            predictorId={predictor.predictor_id} 
+            predictorName={predictor.name}
+          />
+        </Card>
+      ) : activeView === "individual" ? (
         <Card>
           {curvesError ? (
             <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">

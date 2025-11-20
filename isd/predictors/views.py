@@ -397,6 +397,109 @@ class PredictorViewSet(viewsets.ModelViewSet):
                 {"error": "Failed to load survival curves", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    @action(detail=True, methods=['get'], url_path='predictions-summary')
+    def predictions_summary(self, request, pk=None):
+        """
+        Returns the full predictions summary CSV data as JSON.
+        The file is located at media/models/<model_id>/full_predictions_summary.csv
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the predictions summary file
+            predictions_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'full_predictions_summary.csv'
+            )
+            
+            if not os.path.exists(predictions_path):
+                return Response(
+                    {"error": f"Predictions summary file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read CSV and convert to JSON
+            import math
+            df = pd.read_csv(predictions_path)
+            
+            # Convert DataFrame to list of dictionaries
+            predictions_data = df.to_dict('records')
+            
+            # Clean up each record to ensure JSON compliance
+            cleaned_predictions = []
+            for record in predictions_data:
+                cleaned_record = {}
+                for key, value in record.items():
+                    # Check if value is a float and handle special cases
+                    if isinstance(value, float):
+                        if math.isnan(value) or math.isinf(value):
+                            cleaned_record[key] = None
+                        else:
+                            cleaned_record[key] = value
+                    else:
+                        cleaned_record[key] = value
+                cleaned_predictions.append(cleaned_record)
+            
+            return Response({
+                "predictions": cleaned_predictions,
+                "total": len(cleaned_predictions)
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load predictions summary", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'], url_path='full-predictions')
+    def full_predictions(self, request, pk=None):
+        """
+        Returns the full predictions JSON file for D-calibration histogram.
+        The file is located at media/models/<model_id>/full_predictions.json
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the full predictions file
+            full_predictions_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'full_predictions.json'
+            )
+            
+            if not os.path.exists(full_predictions_path):
+                return Response(
+                    {"error": f"Full predictions file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the JSON file
+            with open(full_predictions_path, 'r') as f:
+                full_predictions_data = json.load(f)
+            
+            return Response(full_predictions_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load full predictions", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # PredictorPermission ViewSet

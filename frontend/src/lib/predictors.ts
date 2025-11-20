@@ -338,3 +338,20 @@ export async function getPredictorPredictionsSummary(
 ): Promise<PredictionsSummaryData> {
   return api.get<PredictionsSummaryData>(`/api/predictors/${predictorId}/predictions-summary/`);
 }
+
+export interface FullPredictionsData {
+  test_indices: number[];
+  actual_times: number[];
+  actual_events: number[];
+  median_predictions: number[];
+  mean_predictions: number[];
+  prob_at_actual_time: number[];
+  quantile_levels: number[];
+  quantile_predictions: number[][];
+}
+
+export async function getPredictorFullPredictionsData(
+  predictorId: number
+): Promise<FullPredictionsData> {
+  return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
+}
