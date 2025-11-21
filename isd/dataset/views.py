@@ -660,7 +660,8 @@ def ml_train_model(request, dataset_id):
         """
         Triggers the training job on the separate ML API.
         This acts as a proxy, sending the dataset and parameters
-        to the ML service.
+        to the ML service. After successful training, downloads all
+        model artifacts to local storage.
         """
         try:
             dataset = Dataset.objects.get(dataset_id=dataset_id)
@@ -712,6 +713,16 @@ def ml_train_model(request, dataset_id):
                 # Training started successfully
                 ml_data = ml_response.json()
                 
+                # Download all model artifacts
+                model_id = ml_data.get('model_id')
+                if model_id:
+                    try:
+                        _download_model_artifacts(ml_data, model_id)
+                    except Exception as download_error:
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to download model artifacts for {model_id}: {str(download_error)}")
+                        # Continue anyway - the model was trained successfully
+                
                 return Response(ml_data, status=status.HTTP_200_OK)
             else:
                 # The ML API returned an error
@@ -725,3 +736,67 @@ def ml_train_model(request, dataset_id):
                 {"error": "Failed to call training API", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+def _download_model_artifacts(ml_data, model_id):
+    """
+    Download all model artifacts from the ML API response and save them locally.
+    
+    Args:
+        ml_data: The JSON response from the ML API
+        model_id: The unique model identifier
+    """
+    # Create the models directory structure
+    models_base_dir = os.path.join(settings.MEDIA_ROOT, 'models')
+    model_dir = os.path.join(models_base_dir, model_id)
+    
+    # Create directories if they don't exist
+    os.makedirs(model_dir, exist_ok=True)
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Downloading model artifacts for {model_id} to {model_dir}")
+    
+    # Helper function to download a file
+    def download_file(url, local_path):
+        try:
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+            logger.info(f"Downloaded: {os.path.basename(local_path)}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to download {url}: {str(e)}")
+            return False
+    
+    # Download model_config.json
+    if 'model_config' in ml_data:
+        download_file(ml_data['model_config'], os.path.join(model_dir, 'model_config.json'))
+    
+    # Download model files (encoder and icp_state)
+    if 'model_file' in ml_data:
+        model_files = ml_data['model_file']
+        if 'encoder' in model_files:
+            download_file(model_files['encoder'], os.path.join(model_dir, 'encoder.joblib'))
+        if 'icp_state' in model_files:
+            download_file(model_files['icp_state'], os.path.join(model_dir, 'icp_state.dill'))
+    
+    # Download CV predictions
+    if 'cv_predictions' in ml_data:
+        cv_preds = ml_data['cv_predictions']
+        if 'summary_csv' in cv_preds:
+            download_file(cv_preds['summary_csv'], os.path.join(model_dir, 'cv_predictions_summary.csv'))
+        if 'full_predictions' in cv_preds:
+            download_file(cv_preds['full_predictions'], os.path.join(model_dir, 'cv_predictions.json'))
+    
+    # Download full dataset predictions
+    if 'full_dataset_predictions' in ml_data:
+        full_preds = ml_data['full_dataset_predictions']
+        if 'summary_csv' in full_preds:
+            download_file(full_preds['summary_csv'], os.path.join(model_dir, 'full_predictions_summary.csv'))
+        if 'full_predictions' in full_preds:
+            download_file(full_preds['full_predictions'], os.path.join(model_dir, 'full_predictions.json'))
+        if 'survival_curves' in full_preds:
+            download_file(full_preds['survival_curves'], os.path.join(model_dir, 'survival_curves.json'))
+    
+    logger.info(f"Model artifacts download completed for {model_id}")
