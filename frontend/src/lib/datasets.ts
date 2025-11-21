@@ -16,6 +16,7 @@ export type Dataset = {
   dataset_id: number;
   dataset_name: string;
   owner: number;
+  allow_admin_access: boolean;
   owner_name: string;
   file_path?: string;
   original_filename?: string;
@@ -106,6 +107,10 @@ export async function createDataset(request: CreateDatasetRequest): Promise<Crea
   formData.append('file', request.file);
   formData.append('time_unit', request.time_unit);
   formData.append('is_public', request.is_public.toString());
+
+  if (request.allow_admin_access !== undefined) {
+    formData.append('allow_admin_access', request.allow_admin_access.toString());
+  }
 
   if (request.notes) {
     formData.append("notes", request.notes);
@@ -303,6 +308,36 @@ export function mapApiDatasetToUi(
     originalFilename: item.original_filename ?? item.originalFilename,
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
+    allow_admin_access: item.allow_admin_access ?? false,
     __raw: item,
   };
+}
+
+/**
+ * Checks if the value matches the current user's ID.
+ * - If you pass a Number/String: it compares IDs
+ * - If you pass a Boolean: it just returns it
+ */
+export function isUserOwner(
+  ownerValue: number | string | boolean | { id?: number | string } | null | undefined,
+  currentUserId?: number | string | null
+): boolean {
+  if (!ownerValue || !currentUserId) return false;
+
+  // 1. Raw ID (API data)
+  if (typeof ownerValue === 'number' || typeof ownerValue === 'string') {
+    return String(ownerValue) === String(currentUserId);
+  }
+
+  // 2. Django Object
+  if (typeof ownerValue === 'object' && 'id' in ownerValue) {
+    return String((ownerValue as any).id) === String(currentUserId);
+  }
+
+  // 3. Boolean
+  if (typeof ownerValue === 'boolean') {
+    return ownerValue;
+  }
+
+  return false;
 }

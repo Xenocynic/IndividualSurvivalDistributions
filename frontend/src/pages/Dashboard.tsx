@@ -49,6 +49,7 @@ import {
   downloadDatasetFile,
   deleteDataset,
   mapApiDatasetToUi,
+  isUserOwner,
 } from "../lib/datasets";
 import { deletePredictor } from "../lib/predictors";
 import { mapApiPredictorToUi } from "../lib/predictors";
@@ -101,6 +102,7 @@ type Tab = "predictors" | "datasets" | "folders";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const currentUserId = (user as any)?.id ?? (user as any)?.pk;
   const navigate = useNavigate();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -944,13 +946,14 @@ export default function Dashboard() {
                               )
                             }
                             onView={viewItem}
-                            onDownload={() =>
+                            onDownload={() => {
+                              const isOwner = isUserOwner(it.owner, currentUserId);
                               downloadItem(
                                 it.id,
                                 'allow_admin_access' in it ? it.allow_admin_access ?? false : false,
-                                Boolean(it.owner)
-                              )
-                            }
+                                isOwner
+                              );
+                            }}
                             onDrop={handleDrop}
                             isLoading={isItemLoading(it.id)}
                           />
