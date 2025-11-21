@@ -180,9 +180,10 @@ async function onTrainAndSave() {
       if (!username) continue;
       let userId = row.userId;
       if (!userId) {
-        userId = await resolveUsernameToId(username);
+        const resolvedId = await resolveUsernameToId(username);
+        if (!resolvedId) continue;
+        userId = resolvedId;
       }
-      if (!userId) continue;
 
       try {
         await grantPredictorViewer(created.predictor_id, userId, row.role);
