@@ -10,9 +10,10 @@ from .views import (
     PinnedPredictorViewSet, 
     list_public_predictors,
     resolve_username,
+    predictor_cv_predictions,
+    predictor_full_predictions,
     # ML API views
     ml_health_check,
-    ml_train_model,
     ml_retrain_model,
     ml_predict,
     ml_list_models,
@@ -30,12 +31,13 @@ urlpatterns = [
     # Existing predictor views
     path("public/", list_public_predictors, name="public-predictors"),
     path("resolve-username/", resolve_username, name="resolve-username"),
+    path("<int:predictor_id>/cv-predictions/", predictor_cv_predictions, name="predictor-cv-predictions"),
+    path("<int:predictor_id>/full-predictions/", predictor_full_predictions, name="predictor-full-predictions"),
     
     # ===================================
     # NEW: ML API Integration Routes
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
-    path("ml/train/", ml_train_model, name="ml-train"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
     path("ml/predict/", ml_predict, name="ml-predict"),
     path("ml/models/", ml_list_models, name="ml-list-models"),

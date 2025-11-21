@@ -148,7 +148,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
         """Assign the logged-in user as the owner and handle folders + permissions."""
         print("RAW request.data:", self.request.data)
 
-        # Save predictor instance, attaching owner
         predictor = serializer.save(owner=self.request.user)
 
         # -------------------------
@@ -276,8 +275,14 @@ class PredictorViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # mark training
+            predictor.ml_training_status = 'training'
+            predictor.save(update_fields=['ml_training_status'])
+
             full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
             if not os.path.exists(full_file_path):
+                predictor.ml_training_status = 'failed'
+                predictor.save(update_fields=['ml_training_status'])
                 return Response(
                     {"error": f"Dataset file not found at path: {full_file_path}"},
                     status=status.HTTP_404_NOT_FOUND
@@ -319,29 +324,182 @@ class PredictorViewSet(viewsets.ModelViewSet):
                 ml_response = requests.post(train_url, data=params_for_ml, files=files, timeout=600)
 
             if ml_response.ok:
-                # Training started successfully
                 ml_data = ml_response.json()
-                
-                # OPTIONAL: Save the new model ID from the ML API
-                # to your predictor object in the database
-                # (You would need to add an 'ml_model_id' field to your Predictor model)
-                # predictor.ml_model_id = ml_data.get('model_id')
-                # predictor.save()
-                
+
+                predictor.model_id = ml_data.get('model_id')
+                predictor.ml_trained_at = timezone.now()
+                predictor.ml_training_status = 'trained'
+                predictor.ml_model_metrics = ml_data.get('metrics')
+                predictor.ml_selected_features = features
+                predictor.save(update_fields=[
+                    'model_id',
+                    'ml_trained_at',
+                    'ml_training_status',
+                    'ml_model_metrics',
+                    'ml_selected_features',
+                ])
+
                 return Response(ml_data, status=status.HTTP_200_OK)
             else:
                 # The ML API returned an error
+                predictor.ml_training_status = 'failed'
+                predictor.save(update_fields=['ml_training_status'])
                 return Response(
                     {"error": "ML API training failed", "details": ml_response.text},
                     status=ml_response.status_code
                 )
         
         except Exception as e:
+            predictor.ml_training_status = 'failed'
+            predictor.save(update_fields=['ml_training_status'])
             return Response(
                 {"error": "Failed to call training API", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=True, methods=['get'], url_path='survival-curves')
+    def survival_curves(self, request, pk=None):
+        """
+        Returns the survival curves JSON file for a trained predictor.
+        The file is located at media/models/<model_id>/survival_curves.json
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the survival curves file
+            survival_curves_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'survival_curves.json'
+            )
+            
+            if not os.path.exists(survival_curves_path):
+                return Response(
+                    {"error": f"Survival curves file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the JSON file
+            with open(survival_curves_path, 'r') as f:
+                survival_curves_data = json.load(f)
+            
+            return Response(survival_curves_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load survival curves", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'], url_path='predictions-summary')
+    def predictions_summary(self, request, pk=None):
+        """
+        Returns the full predictions summary CSV data as JSON.
+        The file is located at media/models/<model_id>/full_predictions_summary.csv
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the predictions summary file
+            predictions_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'full_predictions_summary.csv'
+            )
+            
+            if not os.path.exists(predictions_path):
+                return Response(
+                    {"error": f"Predictions summary file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read CSV and convert to JSON
+            import math
+            df = pd.read_csv(predictions_path)
+            
+            # Convert DataFrame to list of dictionaries
+            predictions_data = df.to_dict('records')
+            
+            # Clean up each record to ensure JSON compliance
+            cleaned_predictions = []
+            for record in predictions_data:
+                cleaned_record = {}
+                for key, value in record.items():
+                    # Check if value is a float and handle special cases
+                    if isinstance(value, float):
+                        if math.isnan(value) or math.isinf(value):
+                            cleaned_record[key] = None
+                        else:
+                            cleaned_record[key] = value
+                    else:
+                        cleaned_record[key] = value
+                cleaned_predictions.append(cleaned_record)
+            
+            return Response({
+                "predictions": cleaned_predictions,
+                "total": len(cleaned_predictions)
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load predictions summary", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'], url_path='full-predictions')
+    def full_predictions(self, request, pk=None):
+        """
+        Returns the full predictions JSON file for D-calibration histogram.
+        The file is located at media/models/<model_id>/full_predictions.json
+        """
+        try:
+            predictor = self.get_object()
+            
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Construct the path to the full predictions file
+            full_predictions_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'full_predictions.json'
+            )
+            
+            if not os.path.exists(full_predictions_path):
+                return Response(
+                    {"error": f"Full predictions file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the JSON file
+            with open(full_predictions_path, 'r') as f:
+                full_predictions_data = json.load(f)
+            
+            return Response(full_predictions_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load full predictions", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # PredictorPermission ViewSet
@@ -448,6 +606,114 @@ def resolve_username(request):
     return Response({"id": user.id})
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def predictor_cv_predictions(request, predictor_id):
+    """
+    Fetch CV predictions for a trained predictor from local storage.
+    Uses cv_predictions.json which contains cross-validation predictions.
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+    except Predictor.DoesNotExist:
+        return Response({"error": "Predictor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not CanAccessPredictor().has_object_permission(request, None, predictor):
+        raise PermissionDenied("You do not have permission to access this predictor.")
+
+    if not predictor.model_id:
+        return Response(
+            {"error": "Predictor has not been trained yet"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Build path to local CV predictions file
+    cv_predictions_path = os.path.join(
+        settings.MEDIA_ROOT, 
+        'models', 
+        predictor.model_id, 
+        'cv_predictions.json'
+    )
+    
+    # Check if file exists
+    if not os.path.exists(cv_predictions_path):
+        return Response(
+            {
+                "error": "CV predictions not available for this predictor.",
+                "details": "The CV predictions file was not found in local storage."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    
+    # Read and return the CV predictions
+    try:
+        with open(cv_predictions_path, 'r') as f:
+            cv_data = json.load(f)
+        return Response(cv_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {
+                "error": "Failed to read CV predictions",
+                "details": str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def predictor_full_predictions(request, predictor_id):
+    """
+    Fetch full dataset predictions for a trained predictor from local storage.
+    Uses full_predictions.json which contains predictions for all samples in the dataset.
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+    except Predictor.DoesNotExist:
+        return Response({"error": "Predictor not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not CanAccessPredictor().has_object_permission(request, None, predictor):
+        raise PermissionDenied("You do not have permission to access this predictor.")
+
+    if not predictor.model_id:
+        return Response(
+            {"error": "Predictor has not been trained yet"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Build path to local full predictions file
+    full_predictions_path = os.path.join(
+        settings.MEDIA_ROOT, 
+        'models', 
+        predictor.model_id, 
+        'full_predictions.json'
+    )
+    
+    # Check if file exists
+    if not os.path.exists(full_predictions_path):
+        return Response(
+            {
+                "error": "Full predictions not available for this predictor.",
+                "details": "The full predictions file was not found in local storage."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    
+    # Read and return the full predictions
+    try:
+        with open(full_predictions_path, 'r') as f:
+            predictions_data = json.load(f)
+        return Response(predictions_data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {
+                "error": "Failed to read full predictions",
+                "details": str(e)
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 # ========================================
 # NEW: ML API Integration Views
 # ========================================
@@ -468,81 +734,6 @@ def ml_health_check(request):
         return Response(result, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def ml_train_model(request):
-    """
-    Train a new survival analysis model
-    POST /api/predictors/ml/train/
-    
-    Request:
-        - dataset: File (CSV)
-        - selected_features: JSON array of feature names (optional)
-        - parameters: JSON object with model parameters (optional)
-        - return_cv_predictions: boolean (optional, default true)
-    
-    Response:
-        - model_id: str
-        - metrics: dict
-        - cv_predictions: dict (if requested)
-    """
-    # Validate file upload
-    if 'dataset' not in request.FILES:
-        return Response(
-            {'error': 'No dataset file provided'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    dataset_file = request.FILES['dataset']
-    
-    # Validate file type
-    if not dataset_file.name.endswith('.csv'):
-        return Response(
-            {'error': 'Dataset must be a CSV file'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Get optional parameters
-    selected_features = request.data.get('selected_features', None)
-    parameters = request.data.get('parameters', None)
-    return_cv = request.data.get('return_cv_predictions', True)
-    
-    # Parse if JSON strings
-    import json
-    if isinstance(selected_features, str):
-        try:
-            selected_features = json.loads(selected_features)
-        except json.JSONDecodeError:
-            return Response(
-                {'error': 'selected_features must be valid JSON'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    if isinstance(parameters, str):
-        try:
-            parameters = json.loads(parameters)
-        except json.JSONDecodeError:
-            return Response(
-                {'error': 'parameters must be valid JSON'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    # Call ML API
-    client = MLAPIClient()
-    result = client.train_model(
-        dataset_file=dataset_file,
-        selected_features=selected_features,
-        parameters=parameters,
-        return_cv_predictions=return_cv
-    )
-    
-    if result['success']:
-        return Response(result['data'], status=status.HTTP_200_OK)
-    else:
-        return Response(
-            {'error': result['error']},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
 @api_view(['POST'])
@@ -573,14 +764,13 @@ def ml_retrain_model(request):
     
     selected_features = request.data.get('selected_features', None)
     parameters = request.data.get('parameters', None)
-    return_cv = request.data.get('return_cv_predictions', True)
     
     client = MLAPIClient()
     result = client.retrain_model(
         model_id=model_id,
         selected_features=selected_features,
         parameters=parameters,
-        return_cv_predictions=return_cv
+        return_cv_predictions=True
     )
     
     if result['success']:
@@ -671,7 +861,7 @@ def train_predictor_model(request, predictor_id):
         - parameters: Model training parameters (dropout, neurons, etc.)
     
     Response:
-        - Updated predictor with ml_model_id and metrics
+        - Updated predictor with model_id and metrics
     """
     try:
         # Get the predictor
@@ -736,7 +926,7 @@ def train_predictor_model(request, predictor_id):
             data = result['data']
             
             # Update predictor with ML model info
-            predictor.ml_model_id = data.get('model_id')
+            predictor.model_id = data.get('model_id')
             predictor.ml_trained_at = timezone.now()
             predictor.ml_training_status = 'trained'
             predictor.ml_model_metrics = data.get('metrics', {})
@@ -801,7 +991,7 @@ def predict_with_predictor(request, predictor_id):
             raise PermissionDenied("You don't have permission to use this predictor")
         
         # Check if model is trained
-        if not predictor.ml_model_id:
+        if not predictor.model_id:
             return Response(
                 {'error': 'This predictor has not been trained yet'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -824,7 +1014,7 @@ def predict_with_predictor(request, predictor_id):
         # Make prediction using ML API
         client = MLAPIClient()
         result = client.predict(
-            model_id=predictor.ml_model_id,
+            model_id=predictor.model_id,
             features=features
         )
         
