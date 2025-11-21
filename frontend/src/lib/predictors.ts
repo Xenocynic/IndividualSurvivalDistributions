@@ -56,11 +56,11 @@ export async function createPredictor(body: {
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
   folder_id?: string;
-  model_id: string;
-  ml_trained_at: string;
-  ml_model_metrics: Record<string, any>;
-  ml_training_status: string;
-  ml_selected_features: string;
+  model_id?: string | null;
+  ml_trained_at?: string | null;
+  ml_model_metrics?: Record<string, any> | null;
+  ml_training_status?: string;
+  ml_selected_features?: string | null;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -255,6 +255,42 @@ export async function trainPredictor(
   return api.post(`/api/datasets/${datasetId}/ml/train/`, {
     parameters: params?.parameters,
   });
+}
+
+/**
+ * Start async training for a predictor (non-blocking)
+ */
+export async function trainPredictorAsync(
+  datasetId: number,
+  predictorId: number,
+  params?: TrainPredictorParams
+): Promise<{ message: string; predictor_id: number; dataset_id: number; status: string }> {
+  return api.post(`/api/datasets/${datasetId}/ml/train-async/`, {
+    predictor_id: predictorId,
+    parameters: params?.parameters,
+  });
+}
+
+/**
+ * Get training status and progress for a predictor
+ */
+export async function getTrainingStatus(predictorId: number): Promise<{
+  status: 'not_trained' | 'training' | 'trained' | 'failed';
+  progress: {
+    current_experiment?: number;
+    total_experiments?: number;
+    status?: string;
+    message?: string;
+    estimated_progress?: number;
+    elapsed_seconds?: number;
+    eta_seconds?: number;
+  } | null;
+  error: string | null;
+  model_id: string | null;
+  metrics: Record<string, any> | null;
+  trained_at: string | null;
+}> {
+  return api.get(`/api/predictors/${predictorId}/training-status/`);
 }
 
 /**

@@ -25,7 +25,7 @@ import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
 import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
-import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictor } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictorAsync, getTrainingStatus } from "../lib/predictors";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 
@@ -63,6 +63,14 @@ export default function PredictorCreate() {
   const [trainingStep, setTrainingStep] = useState<TrainingStep>('idle');
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(null);
+  const [trainingProgress, setTrainingProgress] = useState<{
+    current_experiment?: number;
+    total_experiments?: number;
+    message?: string;
+    estimated_progress?: number;
+    elapsed_seconds?: number;
+    eta_seconds?: number;
+  } | null>(null);
 
   // meta state
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
@@ -132,49 +140,30 @@ export default function PredictorCreate() {
   const canSave = !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === 'idle';
 
 
-// Try to train the dataset first 
+// Create predictor and start async training
 async function onTrainAndSave() {
   if (!canSave) return;
 
-  setTrainingStep('training');
+  setTrainingStep('creating');
   setTrainingError(null);
+  setTrainingProgress(null);
 
   try {
-    const datasetId = Number(selectedDatasetId)
-    // Step 1: Train first (no predictor yet)
-    const trainingResult = await trainPredictor(datasetId, {
-      parameters: {
-        n_epochs: 100,
-        dropout: 0.2,
-        neurons: [64, 64],
-        n_exp: 10
-      },
-    });
+    const datasetId = Number(selectedDatasetId);
 
-    // Validate training result
-    if (!trainingResult || !trainingResult.model_id) {
-      throw new Error('Training did not return a valid model_id');
-    }
-
-    // Step 2: Create predictor with ML metadata
-    setTrainingStep('creating');
-
+    // Step 1: Create predictor first (without model_id, in 'not_trained' state)
     const created = await createPredictor({
       name: name.trim(),
       description: notes.trim(),
-      dataset_id: Number(selectedDatasetId),
+      dataset_id: datasetId,
       folder_id: selectedFolderId || undefined,
       is_private: !isPublic,
-      model_id: trainingResult.model_id, // required for future predictors
-      ml_trained_at: trainingResult.trained_at,
-      ml_training_status: 'trained',
-      ml_model_metrics: trainingResult.metrics || {},
-      ml_selected_features: trainingResult.selected_features,
+      ml_training_status: 'not_trained',
     });
 
     setCreatedPredictorId(created.predictor_id);
 
-    // Step 3: Grant permissions
+    // Step 2: Grant permissions
     for (const row of rows) {
       const username = row.username.trim();
       if (!username) continue;
@@ -192,22 +181,64 @@ async function onTrainAndSave() {
       }
     }
 
-    // Step 4: Complete!
-    setTrainingStep('complete');
+    // Step 3: Start async training
+    setTrainingStep('training');
+    await trainPredictorAsync(datasetId, created.predictor_id, {
+      parameters: {
+        n_epochs: 100,
+        dropout: 0.2,
+        neurons: [64, 64],
+        n_exp: 10
+      },
+    });
 
-    setTimeout(() => {
-      navigate(`/predictors/${created.predictor_id}`);
-    }, 2000);
+    // Step 4: Poll for training progress
+    pollTrainingStatus(created.predictor_id);
 
   } catch (error: any) {
-    // Update ML training status for error scenario
     setTrainingStep('error');
-    setTrainingError(error.message || 'Failed to train and create predictor!');
+    setTrainingError(error.message || 'Failed to create predictor and start training!');
     console.error('Training error:', error);
-
-    // Optionally, you could create a predictor in "failed" state if needed
-    // await createPredictor({ name, ... , ml_training_status: 'failed' });
   }
+}
+
+// Poll training status every 2 seconds
+function pollTrainingStatus(predictorId: number) {
+  const pollInterval = setInterval(async () => {
+    try {
+      const status = await getTrainingStatus(predictorId);
+
+      // Update progress
+      if (status.progress) {
+        setTrainingProgress(status.progress);
+      }
+
+      // Check if training is complete
+      if (status.status === 'trained') {
+        clearInterval(pollInterval);
+        setTrainingStep('complete');
+        setTrainingProgress({
+          ...status.progress,
+          estimated_progress: 100,
+          message: 'Training completed successfully!'
+        });
+
+        setTimeout(() => {
+          navigate(`/predictors/${predictorId}`);
+        }, 2000);
+      } else if (status.status === 'failed') {
+        clearInterval(pollInterval);
+        setTrainingStep('error');
+        setTrainingError(status.error || 'Training failed');
+      }
+    } catch (error: any) {
+      console.error('Error polling training status:', error);
+      // Don't stop polling on error, might be temporary network issue
+    }
+  }, 1000); // Poll every 1 second for more responsive updates
+
+  // Cleanup on unmount
+  return () => clearInterval(pollInterval);
 }
 
 
@@ -450,12 +481,14 @@ async function onTrainAndSave() {
 
       {/* Training Modal */}
       {isProcessing && (
-        <TrainingModal 
-          step={trainingStep} 
+        <TrainingModal
+          step={trainingStep}
           error={trainingError}
+          progress={trainingProgress}
           onRetry={() => {
             setTrainingStep('idle');
             setTrainingError(null);
+            setTrainingProgress(null);
           }}
           onViewPredictor={() => {
             if (createdPredictorId) {
@@ -475,14 +508,23 @@ async function onTrainAndSave() {
   );
 }
 
-function TrainingModal({ 
-  step, 
-  error, 
-  onRetry, 
-  onViewPredictor 
-}: { 
-  step: TrainingStep; 
+function TrainingModal({
+  step,
+  error,
+  progress,
+  onRetry,
+  onViewPredictor
+}: {
+  step: TrainingStep;
   error: string | null;
+  progress: {
+    current_experiment?: number;
+    total_experiments?: number;
+    message?: string;
+    estimated_progress?: number;
+    elapsed_seconds?: number;
+    eta_seconds?: number;
+  } | null;
   onRetry: () => void;
   onViewPredictor: () => void;
 }) {
@@ -505,11 +547,50 @@ function TrainingModal({
               <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
               <h3 className="text-lg font-semibold">Training ML Model...</h3>
               <p className="mt-2 text-sm text-neutral-600">
-                This may take several minutes depending on dataset size. Please don't close this page.
+                {progress?.message || 'Training in progress...'}
               </p>
-              <div className="mt-4 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-                🔄 Training in progress... The model is learning from your dataset.
-              </div>
+
+              {/* Progress Bar */}
+              {progress?.estimated_progress !== undefined && (
+                <div className="mt-4">
+                  <div className="mb-2 flex justify-between text-xs text-neutral-600">
+                    <span>Progress</span>
+                    <span>{progress.estimated_progress}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+                    <div
+                      className="h-full bg-blue-600 transition-all duration-500"
+                      style={{ width: `${progress.estimated_progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Detailed Progress Info */}
+              {progress && progress.current_experiment && (
+                <div className="mt-4 space-y-1 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
+                  {progress.current_experiment && progress.total_experiments && (
+                    <div className="font-medium">
+                      📊 Running cross-validation: Fold {progress.current_experiment} of {progress.total_experiments}
+                    </div>
+                  )}
+                  <div className="flex justify-between text-neutral-600">
+                    {progress.elapsed_seconds !== undefined && (
+                      <div>
+                        ⏱️ Elapsed: {Math.floor(progress.elapsed_seconds / 60)}m {progress.elapsed_seconds % 60}s
+                      </div>
+                    )}
+                    {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
+                      <div>
+                        🕐 Remaining: ~{Math.floor(progress.eta_seconds / 60)}m {progress.eta_seconds % 60}s
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2 text-neutral-600">
+                    The model is learning from your dataset. This may take a few minutes.
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

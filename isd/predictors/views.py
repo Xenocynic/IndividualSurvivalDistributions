@@ -1036,3 +1036,61 @@ def predict_with_predictor(request, predictor_id):
             {'error': f'Prediction failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_training_status(request, predictor_id):
+    """
+    Get the current training status and progress for a predictor.
+    GET /api/predictors/{predictor_id}/training-status/
+
+    Returns:
+        {
+            'status': 'training' | 'trained' | 'failed' | 'not_trained',
+            'progress': {
+                'current_epoch': 45,
+                'total_epochs': 100,
+                'current_experiment': 3,
+                'total_experiments': 10,
+                'status': 'training',
+                'message': 'Training model...',
+                'estimated_progress': 45
+            },
+            'error': 'error message if failed',
+            'model_id': 'mtlr_20231103_abc123',
+            'metrics': {...}
+        }
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+
+        # Check if user has access to this predictor
+        if predictor.is_private:
+            if predictor.owner != request.user and not PredictorPermission.objects.filter(
+                predictor=predictor, user=request.user
+            ).exists():
+                return Response(
+                    {'error': 'Access denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        return Response({
+            'status': predictor.ml_training_status,
+            'progress': predictor.ml_training_progress,
+            'error': predictor.ml_training_error,
+            'model_id': predictor.model_id,
+            'metrics': predictor.ml_model_metrics,
+            'trained_at': predictor.ml_trained_at,
+        }, status=status.HTTP_200_OK)
+
+    except Predictor.DoesNotExist:
+        return Response(
+            {'error': 'Predictor not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get training status: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -662,6 +662,9 @@ def ml_train_model(request, dataset_id):
         This acts as a proxy, sending the dataset and parameters
         to the ML service. After successful training, downloads all
         model artifacts to local storage.
+
+        NOTE: This is the SYNCHRONOUS training endpoint (blocks until complete).
+        For async training with progress tracking, use ml_train_model_async instead.
         """
         try:
             dataset = Dataset.objects.get(dataset_id=dataset_id)
@@ -736,6 +739,112 @@ def ml_train_model(request, dataset_id):
                 {"error": "Failed to call training API", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_train_model_async(request, dataset_id):
+    """
+    Triggers ASYNCHRONOUS training job on the ML API with progress tracking.
+    Returns immediately with predictor_id, then training continues in background.
+
+    Request body:
+    {
+        "predictor_id": 123,  // REQUIRED - the predictor to train
+        "parameters": {       // Optional training parameters
+            "n_epochs": 100,
+            "dropout": 0.2,
+            "neurons": [64, 64],
+            "n_exp": 10
+        }
+    }
+
+    Response:
+    {
+        "message": "Training started",
+        "predictor_id": 123,
+        "dataset_id": 456
+    }
+
+    Use GET /api/predictors/{predictor_id}/training-status/ to poll for progress.
+    """
+    try:
+        from predictors.models import Predictor
+        from predictors.training_tasks import start_async_training
+
+        dataset = Dataset.objects.get(dataset_id=dataset_id)
+
+        if not dataset or not dataset.file_path:
+            return Response(
+                {"error": "Dataset has no associated file."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+        if not os.path.exists(full_file_path):
+            return Response(
+                {"error": f"Dataset file not found at path: {full_file_path}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Validate dataset has enough columns
+        with open(full_file_path, 'rb') as f:
+            df = pd.read_csv(f, nrows=0)
+
+        all_cols = df.columns.tolist()
+        if len(all_cols) < 3:
+            return Response(
+                {"error": "Dataset must have at least 3 columns (time, censored, features)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get predictor_id from request
+        predictor_id = request.data.get('predictor_id')
+        if not predictor_id:
+            return Response(
+                {"error": "predictor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify predictor exists and user has access
+        try:
+            predictor = Predictor.objects.get(predictor_id=predictor_id)
+            if predictor.owner != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "Access denied"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Predictor.DoesNotExist:
+            return Response(
+                {"error": f"Predictor {predictor_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get parameters
+        parameters = request.data.get('parameters', {})
+
+        # Start async training
+        start_async_training(predictor_id, full_file_path, parameters)
+
+        return Response({
+            "message": "Training started",
+            "predictor_id": predictor_id,
+            "dataset_id": dataset_id,
+            "status": "training"
+        }, status=status.HTTP_202_ACCEPTED)
+
+    except Dataset.DoesNotExist:
+        return Response(
+            {"error": f"Dataset {dataset_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to start async training: {str(e)}")
+        return Response(
+            {"error": "Failed to start training", "details": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 def _download_model_artifacts(ml_data, model_id):

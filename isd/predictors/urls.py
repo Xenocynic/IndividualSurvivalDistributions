@@ -5,9 +5,9 @@ Place this in: predictors/urls.py
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
-    PredictorViewSet, 
-    PredictorPermissionViewSet, 
-    PinnedPredictorViewSet, 
+    PredictorViewSet,
+    PredictorPermissionViewSet,
+    PinnedPredictorViewSet,
     list_public_predictors,
     resolve_username,
     predictor_cv_predictions,
@@ -20,6 +20,7 @@ from .views import (
     # Predictor-specific ML views
     train_predictor_model,
     predict_with_predictor,
+    get_training_status,
 )
 
 router = DefaultRouter()
@@ -33,7 +34,8 @@ urlpatterns = [
     path("resolve-username/", resolve_username, name="resolve-username"),
     path("<int:predictor_id>/cv-predictions/", predictor_cv_predictions, name="predictor-cv-predictions"),
     path("<int:predictor_id>/full-predictions/", predictor_full_predictions, name="predictor-full-predictions"),
-    
+    path("<int:predictor_id>/training-status/", get_training_status, name="predictor-training-status"),
+
     # ===================================
     # NEW: ML API Integration Routes
     # ===================================
