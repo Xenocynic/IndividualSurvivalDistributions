@@ -5,7 +5,7 @@
 
 import { useEffect, useState , useCallback, useMemo} from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getDataset, getDatasetStats, downloadDatasetFile, type Dataset, type DatasetStats } from "../lib/datasets";
+import { getDataset, getDatasetStats, downloadDatasetFile, isUserOwner, type Dataset, type DatasetStats } from "../lib/datasets";
 import LinkedPredictorsList from "../components/LinkedPredictorsList";
 import {
   formatInteger,
@@ -16,11 +16,14 @@ import {
 } from "./PredictorDetailPage";
 
 const MAX_HISTOGRAM_BARS = 40;
+import { useAuth } from "../auth/AuthContext";
 
 export default function DatasetView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const datasetId = id ? parseInt(id) : null;
+  const { user } = useAuth(); 
+  const currentUserId = (user as any)?.id ?? (user as any)?.pk;
 
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +99,25 @@ export default function DatasetView() {
   }, [datasetId]);
 
   const handleDownload = async () => {
+    // if admin access blocked, show alert and return
+    if (!dataset || !datasetId) return;
+
+    const isOwner = isUserOwner(dataset.owner, currentUserId);
+    const isAllowedAccess = dataset.allow_admin_access ?? false;
+
+    if (!isOwner && !isAllowedAccess) {
+      alert("Download blocked: External access to this dataset has been disabled.");
+      return;
+    }
+
+    console.log("🔒 Security Check:", {
+      datasetOwner: dataset.owner,     // e.g., 5
+      myUserId: currentUserId,         // e.g., 99
+      isOwnerResult: isOwner,          // Should be false
+      allowAdmin: isAllowedAccess,     // Should be false
+      RESULT: (isOwner || isAllowedAccess) ? "✅ PASSED (Request sending...)" : "❌ BLOCKED"
+    });
+
     if (!datasetId || downloading) return;
     setDownloading(true);
     try {
