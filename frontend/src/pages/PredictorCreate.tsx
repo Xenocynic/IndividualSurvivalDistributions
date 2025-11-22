@@ -25,9 +25,10 @@ import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
 import { listMyDatasets } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
-import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictorAsync, getTrainingStatus } from "../lib/predictors";
+import { createPredictor, listMyPredictors, grantPredictorViewer, trainPredictorAsync } from "../lib/predictors";
 import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
+import TrainingModal from "../components/TrainingModal";
 
 type PermRow = { 
   id: number;
@@ -63,14 +64,7 @@ export default function PredictorCreate() {
   const [trainingStep, setTrainingStep] = useState<TrainingStep>('idle');
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(null);
-  const [trainingProgress, setTrainingProgress] = useState<{
-    current_experiment?: number;
-    total_experiments?: number;
-    message?: string;
-    estimated_progress?: number;
-    elapsed_seconds?: number;
-    eta_seconds?: number;
-  } | null>(null);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
 
   // meta state
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
@@ -146,7 +140,6 @@ async function onTrainAndSave() {
 
   setTrainingStep('creating');
   setTrainingError(null);
-  setTrainingProgress(null);
 
   try {
     const datasetId = Number(selectedDatasetId);
@@ -183,6 +176,8 @@ async function onTrainAndSave() {
 
     // Step 3: Start async training
     setTrainingStep('training');
+    setShowTrainingModal(true);
+
     await trainPredictorAsync(datasetId, created.predictor_id, {
       parameters: {
         n_epochs: 100,
@@ -192,53 +187,11 @@ async function onTrainAndSave() {
       },
     });
 
-    // Step 4: Poll for training progress
-    pollTrainingStatus(created.predictor_id);
-
   } catch (error: any) {
     setTrainingStep('error');
     setTrainingError(error.message || 'Failed to create predictor and start training!');
     console.error('Training error:', error);
   }
-}
-
-// Poll training status every 2 seconds
-function pollTrainingStatus(predictorId: number) {
-  const pollInterval = setInterval(async () => {
-    try {
-      const status = await getTrainingStatus(predictorId);
-
-      // Update progress
-      if (status.progress) {
-        setTrainingProgress(status.progress);
-      }
-
-      // Check if training is complete
-      if (status.status === 'trained') {
-        clearInterval(pollInterval);
-        setTrainingStep('complete');
-        setTrainingProgress({
-          ...status.progress,
-          estimated_progress: 100,
-          message: 'Training completed successfully!'
-        });
-
-        setTimeout(() => {
-          navigate(`/predictors/${predictorId}`);
-        }, 2000);
-      } else if (status.status === 'failed') {
-        clearInterval(pollInterval);
-        setTrainingStep('error');
-        setTrainingError(status.error || 'Training failed');
-      }
-    } catch (error: any) {
-      console.error('Error polling training status:', error);
-      // Don't stop polling on error, might be temporary network issue
-    }
-  }, 1000); // Poll every 1 second for more responsive updates
-
-  // Cleanup on unmount
-  return () => clearInterval(pollInterval);
 }
 
 
@@ -479,157 +432,63 @@ function pollTrainingStatus(predictorId: number) {
         </section>
       </div>
 
-      {/* Training Modal */}
-      {isProcessing && (
-        <TrainingModal
-          step={trainingStep}
-          error={trainingError}
-          progress={trainingProgress}
-          onRetry={() => {
-            setTrainingStep('idle');
-            setTrainingError(null);
-            setTrainingProgress(null);
-          }}
-          onViewPredictor={() => {
-            if (createdPredictorId) {
-              navigate(`/predictors/${createdPredictorId}`);
-            }
-          }}
-        />
-      )}
-
-      {showLeavePrompt && (
-        <ConfirmLeave 
-          onCancel={() => setShowLeavePrompt(false)} 
-          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })} 
-        />
-      )}
-    </div>
-  );
-}
-
-function TrainingModal({
-  step,
-  error,
-  progress,
-  onRetry,
-  onViewPredictor
-}: {
-  step: TrainingStep;
-  error: string | null;
-  progress: {
-    current_experiment?: number;
-    total_experiments?: number;
-    message?: string;
-    estimated_progress?: number;
-    elapsed_seconds?: number;
-    eta_seconds?: number;
-  } | null;
-  onRetry: () => void;
-  onViewPredictor: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        {step === 'creating' && (
-          <>
+      {/* Creating Predictor Modal */}
+      {trainingStep === 'creating' && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900"></div>
               <h3 className="text-lg font-semibold">Creating Predictor...</h3>
               <p className="mt-2 text-sm text-neutral-600">Setting up your predictor in the database.</p>
             </div>
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-        {step === 'training' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-              <h3 className="text-lg font-semibold">Training ML Model...</h3>
-              <p className="mt-2 text-sm text-neutral-600">
-                {progress?.message || 'Training in progress...'}
-              </p>
+      {/* Training Modal with close button */}
+      {showTrainingModal && createdPredictorId && (
+        <TrainingModal
+          predictorId={createdPredictorId}
+          onClose={() => {
+            setShowTrainingModal(false);
+            navigate("/dashboard", { state: { tab: "predictors" } });
+          }}
+          autoNavigateOnComplete={false}
+        />
+      )}
 
-              {/* Progress Bar */}
-              {progress?.estimated_progress !== undefined && (
-                <div className="mt-4">
-                  <div className="mb-2 flex justify-between text-xs text-neutral-600">
-                    <span>Progress</span>
-                    <span>{progress.estimated_progress}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
-                    <div
-                      className="h-full bg-blue-600 transition-all duration-500"
-                      style={{ width: `${progress.estimated_progress}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Detailed Progress Info */}
-              {progress && progress.current_experiment && (
-                <div className="mt-4 space-y-1 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-                  {progress.current_experiment && progress.total_experiments && (
-                    <div className="font-medium">
-                      📊 Running cross-validation: Fold {progress.current_experiment} of {progress.total_experiments}
-                    </div>
-                  )}
-                  <div className="flex justify-between text-neutral-600">
-                    {progress.elapsed_seconds !== undefined && (
-                      <div>
-                        ⏱️ Elapsed: {Math.floor(progress.elapsed_seconds / 60)}m {progress.elapsed_seconds % 60}s
-                      </div>
-                    )}
-                    {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
-                      <div>
-                        🕐 Remaining: ~{Math.floor(progress.eta_seconds / 60)}m {progress.eta_seconds % 60}s
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-2 text-neutral-600">
-                    The model is learning from your dataset. This may take a few minutes.
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {step === 'complete' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-                ✓
-              </div>
-              <h3 className="text-lg font-semibold">Training Complete!</h3>
-              <p className="mt-2 text-sm text-neutral-600">
-                Your predictor has been created and trained successfully.
-              </p>
-              <p className="mt-1 text-xs text-neutral-500">Redirecting to predictor details...</p>
-            </div>
-          </>
-        )}
-
-        {step === 'error' && (
-          <>
+      {/* Error Modal */}
+      {trainingStep === 'error' && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
                 ✕
               </div>
               <h3 className="text-lg font-semibold">Training Failed</h3>
-              <p className="mt-2 text-sm text-red-600">{error}</p>
+              <p className="mt-2 text-sm text-red-600">{trainingError}</p>
               <div className="mt-4 flex gap-2 justify-center">
                 <button
-                  onClick={onRetry}
+                  onClick={() => {
+                    setTrainingStep('idle');
+                    setTrainingError(null);
+                  }}
                   className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
                 >
                   Try Again
                 </button>
               </div>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
+
+      {showLeavePrompt && (
+        <ConfirmLeave
+          onCancel={() => setShowLeavePrompt(false)}
+          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })}
+        />
+      )}
     </div>
   );
 }

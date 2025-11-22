@@ -18,7 +18,6 @@ import { getPredictorFullPredictions, getPredictorSurvivalCurves, type CvPredict
 import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
-import TrainingModal from "../components/TrainingModal";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -108,7 +107,6 @@ export default function PredictorDetailPage() {
 
   // State for data, loading, and errors
   const [predictor, setPredictor] = useState<PredictorDetail | null>(null);
-  const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,31 +140,6 @@ export default function PredictorDetailPage() {
 
     fetchPredictorDetails();
   }, [predictorId]);
-
-  // Poll for status updates if training
-  useEffect(() => {
-    if (!predictor || predictor.ml_training_status !== 'training') {
-      return;
-    }
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const data = await api.get<PredictorDetail>(
-          `/api/predictors/${predictorId}/`
-        );
-        setPredictor(data);
-
-        // Stop polling if training is complete
-        if (data.ml_training_status !== 'training') {
-          clearInterval(pollInterval);
-        }
-      } catch (err) {
-        console.error('Error polling predictor status:', err);
-      }
-    }, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [predictor?.ml_training_status, predictorId]);
 
   // --- Render States ---
   if (isLoading) {
@@ -224,22 +197,10 @@ export default function PredictorDetailPage() {
 
           <h1 className="text-lg font-semibold tracking-wide text-center">{predictor.name}</h1>
 
-          {/* status badge */}
-          <button
-            onClick={() => {
-              if (predictor.ml_training_status === 'training') {
-                setShowTrainingModal(true);
-              }
-            }}
-            className={`hidden rounded-full px-3 py-1 text-xs sm:block ${
-              predictor.ml_training_status === 'training'
-                ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition'
-                : 'bg-neutral-600 text-white cursor-default'
-            }`}
-            disabled={predictor.ml_training_status !== 'training'}
-          >
-            Status: <span className="font-medium">{predictor.ml_training_status === 'training' ? 'Training' : 'Trained'}</span>
-          </button>
+          {/* status badge placeholder */}
+          <div className="hidden rounded-full bg-neutral-600 px-3 py-1 text-xs sm:block">
+            Status: <span className="font-medium">Trained</span>
+          </div>
         </div>
         <div className="h-[4px] w-full bg-neutral-600" />
       </div>
@@ -274,15 +235,6 @@ export default function PredictorDetailPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-4 py-8">{renderTabContent()}</div>
       </div>
-
-      {/* Training Modal */}
-      {showTrainingModal && predictor && (
-        <TrainingModal
-          predictorId={predictor.predictor_id}
-          onClose={() => setShowTrainingModal(false)}
-          autoNavigateOnComplete={false}
-        />
-      )}
     </div>
   );
 }

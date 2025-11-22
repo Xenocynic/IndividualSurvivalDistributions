@@ -1,44 +1,25 @@
 """
-Async training tasks for predictors with real-time log-based progress tracking.
+Celery tasks for async ML model training with real-time log-based progress tracking.
+
+This module uses Celery for production-grade async task processing:
+- Task persistence across server restarts
+- Distributed execution
+- Built-in retry mechanisms
+- Progress tracking via database updates
 """
+
 import os
 import json
 import logging
 import requests
-import threading
 import time
 import re
+from celery import shared_task, current_task
 from django.conf import settings
 from .models import Predictor
 from .log_parser import get_ml_api_log_path
 
 logger = logging.getLogger(__name__)
-
-# Global dictionary to track training jobs
-_training_jobs = {}
-
-
-def start_async_training(predictor_id, dataset_path, parameters):
-    """
-    Start training in a background thread.
-
-    Args:
-        predictor_id: The predictor ID to update with progress
-        dataset_path: Path to the dataset file
-        parameters: Training parameters dict
-    """
-    thread = threading.Thread(
-        target=_train_model_background,
-        args=(predictor_id, dataset_path, parameters),
-        daemon=True
-    )
-    thread.start()
-    _training_jobs[predictor_id] = {
-        'thread': thread,
-        'status': 'starting',
-        'start_time': time.time()
-    }
-    logger.info(f"Started async training for predictor {predictor_id}")
 
 
 def _parse_experiment_progress(log_path, file_position):
@@ -78,9 +59,24 @@ def _parse_experiment_progress(log_path, file_position):
         return None, None, file_position
 
 
-def _train_model_background(predictor_id, dataset_path, parameters):
+@shared_task(bind=True, name='predictors.train_model')
+def train_model_task(self, predictor_id, dataset_path, parameters):
     """
-    Background task to train the model and update progress from ML API logs.
+    Celery task to train an ML model with real-time progress tracking.
+
+    This task:
+    1. Sends dataset to ML API for training
+    2. Monitors ML API logs for real-time progress
+    3. Updates predictor model with progress information
+    4. Downloads model artifacts on completion
+
+    Args:
+        predictor_id: The predictor ID to update with progress
+        dataset_path: Path to the dataset file
+        parameters: Training parameters dict
+
+    Returns:
+        dict: Training results including model_id and metrics
     """
     try:
         predictor = Predictor.objects.get(predictor_id=predictor_id)
@@ -92,7 +88,8 @@ def _train_model_background(predictor_id, dataset_path, parameters):
             'message': 'Preparing dataset and initializing model...',
             'estimated_progress': 0,
             'elapsed_seconds': 0,
-            'progress_source': 'initializing'
+            'progress_source': 'initializing',
+            'task_id': self.request.id  # Store Celery task ID
         }
         predictor.save()
 
@@ -117,10 +114,26 @@ def _train_model_background(predictor_id, dataset_path, parameters):
             log_file_position = 0
             logger.info("Log file not found, using time-based estimation")
 
-        # Start training request in separate thread
+        # Start training request
         with open(dataset_path, 'rb') as f_bin:
             files = {'dataset': (os.path.basename(dataset_path), f_bin, 'text/csv')}
 
+            # Track progress variables
+            n_exp = parameters.get('n_exp', 10)
+            start_time = time.time()
+            current_exp = 0
+            total_exp = n_exp
+            last_log_exp = 0
+
+            # Timing tracking for ETA
+            first_exp_start_time = None
+            first_exp_duration = None
+            experiment_times = []
+            estimated_seconds_per_experiment = 4.0
+
+            # Make the request with streaming/timeout handling
+            # We'll use a separate thread approach but within Celery task
+            import threading
             result = {'response': None, 'error': None}
 
             def make_request():
@@ -132,23 +145,7 @@ def _train_model_background(predictor_id, dataset_path, parameters):
             request_thread = threading.Thread(target=make_request)
             request_thread.start()
 
-            # Track progress while training
-            n_exp = parameters.get('n_exp', 10)
-            start_time = time.time()
-
-            # Progress tracking variables
-            current_exp = 0
-            total_exp = n_exp
-            last_log_exp = 0
-
-            # Timing tracking for ETA
-            first_exp_start_time = None
-            first_exp_duration = None
-            experiment_times = []  # Track completion time of each experiment
-
-            # Estimation fallback
-            estimated_seconds_per_experiment = 4.0  # Based on your logs showing ~4s/it
-
+            # Monitor progress while training
             while request_thread.is_alive():
                 elapsed = time.time() - start_time
                 time.sleep(1)  # Update every 1 second
@@ -170,23 +167,18 @@ def _train_model_background(predictor_id, dataset_path, parameters):
 
                         # Track experiment completion times for ETA
                         if prev_exp != current_exp:
-                            # Experiment changed - record timing
                             if prev_exp == 0 and current_exp == 1:
-                                # First experiment started
                                 first_exp_start_time = elapsed
                             elif prev_exp > 0 and current_exp > prev_exp:
-                                # Experiment completed
                                 experiment_times.append(elapsed)
                                 if first_exp_duration is None and len(experiment_times) == 1:
                                     first_exp_duration = elapsed - (first_exp_start_time or 0)
                     else:
-                        # No new progress in logs, use last known + estimation
+                        # No new progress in logs
                         if last_log_exp > 0:
-                            # We've seen logs before, keep using last known value
                             current_exp = last_log_exp
                             progress_source = "log"
                         else:
-                            # Haven't seen any logs yet, use estimation
                             current_exp = min(int(elapsed / estimated_seconds_per_experiment), n_exp)
                             progress_source = "estimated"
                 else:
@@ -195,19 +187,16 @@ def _train_model_background(predictor_id, dataset_path, parameters):
                     progress_source = "estimated"
 
                 # Calculate progress percentage
-                # Current experiment is the one being worked on, so completed = current - 1
                 completed = max(0, current_exp - 1) if current_exp <= total_exp else total_exp
                 progress_percent = min(99, int((completed / total_exp) * 100)) if total_exp > 0 else 0
 
-                # Calculate ETA (Estimated Time Remaining)
+                # Calculate ETA
                 eta_seconds = None
                 if len(experiment_times) >= 2:
-                    # Use average time per experiment from completed experiments
                     avg_time_per_exp = (elapsed - (first_exp_start_time or 0)) / len(experiment_times)
                     remaining_experiments = total_exp - current_exp
                     eta_seconds = int(avg_time_per_exp * remaining_experiments)
                 elif first_exp_duration is not None and current_exp > 0:
-                    # Use first experiment duration as estimate
                     remaining_experiments = total_exp - current_exp
                     eta_seconds = int(first_exp_duration * remaining_experiments)
 
@@ -220,15 +209,26 @@ def _train_model_background(predictor_id, dataset_path, parameters):
                     'message': f'Training model (fold {current_exp}/{total_exp})...',
                     'estimated_progress': progress_percent,
                     'elapsed_seconds': int(elapsed),
-                    'progress_source': progress_source
+                    'progress_source': progress_source,
+                    'task_id': self.request.id
                 }
 
-                # Add ETA if available
                 if eta_seconds is not None:
                     progress_data['eta_seconds'] = eta_seconds
 
                 predictor.ml_training_progress = progress_data
                 predictor.save()
+
+                # Update Celery task state (for Celery's built-in progress tracking)
+                self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': completed,
+                        'total': total_exp,
+                        'percent': progress_percent,
+                        'eta_seconds': eta_seconds
+                    }
+                )
 
             request_thread.join()
 
@@ -264,12 +264,21 @@ def _train_model_background(predictor_id, dataset_path, parameters):
                 'message': 'Training completed successfully!',
                 'estimated_progress': 100,
                 'elapsed_seconds': int(time.time() - start_time),
-                'progress_source': 'completed'
+                'progress_source': 'completed',
+                'task_id': self.request.id
             }
             predictor.ml_training_error = None
             predictor.save()
 
             logger.info(f"Training completed successfully for predictor {predictor_id}")
+
+            return {
+                'status': 'success',
+                'predictor_id': predictor_id,
+                'model_id': model_id,
+                'metrics': ml_data.get('metrics', {}),
+                'trained_at': ml_data.get('trained_at')
+            }
         else:
             raise Exception(f"ML API training failed: {ml_response.text}")
 
@@ -281,15 +290,15 @@ def _train_model_background(predictor_id, dataset_path, parameters):
             predictor.ml_training_error = str(e)
             predictor.ml_training_progress = {
                 'status': 'failed',
-                'message': f'Training failed: {str(e)}'
+                'message': f'Training failed: {str(e)}',
+                'task_id': self.request.id
             }
             predictor.save()
         except Exception as update_error:
             logger.error(f"Failed to update predictor status: {str(update_error)}")
-    finally:
-        # Clean up tracking
-        if predictor_id in _training_jobs:
-            del _training_jobs[predictor_id]
+
+        # Re-raise exception so Celery marks task as failed
+        raise
 
 
 def get_training_status(predictor_id):

@@ -770,7 +770,7 @@ def ml_train_model_async(request, dataset_id):
     """
     try:
         from predictors.models import Predictor
-        from predictors.training_tasks import start_async_training
+        from predictors.training_tasks import train_model_task
 
         dataset = Dataset.objects.get(dataset_id=dataset_id)
 
@@ -824,13 +824,19 @@ def ml_train_model_async(request, dataset_id):
         parameters = request.data.get('parameters', {})
 
         # Start async training
-        start_async_training(predictor_id, full_file_path, parameters)
+        # Dispatch Celery task
+        task = train_model_task.delay(predictor_id, full_file_path, parameters)
+
+        # Store task ID in predictor for tracking
+        predictor.ml_training_progress = {"task_id": task.id, "status": "queued"}
+        predictor.save()
 
         return Response({
             "message": "Training started",
             "predictor_id": predictor_id,
             "dataset_id": dataset_id,
-            "status": "training"
+            "status": "training",
+            "task_id": task.id
         }, status=status.HTTP_202_ACCEPTED)
 
     except Dataset.DoesNotExist:
