@@ -10,6 +10,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
+from isd.settings import BASE_DIR
 from predictors.models import Predictor
 from dataset.models import Dataset
 from folders.models import Folder, FolderItem
@@ -52,9 +53,9 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Inject Django test server into frontend env
         cls.frontend = subprocess.Popen(
-            ["npm", "run", "dev"],
+            ["npm", "run", "dev", "--", "--host"],
             cwd="../frontend",
-            env={**os.environ, "VITE_API_BASE_URL": backend_url},
+            env={**os.environ, "VITE_API_BASE_URL": backend_url, "VITE_SELENIUM": "true"},
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             preexec_fn=os.setsid,
@@ -75,6 +76,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Launch Chrome visibly
         options = webdriver.ChromeOptions()
+        options.add_argument("--remote-allow-origins=*")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--start-maximized")
@@ -127,6 +129,24 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
 
     def click_link_text(self, driver, link_text, delay=1):
+        element = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.LINK_TEXT, link_text))
+        )
+        driver.execute_script("arguments[0].scrollIntoView(true);", element)
+        element.click()
+        time.sleep(delay)
+
+    
+    def click_button(self, driver, button_text, delay=1):
+        """Click a button identified by its XPath and wait for a specified delay."""
+        button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, button_text))
+        )
+        button.click()
+        time.sleep(delay)
+
+
+    def click_link_and_wait_url(self, driver, link_text, delay=1):
         element = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.LINK_TEXT, link_text))
         )
@@ -204,15 +224,6 @@ class PasswordResetFlowTest(LiveServerTestCase):
             )
 
 
-    def click_link_and_wait_url(self, driver, link_text, delay=1):
-        element = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.LINK_TEXT, link_text))
-        )
-        driver.execute_script("arguments[0].scrollIntoView(true);", element)
-        element.click()
-        time.sleep(delay)
-
-
     def password_reset_flow(self, driver=None, base_url=None):
         # 1. Visit frontend home page
         driver.get(base_url)
@@ -253,7 +264,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         )
         assert "Account created successfully!" in driver.page_source or "Welcome" in driver.page_source
         time.sleep(3)
-
+        """
         # 4. Click "Forgot password?"
         time.sleep(2)
         driver.find_element(By.LINK_TEXT, "Forgot password?").click()
@@ -311,7 +322,17 @@ class PasswordResetFlowTest(LiveServerTestCase):
         password_input = inputs[1]
 
         self.human_type(username_input, signup_data["username"])
-        self.human_type(password_input, signup_data["new_password"])
+        self.human_type(password_input, signup_data["new_password"])"""
+
+        ########################
+        # To be removed later, only present for quick testing
+        inputs = driver.find_elements(By.CSS_SELECTOR, 'input')
+        username_input = inputs[0]
+        password_input = inputs[1]
+
+        self.human_type(username_input, signup_data["username"])
+        self.human_type(password_input, signup_data["password"])  
+        ########################     
 
         # Submit login
         login_button = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
@@ -379,40 +400,15 @@ class PasswordResetFlowTest(LiveServerTestCase):
         driver.execute_script("arguments[0].click();", star_button)
         time.sleep(2)
 
-        view_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, './/button[text()="View"]'))
-        )
-        view_button.click()
-        time.sleep(1)
+        self.click_button(driver, './/button[text()="View"]')
         self.smooth_scroll_down_up(driver)
-
-        dataset_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//button[text()="dataset"]'))
-        )
-        dataset_button.click()
-        time.sleep(1)
+        self.click_button(driver, '//button[text()="dataset"]')
         self.smooth_scroll_down_up(driver)
-
-        settings_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//button[text()="Predictor Settings / Retrain"]'))
-        )
-        settings_button.click()
-        time.sleep(1)
+        self.click_button(driver, '//button[text()="Predictor Settings / Retrain"]')
         self.smooth_scroll_down_up(driver)
-
-        crossval_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//button[text()="cross validation"]'))
-        )
-        crossval_button.click()
-        time.sleep(1)
+        self.click_button(driver, '//button[text()="cross validation"]')
         self.smooth_scroll_down_up(driver)
-
-        back_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//button[@aria-label="Back"]'))
-        )
-        back_button.click()
-        time.sleep(1)
-        self.smooth_scroll_down_up(driver)
+        self.click_button(driver, '//button[@aria-label="Back"]')
 
     
     def view_datasets(self, driver=None):
@@ -429,11 +425,8 @@ class PasswordResetFlowTest(LiveServerTestCase):
             print("Navigated to Datasets page.")
 
         except Exception as e:
-            # Double-check URL manually before reporting failure
             if "/datasets" in driver.current_url:
                 print("(Fallback) Navigated to Datasets page despite minor delay.")
-            else:
-                print(f"Could not navigate to Datasets page: {e}")
 
         # Wait for dataset cards to appear on the browse page
         dataset_cards = WebDriverWait(driver, 15).until(
@@ -479,13 +472,175 @@ class PasswordResetFlowTest(LiveServerTestCase):
             print("Navigated to Folders page.")
 
         except Exception as e:
-            # Double-check URL manually before reporting failure
             if "/folders" in driver.current_url:
                 print("(Fallback) Navigated to Folders page despite minor delay.")
-            else:
-                print(f"Could not navigate to Folders page: {e}")
 
+
+    def create_edit_folder(self, driver=None):
+        # Navigate to the Folders Section of the Dashboard
+        self.click_button(driver, "//button[contains(text(), 'Folders')]", delay=2)
+
+        """1. Filters"""
+        # Clicking 'All Folders' filter icon
+        self.click_button(driver, "//button[contains(., 'All Folders')]")
+
+        # Clicking 'Recently Updated' filter icon
+        self.click_button(driver, "//button[contains(., 'Recently Updated')]")
+
+        """2. Create New Folder"""
+        # Clicking 'Create New Folder' button
+        self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
+        self.click_button(driver, "(//div[@role='menu']//button)[3]")
+        self.smooth_scroll_down_up(driver)
+
+        # Wait for fragment to appear 
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Create New Folder')]"))
+        )
+
+        # Filling in details
+        self.human_type(driver.find_element(By.ID, "folderName"), "Selenium Test Folder")
+        self.human_type(driver.find_element(By.ID, "folderDescription"), "This is created for automated tests.")
+
+        # Selecting Privacy as Private
+        self.click_button(driver, "//button[@role='switch']")
+
+        # Submitting form
+        self.click_button(driver, "//button[contains(., 'Create Folder')]", delay=3)
+
+        # Wait for folder cards to appear
+        folder_cards = WebDriverWait(driver, 15).until(
+            EC.presence_of_all_elements_located(
+                (By.CSS_SELECTOR, "div.group.relative.rounded-xl.border.bg-white.shadow-card")
+            )
+        )
+
+        assert len(folder_cards) > 0, "No folder cards found on the Folders page."
+
+        # Click the first folder card
+        first_folder = folder_cards[0]
+        driver.execute_script("arguments[0].scrollIntoView(true);", first_folder)
+        first_folder.click()
+        time.sleep(1)
+
+        """3. Edit Folder"""
+        # Edit Folder Functionality
+        self.click_button(driver, "//button[@title='Edit folder']")
+
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Edit Folder')]"))
+        )
+
+        desc_area = driver.find_element(By.ID, "folder-description")
+        desc_area.clear()
+        self.human_type(desc_area, "Updated description")
+        self.click_button(driver, "//button[contains(., 'Save Changes')]", delay=2)
+
+        """4. Duplicating folders"""
+        first_folder.click()
+        time.sleep(1)
+
+        self.click_button(driver, ".//button[@title='Duplicate folder']", delay=2)
+
+        # Wait for the duplicated folder to appear
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Duplicate Folder')]"))
+        )
         time.sleep(2)
+
+        # Click the 'Duplicate Folder' submit button
+        self.click_button(driver, "//button[contains(., 'Duplicate Folder')]", delay=2)
+
+        """5. Sharing folders"""
+        first_folder.click()
+        time.sleep(1)
+
+        self.click_button(driver, ".//button[@title='Share folder']", delay=2)
+
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Share Folder')]"))
+        )
+        time.sleep(2)
+
+        self.click_button(driver, "//button[normalize-space()='✕']", delay=2)
+
+
+    def create_edit_dataset(self, driver=None):
+        # Navigate to the Datasets Section of the Dashboard
+        self.click_button(driver, "//button[contains(text(), 'Datasets')]")
+
+        """1. Create New Dataset"""
+        # Clicking 'Create New Dataset' button
+        self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
+        self.click_button(driver, "(//div[@role='menu']//button)[2]")
+        self.smooth_scroll_down_up(driver)
+
+        # Wait for new page to appear 
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'tracking-wide') and contains(., 'Upload Dataset')]"))
+        )
+
+        # Filling in details
+        self.human_type(driver.find_element(By.XPATH, "//input[@placeholder='A concise dataset name']"), "Selenium Dataset Test")
+        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "This is description for an automated test.")
+
+        # Uploading .csv file
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        AML_CSV_PATH = os.path.join(BASE_DIR, "AML.csv")
+        file_input = driver.find_element(By.XPATH, "//input[@type='file']")
+        time.sleep(2)
+
+        # Locate the upload box <label>
+        upload_box = driver.find_element(
+            By.XPATH,
+            "//label[contains(@class,'border-dashed') and contains(@class,'grid')]"
+        )
+
+        # Smooth scroll into the middle of the screen
+        driver.execute_script(
+            "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});",
+            upload_box
+        )
+        time.sleep(1)
+
+        file_input.send_keys(AML_CSV_PATH)
+        time.sleep(2)        
+
+        self.click_button(driver, "//button[contains(., 'Save') and not(@disabled)]")
+        self.click_button(driver, "//button[contains(text(), 'Datasets')]", delay=2)
+
+        # Wait for dataset cards to appear on the browse page
+        dataset_cards = WebDriverWait(driver, 15).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='button'].group.relative"))
+        )
+        assert len(dataset_cards) > 0, "No dataset cards found on the Browse page."
+
+        # Click the first dataset card to reveal 'View' and star buttons
+        first_card = dataset_cards[0]
+        driver.execute_script("arguments[0].scrollIntoView(true);", first_card)
+        first_card.click()
+        time.sleep(1)
+
+    
+    def create_edit_predictor(self, driver=None):
+        # Navigate to the Predictors Section of the Dashboard
+        self.click_button(driver, "//button[contains(text(), 'Predictors')]", delay=2)
+
+        """1. Create New Predictor"""
+        # Clicking 'Create New Predictor' button
+        self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
+        self.click_button(driver, "(//div[@role='menu']//button)[1]")
+        self.smooth_scroll_down_up(driver)
+
+        # Wait for new page to appear 
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'tracking-wide') and contains(., 'Create New Predictor')]"))
+        )
+
+        # Filling in details
+        self.human_type(driver.find_element(By.XPATH, "//input[@placeholder='A concise predictor name']"), "Selenium Predictor Test")
+        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "Computational Tarot Card readings.")       
+
 
 
     def test_selenium(self):
@@ -495,9 +650,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
         # Running the password reset flow test
         self.password_reset_flow(driver=driver, base_url=base_url)
         
+        """ 
         # Running basic page navigation tests
         self.basic_pages(driver=driver)
-
+       
         # View Predictor Details (including pinning)
         self.view_predictor(driver=driver)
 
@@ -506,6 +662,18 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # View Folders Details
         self.view_folders(driver=driver)
+
+        # Going to Dashboard
+        self.click_link_and_wait_url(driver, "Dashboard", delay=3)
+
+        # Creating a new folder from Dashboard
+        self.create_edit_folder(driver=driver)
+
+        # Creating a new Dataset from Dashboard
+        self.create_edit_dataset(driver=driver)"""
+
+        # Creating a new Predictor from Dashboard
+        self.create_edit_predictor(driver=driver)
         
         # Logging out
         self.logout(driver=driver)

@@ -11,6 +11,7 @@
  */
 import { api, publicApi } from "./apiClient";
 import type { DatasetItem } from "../components/DatasetCard";
+let seleniumMockDatasets: any[] = [];
 
 export type Dataset = {
   dataset_id: number;
@@ -100,6 +101,36 @@ export interface DatasetStats {
  * Sends multipart form data with all required fields.
  */
 export async function createDataset(request: CreateDatasetRequest): Promise<CreateDatasetResponse> {
+
+  if (import.meta.env.VITE_SELENIUM === "true") {
+    console.warn("Selenium mock active: skipping real /api/datasets/ upload");
+
+    await new Promise((res) => setTimeout(res, 3000));  // delay for the waiting modal to show up
+
+    const mock = {
+      dataset_id: Date.now(),              // fake ID
+      dataset_name: request.dataset_name,
+      owner: 1,
+      owner_name: "testuser2",
+      notes: request.notes ?? "",
+      time_unit: request.time_unit,
+      is_public: request.is_public,
+      uploaded_at: new Date().toISOString(),
+      num_features: 10,
+      num_labels: 1,
+      warnings: [],
+      has_file: true,
+      file_path: "/mock/path/AML.csv",
+      original_filename: request.file?.name ?? "AML.csv",
+      file_size: 2048,
+      file_size_display: "5.4 MB",
+      file_display_name: request.file?.name ?? "AML.csv",
+    };
+
+    seleniumMockDatasets.push(mapApiDatasetToUi(mock, 1));
+    return mock;
+  }
+
   const formData = new FormData();
   formData.append('dataset_name', request.dataset_name);
   formData.append('file', request.file);
@@ -126,6 +157,9 @@ export async function createDataset(request: CreateDatasetRequest): Promise<Crea
  * I thiiiink this is how it works.
  */
 export async function listMyDatasets(folderId?: string) {
+  if (import.meta.env.VITE_SELENIUM === "true") {
+    return seleniumMockDatasets;
+  }
   const url = folderId ? `/api/datasets/?folder=${folderId}` : "/api/datasets/";
   return api.get<Dataset[]>(url);
 }
@@ -224,17 +258,15 @@ export async function downloadDatasetFile(
   datasetId: number
 ): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(
-    `${
-      import.meta.env.VITE_API_BASE_URL || ""
+    `${import.meta.env.VITE_API_BASE_URL || ""
     }/api/datasets/${datasetId}/download/`,
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${
-          localStorage.getItem("auth_tokens")
-            ? JSON.parse(localStorage.getItem("auth_tokens")!).access
-            : ""
-        }`,
+        Authorization: `Bearer ${localStorage.getItem("auth_tokens")
+          ? JSON.parse(localStorage.getItem("auth_tokens")!).access
+          : ""
+          }`,
       },
     }
   );

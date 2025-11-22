@@ -49,6 +49,7 @@ import {
   downloadDatasetFile,
   deleteDataset,
   mapApiDatasetToUi,
+  listMyDatasets,
 } from "../lib/datasets";
 import { deletePredictor } from "../lib/predictors";
 import { mapApiPredictorToUi } from "../lib/predictors";
@@ -250,8 +251,8 @@ export default function Dashboard() {
                   (user as any)?.id ?? (user as any)?.pk ?? undefined;
                 const mapped = Array.isArray(predictorData)
                   ? predictorData.map((it) =>
-                      mapApiPredictorToUi(it, currentUserId)
-                    )
+                    mapApiPredictorToUi(it, currentUserId)
+                  )
                   : [];
                 setPredictors(mapped);
                 console.log(
@@ -262,13 +263,15 @@ export default function Dashboard() {
           );
         } else if (activeTab === "datasets") {
           promises.push(
-            api.get<DatasetItem[]>(`/api/datasets/`).then((data) => {
+            listMyDatasets().then((data) => {
               if (!mounted) return;
               const currentUserId =
                 (user as any)?.id ?? (user as any)?.pk ?? undefined;
+
               const mapped = Array.isArray(data)
                 ? data.map((it) => mapApiDatasetToUi(it, currentUserId))
                 : [];
+
               setDatasets(mapped);
               console.log(
                 "mapped datasets:",
@@ -654,8 +657,8 @@ export default function Dashboard() {
     activeTab === "predictors"
       ? filteredPredictors
       : activeTab === "datasets"
-      ? filteredDatasets
-      : [];
+        ? filteredDatasets
+        : [];
   const selectedId =
     activeTab === "predictors" ? selectedPredictorId : selectedDatasetId;
 
@@ -694,24 +697,24 @@ export default function Dashboard() {
             <Toolbar
               activeTab={activeTab}
               onTabChange={(t) => {
-                selectTab(t);                
+                selectTab(t);
                 if (t === "folders") {
-                  void fetchFolders();        
+                  void fetchFolders();
                 }
               }}
               query={
                 activeTab === "predictors"
                   ? predictorQuery
                   : activeTab === "datasets"
-                  ? datasetQuery
-                  : folderQuery
+                    ? datasetQuery
+                    : folderQuery
               }
               onQueryChange={
                 activeTab === "predictors"
                   ? setPredictorQuery
                   : activeTab === "datasets"
-                  ? setDatasetQuery
-                  : setFolderQuery
+                    ? setDatasetQuery
+                    : setFolderQuery
               }
               onCreatePredictor={createPredictor}
               onCreateDataset={addDataset}
@@ -720,15 +723,15 @@ export default function Dashboard() {
                 activeTab === "predictors"
                   ? predictorOwnership
                   : activeTab === "datasets"
-                  ? datasetOwnership
-                  : folderOwnership
+                    ? datasetOwnership
+                    : folderOwnership
               }
               onOwnershipChange={
                 activeTab === "predictors"
                   ? setPredictorOwnership
                   : activeTab === "datasets"
-                  ? setDatasetOwnership
-                  : setFolderOwnership
+                    ? setDatasetOwnership
+                    : setFolderOwnership
               }
               folderTypeFilter={
                 activeTab === "folders" ? folderTypeFilter : undefined
@@ -749,9 +752,9 @@ export default function Dashboard() {
 
         {/* loading indicator or skeleton - only show if loading AND no data */}
         {isLoading &&
-        ((activeTab === "predictors" && predictors.length === 0) ||
-          (activeTab === "datasets" && datasets.length === 0) ||
-          (activeTab === "folders" && folders.length === 0)) ? (
+          ((activeTab === "predictors" && predictors.length === 0) ||
+            (activeTab === "datasets" && datasets.length === 0) ||
+            (activeTab === "folders" && folders.length === 0)) ? (
           <div className='mx-auto max-w-6xl px-4 py-6'>
             {/* simple spinner + hint */}
             <div className='flex items-center gap-3'>
@@ -906,44 +909,44 @@ export default function Dashboard() {
                   {/* Individual Items - show items not in folders */}
                   {activeTab === "predictors"
                     ? list
-                        .filter((item) => !item.folderId) // Only show items not in folders
-                        .map((it) => (
-                          <PredictorCard
-                            key={it.id}
-                            item={it}
-                            selected={selectedId === it.id}
-                            onToggleSelect={toggleSelect}
-                            onEdit={editItem}
-                            onDelete={(id) =>
-                              setPendingDelete(
-                                predictors.find((x) => x.id === id) ?? null
-                              )
-                            }
-                            onView={viewItem}
-                            onDrop={handleDrop}
-                            isLoading={isItemLoading(it.id)}
-                          />
-                        ))
+                      .filter((item) => !item.folderId) // Only show items not in folders
+                      .map((it) => (
+                        <PredictorCard
+                          key={it.id}
+                          item={it}
+                          selected={selectedId === it.id}
+                          onToggleSelect={toggleSelect}
+                          onEdit={editItem}
+                          onDelete={(id) =>
+                            setPendingDelete(
+                              predictors.find((x) => x.id === id) ?? null
+                            )
+                          }
+                          onView={viewItem}
+                          onDrop={handleDrop}
+                          isLoading={isItemLoading(it.id)}
+                        />
+                      ))
                     : list
-                        .filter((item) => !item.folderId) // Only show items not in folders
-                        .map((it) => (
-                          <DatasetCard
-                            key={it.id}
-                            item={{ ...it, owner: Boolean(it.owner) }}
-                            selected={selectedId === it.id}
-                            onToggleSelect={toggleSelect}
-                            onEdit={editItem}
-                            onDelete={(id) =>
-                              setPendingDelete(
-                                datasets.find((x) => x.id === id) ?? null
-                              )
-                            }
-                            onView={viewItem}
-                            onDownload={downloadItem}
-                            onDrop={handleDrop}
-                            isLoading={isItemLoading(it.id)}
-                          />
-                        ))}
+                      .filter((item) => !item.folderId) // Only show items not in folders
+                      .map((it) => (
+                        <DatasetCard
+                          key={it.id}
+                          item={{ ...it, owner: Boolean(it.owner) }}
+                          selected={selectedId === it.id}
+                          onToggleSelect={toggleSelect}
+                          onEdit={editItem}
+                          onDelete={(id) =>
+                            setPendingDelete(
+                              datasets.find((x) => x.id === id) ?? null
+                            )
+                          }
+                          onView={viewItem}
+                          onDownload={downloadItem}
+                          onDrop={handleDrop}
+                          isLoading={isItemLoading(it.id)}
+                        />
+                      ))}
 
                   {/* Empty state hint for drag and drop - only show if not loading */}
                   {list.filter((item) => !item.folderId).length === 0 &&

@@ -131,8 +131,8 @@ export default function DatasetUpload() {
       if (created.warnings && created.warnings.length > 0) {
         // Format warnings for a clear alert
         const warningMessage = "Dataset created, but with warnings:\n\n" +
-                               created.warnings.join("\n\n");
-        
+          created.warnings.join("\n\n");
+
         // Use alert to show warnings. Replace with a modal for better UX
         alert(warningMessage);
       }
@@ -164,9 +164,8 @@ export default function DatasetUpload() {
       }
 
       // Route to dashboard with the Datasets tab selected
-      navigate("/dashboard", {
+      navigate("/dashboard?tab=datasets", {
         state: {
-          tab: "datasets",
           justCreatedId: created.dataset_id,
           folderAssigned: selectedFolderId ? true : false,
           folderName: selectedFolderId ? "folder" : undefined,
@@ -190,8 +189,7 @@ export default function DatasetUpload() {
           const errors = Object.entries(err.details)
             .map(
               ([field, messages]) =>
-                `${field}: ${
-                  Array.isArray(messages) ? messages.join(", ") : messages
+                `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages
                 }`
             )
             .join("\n");
@@ -213,7 +211,7 @@ export default function DatasetUpload() {
     if (dirtyRef.current) {
       setShowLeavePrompt(true);
     } else {
-      navigate("/dashboard", { state: { tab: "datasets" } });
+      navigate("/dashboard?tab=datasets");
     }
   };
 
@@ -304,13 +302,12 @@ export default function DatasetUpload() {
               )}
             </div>
             <span
-              className={`text-xs ${
-                name.length > 45
-                  ? "text-red-600"
-                  : name.length > 40
+              className={`text-xs ${name.length > 45
+                ? "text-red-600"
+                : name.length > 40
                   ? "text-orange-600"
                   : "text-neutral-400"
-              }`}
+                }`}
             >
               {name.length}/50
             </span>
@@ -336,13 +333,12 @@ export default function DatasetUpload() {
           />
           <div className="flex justify-end">
             <span
-              className={`text-xs ${
-                notes.length > 180
-                  ? "text-red-600"
-                  : notes.length > 160
+              className={`text-xs ${notes.length > 180
+                ? "text-red-600"
+                : notes.length > 160
                   ? "text-orange-600"
                   : "text-neutral-400"
-              }`}
+                }`}
             >
               {notes.length}/200
             </span>
@@ -382,7 +378,7 @@ export default function DatasetUpload() {
             <div className="rounded-md border bg-neutral-50 p-3 text-xs text-neutral-700">
               <div className="font-medium">File Format</div>
               <p className="mt-1 leading-relaxed">
-              Data files must be in Comma-Seperated Value (CSV) format. Each line in the file describes one sample in your data set. The first column should be the survival time (or other variable to predict). The second column should be a binary value describing whether this data is censored (0=uncensored, 1=censored; u=uncensored, c=censored). The remaining columns are the rest of the features for each sample. Columns can be numeric, or nominal (categorical).
+                Data files must be in Comma-Seperated Value (CSV) format. Each line in the file describes one sample in your data set. The first column should be the survival time (or other variable to predict). The second column should be a binary value describing whether this data is censored (0=uncensored, 1=censored; u=uncensored, c=censored). The remaining columns are the rest of the features for each sample. Columns can be numeric, or nominal (categorical).
               </p>
             </div>
           )}
@@ -420,9 +416,8 @@ export default function DatasetUpload() {
               <button
                 key={unit}
                 onClick={() => setTimeUnit(unit)}
-                className={`px-3 py-1.5 text-sm capitalize ${
-                  timeUnit === unit ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
-                }`}
+                className={`px-3 py-1.5 text-sm capitalize ${timeUnit === unit ? "bg-neutral-900 text-white" : "hover:bg-neutral-50"
+                  }`}
               >
                 {unit}
               </button>
@@ -521,7 +516,7 @@ export default function DatasetUpload() {
           <ConfirmLeave
             onCancel={() => setShowLeavePrompt(false)}
             onContinue={() =>
-              navigate("/dashboard", { state: { tab: "datasets" } })
+              navigate("/dashboard?tab=datasets")
             }
           />
         )}

@@ -107,10 +107,10 @@ export const api = {
     raw<T>(p, { method: "PUT", body: JSON.stringify(body) }),
   patch: <T>(p: string, body?: unknown) =>
     raw<T>(p, { method: "PATCH", body: JSON.stringify(body) }),
-  del: <T>(p: string, body?: unknown) => 
-    raw<T>(p, { 
-      method: "DELETE", 
-      body: body ? JSON.stringify(body) : undefined 
+  del: <T>(p: string, body?: unknown) =>
+    raw<T>(p, {
+      method: "DELETE",
+      body: body ? JSON.stringify(body) : undefined
     }),
 };
 
