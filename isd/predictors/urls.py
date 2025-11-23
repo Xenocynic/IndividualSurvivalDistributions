@@ -14,7 +14,6 @@ from .views import (
     predictor_full_predictions,
     # ML API views
     ml_health_check,
-    ml_train_model,
     ml_save_draft,
     ml_retrain_model,
     ml_predict,
@@ -40,7 +39,6 @@ urlpatterns = [
     # NEW: ML API Integration Routes
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
-    path("ml/train/", ml_train_model, name="ml-train"),
     path("ml/save-draft/", ml_save_draft, name="ml-save-draft"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
     path("ml/predict/", ml_predict, name="ml-predict"),
