@@ -145,23 +145,18 @@ fi
 
 echo -e "${GREEN}✅ Redis is running${NC}"
 
-# Setup Celery (one-time setup)
-echo -e "\n${MAGENTA}Setting up Celery dependencies...${NC}"
+# Run Celery migrations (dependencies installed via requirements.txt)
+echo -e "\n${MAGENTA}Running Celery migrations...${NC}"
 check_and_setup_venv "$PROJECT_ROOT/venv" "Backend"
-(
-    cd "$PROJECT_ROOT"
-    source venv/bin/activate
 
-    # Install Celery dependencies quietly
-    pip install -q celery>=5.3.0 redis>=5.0.0 django-celery-beat>=2.5.0 django-celery-results>=2.5.0
+cd "$PROJECT_ROOT/isd"
+source ../venv/bin/activate
 
-    # Run migrations for Celery
-    cd isd
-    python manage.py migrate django_celery_results --noinput > /dev/null 2>&1 || true
-    python manage.py migrate django_celery_beat --noinput > /dev/null 2>&1 || true
-) >> "$CELERY_LOG" 2>&1
+python manage.py migrate django_celery_results --noinput >> "$CELERY_LOG" 2>&1 || true
+python manage.py migrate django_celery_beat --noinput >> "$CELERY_LOG" 2>&1 || true
 
-echo -e "${GREEN}✅ Celery setup complete${NC}"
+echo -e "${GREEN}✅ Celery migrations complete${NC}"
+cd "$PROJECT_ROOT"
 
 echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}Starting All Services${NC}"
