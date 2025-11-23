@@ -53,6 +53,20 @@ interface PredictorDetail {
   standardize_features: boolean;
   model_id: string;
   ml_training_status?: string;
+  ml_model_metrics?: {
+    Cindex?: { mean: number; std: number };
+    IBS?: { mean: number; std: number };
+    MAE_Hinge?: { mean: number; std: number };
+    MAE_PO?: { mean: number; std: number };
+    KM_cal?: { mean: number; std: number };
+    xCal_stats?: { mean: number; std: number };
+    wsc_xCal_stats?: { mean: number; std: number };
+    dcal_p?: { mean: number; std: number };
+    dcal_Chi?: { mean: number; std: number };
+    train_times?: { mean: number; std: number };
+    infer_times?: { mean: number; std: number };
+    [key: string]: any;
+  };
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
@@ -1111,6 +1125,59 @@ function formatHistogramLabel(value: number | null | undefined): string {
   return Number(value.toFixed(digits)).toLocaleString();
 }
 
+/**
+ * Calculate mean and standard deviation from an array of values
+ */
+function calculateMeanAndStd(values: number[]): { mean: number; std: number } {
+  if (!values || values.length === 0) {
+    return { mean: 0, std: 0 };
+  }
+
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+
+  if (values.length === 1) {
+    return { mean, std: 0 };
+  }
+
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  const std = Math.sqrt(variance);
+
+  return { mean, std };
+}
+
+/**
+ * Format a metric value with ± standard deviation
+ * Handles objects with {mean, std}, arrays, or single values
+ */
+function formatMetricWithStd(values: any, decimals: number = 3): string {
+  // Handle undefined or null
+  if (values === undefined || values === null) {
+    return "—";
+  }
+
+  // Handle object with mean and std properties (the actual format from backend)
+  if (typeof values === 'object' && values !== null && 'mean' in values && 'std' in values) {
+    const mean = Number(values.mean);
+    const std = Number(values.std);
+    if (!isNaN(mean) && !isNaN(std)) {
+      return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+    }
+  }
+
+  // Handle single number (not an array or object)
+  if (typeof values === 'number') {
+    return `${values.toFixed(decimals)} ± 0.000`;
+  }
+
+  // Handle array of values (calculate mean and std)
+  if (Array.isArray(values) && values.length > 0) {
+    const { mean, std } = calculateMeanAndStd(values);
+    return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+  }
+
+  return "—";
+}
+
 function getNiceCeiling(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
     return 1;
@@ -1664,40 +1731,74 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         <>
           <Card>
             <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-neutral-100">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">Measure</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (median)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (mean)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">K-M Predictor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {[
-                "Concordance Index",
-                "Hinged L1 Loss",
-                "Uncensored L1 Loss",
-                "Marginal L1 Loss",
-                "Hinged L1 Log-Loss",
-                "Uncensored L1 Log-Loss",
-                "Marginal L2 Loss",
-                "Log-Likelihood Loss",
-                "D-calibration χ² statistic",
-                "D-calibration p-value",
-              ].map((row) => (
-                <tr key={row} className="odd:bg-white even:bg-neutral-50">
-                  <td className="px-3 py-2 text-neutral-800">{row}</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-neutral-500">* mean ± standard deviation.</p>
+
+            {!predictor.ml_model_metrics ? (
+              <div className="py-8 text-center text-sm text-neutral-500">
+                <p>No metrics available. This predictor may not have been trained yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-neutral-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-700">Metric</th>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-700">Value (mean ± std)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Concordance Index (C-index)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.Cindex, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Integrated Brier Score (IBS)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.IBS, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">MAE Hinge</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.MAE_Hinge, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">MAE PO</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.MAE_PO, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">KM Calibration</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.KM_cal, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">X-Calibration Statistics</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.xCal_stats, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">WSC X-Calibration Statistics</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.wsc_xCal_stats, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">D-Calibration p-value</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.dcal_p, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">D-Calibration χ² statistic</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.dcal_Chi, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Training Time (seconds)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.train_times, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Inference Time (seconds)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.infer_times, 3)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  * Values shown as mean ± standard deviation across cross-validation folds.
+                </p>
+              </>
+            )}
       </Card>
 
       <Card>
