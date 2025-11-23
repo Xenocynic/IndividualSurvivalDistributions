@@ -25,7 +25,7 @@
  */
 
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
 import DatasetCard, { type DatasetItem } from "../components/DatasetCard";
@@ -49,6 +49,7 @@ import {
   downloadDatasetFile,
   deleteDataset,
   mapApiDatasetToUi,
+  isUserOwner,
 } from "../lib/datasets";
 import { deletePredictor } from "../lib/predictors";
 import { mapApiPredictorToUi } from "../lib/predictors";
@@ -101,10 +102,27 @@ type Tab = "predictors" | "datasets" | "folders";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const currentUserId = (user as any)?.id ?? (user as any)?.pk;
   const navigate = useNavigate();
 
-  // tabs + data
-  const [activeTab, setActiveTab] = useState<Tab>("predictors");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // dderive activeTab from URL (?tab=predictors|datasets|folders)
+  const activeTab: Tab = (() => {
+    const q = searchParams.get("tab");
+    return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
+  })();
+
+  // when a tab button is clicked, update the URL
+  const selectTab = (t: Tab) => {
+    setSearchParams(prev => {
+      const sp = new URLSearchParams(prev);
+      sp.set("tab", t);
+      return sp;
+    }, { replace: true }); // avoid history spam
+    clearSelection();
+  };
+
   const [predictors, setPredictors] = useState<PredictorItem[]>([]);
   const [datasets, setDatasets] = useState<DatasetItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -576,8 +594,13 @@ export default function Dashboard() {
   //}
 
   // download dataset file
-  async function downloadItem(id: string) {
+  async function downloadItem(id: string, allowAdminAccess: boolean, isOwner: boolean) {
     try {
+      // if admin access blocked, show alert and return
+      if (!isOwner && !allowAdminAccess){
+        alert("Download blocked: External access to this dataset has been disabled.");
+        return;
+      }
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
 
@@ -677,14 +700,11 @@ export default function Dashboard() {
           <div className='py-3'>
             <Toolbar
               activeTab={activeTab}
-              onTabChange={async (t) => {
-                setActiveTab(t);
-                clearSelection();
-                // Refresh folders when switching to folder tab to show latest items
+              onTabChange={(t) => {
+                selectTab(t);                
                 if (t === "folders") {
-                  await fetchFolders();
+                  void fetchFolders();        
                 }
-
               }}
               query={
                 activeTab === "predictors"
@@ -926,7 +946,14 @@ export default function Dashboard() {
                               )
                             }
                             onView={viewItem}
-                            onDownload={downloadItem}
+                            onDownload={() => {
+                              const isOwner = isUserOwner(it.owner, currentUserId);
+                              downloadItem(
+                                it.id,
+                                'allow_admin_access' in it ? it.allow_admin_access ?? false : false,
+                                isOwner
+                              );
+                            }}
                             onDrop={handleDrop}
                             isLoading={isItemLoading(it.id)}
                           />

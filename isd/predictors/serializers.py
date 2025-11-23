@@ -56,50 +56,13 @@ class PredictorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Predictor
-        fields = [
-            "predictor_id",
-            "name",
-            "description",
-            "dataset",
-            "dataset_id",
-            "owner",
-            "is_private",
-            "folder",
-            "folder_id",
-            "time_unit",
-            "num_time_points",
-            "regularization",
-            "objective_function",
-            "marginal_loss_type",
-            "c_param_search_scope",
-            "cox_feature_selection",
-            "mrmr_feature_selection",
-            "mtlr_predictor",
-            "standardize_features",
-            "run_cross_validation",
-            "tune_parameters",
-            "use_smoothed_log_likelihood",
-            "use_predefined_folds",
-            "allow_admin_access",
-            "created_at",
-            "updated_at",
-            "features",
-            "ml_model_id",
-            "ml_trained_at",
-            "ml_training_status",
-            "ml_model_metrics",
-            "ml_selected_features",
-        ]
+        fields = '__all__'
         read_only_fields = [
             "predictor_id", 
             "owner", 
             "created_at", 
             "updated_at", 
             "features",
-            "ml_model_id",
-            "ml_trained_at", 
-            "ml_training_status",
-            "ml_model_metrics",
         ]
     
     def validate_folder_id(self, folder):

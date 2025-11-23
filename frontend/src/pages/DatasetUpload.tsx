@@ -44,6 +44,7 @@ export default function DatasetUpload() {
   const [showFormatHelp, setShowFormatHelp] = useState(true);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>("month");
   const [isPublic, setIsPublic] = useState(false);
+  const [allowAdminAccess, setAllowAdminAccess] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // permissions rows (UI-only for now)
@@ -123,6 +124,7 @@ export default function DatasetUpload() {
         notes: notes.trim() || undefined,
         time_unit: timeUnit,
         is_public: isPublic,
+        allow_admin_access: allowAdminAccess,
         folder_id: selectedFolderId || undefined,
       };
 
@@ -449,6 +451,26 @@ export default function DatasetUpload() {
           <div className="rounded-md border bg-neutral-50 p-2 text-xs text-neutral-700">
             If enabled, other users can discover and view this dataset. (Viewers
             can use datasets, but only the owner can modify or delete.)
+          </div>
+        </section>
+
+        {/* Admin Access */}
+        <section className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+            Admin Access
+          </div>
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={allowAdminAccess}
+              onChange={(e) => setAllowAdminAccess(e.target.checked)}
+              className="h-4 w-4 accent-neutral-900"
+            />
+            <span className="text-sm">Allow administrators to access this dataset</span>
+          </label>
+          <div className="rounded-md border bg-neutral-50 p-2 text-xs text-neutral-700">
+            If enabled, system administrators can view and manage this dataset for
+            moderation. If disabled, ALL users will be blocked from downloading the dataset.
           </div>
         </section>
 

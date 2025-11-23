@@ -22,6 +22,8 @@ import os
 import mimetypes
 import pandas as pd
 import logging
+import json
+import requests
 from django.conf import settings
 from predictors.models import Predictor
 from predictors.serializers import PredictorSerializer
@@ -310,6 +312,16 @@ class DatasetViewSet(viewsets.ModelViewSet):
         try:
             # Get the dataset instance (this will check permissions via get_object)
             dataset = self.get_object()
+
+            # Check security: only owner or users with permission can download
+            is_owner = dataset.owner == request.user
+            is_allowed_access = dataset.allow_admin_access
+
+            if not is_owner and not is_allowed_access:
+                return Response(
+                    {'detail': 'External access to this dataset has been disabled by the owner.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
             # Check if dataset has a file
             if not dataset.file_path:
@@ -651,3 +663,150 @@ def list_public_datasets(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_train_model(request, dataset_id):
+        """
+        Triggers the training job on the separate ML API.
+        This acts as a proxy, sending the dataset and parameters
+        to the ML service. After successful training, downloads all
+        model artifacts to local storage.
+        """
+        try:
+            dataset = Dataset.objects.get(dataset_id=dataset_id)
+            
+            if not dataset or not dataset.file_path:
+                return Response(
+                    {"error": "Predictor has no associated dataset file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                return Response(
+                    {"error": f"Dataset file not found at path: {full_file_path}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # --- Check if # of features in dataset is >= 1 ---
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=0) 
+            
+            all_cols = df.columns.tolist()
+            if len(all_cols) < 3:
+                raise Exception("Dataset must have at least 3 columns (time, censored, features).")
+
+            
+            # Removed passing selected features because creating a predictor = auto train on all features
+            # ML API /train endpoint automatically trains on all features of the dataset
+            payload = request.data
+            parameters = payload.get('parameters', {})
+
+            # Get ML API URL from environment variables
+            ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
+            train_url = f"{ml_api_url}/train" 
+
+            # Prepare the payload for the ML API
+            # Removed time and event column because model assumes column 0 = time and column 1 = censored/event
+            data = {
+                'parameters': json.dumps(parameters), # Send the new parameters
+            }
+
+            with open(full_file_path, 'rb') as f_bin:
+                files = {'dataset': (dataset.original_filename, f_bin, 'text/csv')}
+                
+                # Make the server-to-server request
+                ml_response = requests.post(train_url, data=data, files=files, timeout=600)
+
+            if ml_response.ok:
+                # Training started successfully
+                ml_data = ml_response.json()
+                
+                # Download all model artifacts
+                model_id = ml_data.get('model_id')
+                if model_id:
+                    try:
+                        _download_model_artifacts(ml_data, model_id)
+                    except Exception as download_error:
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to download model artifacts for {model_id}: {str(download_error)}")
+                        # Continue anyway - the model was trained successfully
+                
+                return Response(ml_data, status=status.HTTP_200_OK)
+            else:
+                # The ML API returned an error
+                return Response(
+                    {"error": "ML API training failed", "details": ml_response.text},
+                    status=ml_response.status_code
+                )
+        
+        except Exception as e:
+            return Response(
+                {"error": "Failed to call training API", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+def _download_model_artifacts(ml_data, model_id):
+    """
+    Download all model artifacts from the ML API response and save them locally.
+    
+    Args:
+        ml_data: The JSON response from the ML API
+        model_id: The unique model identifier
+    """
+    # Create the models directory structure
+    models_base_dir = os.path.join(settings.MEDIA_ROOT, 'models')
+    model_dir = os.path.join(models_base_dir, model_id)
+    
+    # Create directories if they don't exist
+    os.makedirs(model_dir, exist_ok=True)
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"Downloading model artifacts for {model_id} to {model_dir}")
+    
+    # Helper function to download a file
+    def download_file(url, local_path):
+        try:
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+            logger.info(f"Downloaded: {os.path.basename(local_path)}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to download {url}: {str(e)}")
+            return False
+    
+    # Download model_config.json
+    if 'model_config' in ml_data:
+        download_file(ml_data['model_config'], os.path.join(model_dir, 'model_config.json'))
+    
+    # Download model files (encoder and icp_state)
+    if 'model_file' in ml_data:
+        model_files = ml_data['model_file']
+        if 'encoder' in model_files:
+            download_file(model_files['encoder'], os.path.join(model_dir, 'encoder.joblib'))
+        if 'icp_state' in model_files:
+            download_file(model_files['icp_state'], os.path.join(model_dir, 'icp_state.dill'))
+    
+    # Download CV predictions
+    if 'cv_predictions' in ml_data:
+        cv_preds = ml_data['cv_predictions']
+        if 'summary_csv' in cv_preds:
+            download_file(cv_preds['summary_csv'], os.path.join(model_dir, 'cv_predictions_summary.csv'))
+        if 'full_predictions' in cv_preds:
+            download_file(cv_preds['full_predictions'], os.path.join(model_dir, 'cv_predictions.json'))
+    
+    # Download full dataset predictions
+    if 'full_dataset_predictions' in ml_data:
+        full_preds = ml_data['full_dataset_predictions']
+        if 'summary_csv' in full_preds:
+            download_file(full_preds['summary_csv'], os.path.join(model_dir, 'full_predictions_summary.csv'))
+        if 'full_predictions' in full_preds:
+            download_file(full_preds['full_predictions'], os.path.join(model_dir, 'full_predictions.json'))
+        if 'survival_curves' in full_preds:
+            download_file(full_preds['survival_curves'], os.path.join(model_dir, 'survival_curves.json'))
+    
+    logger.info(f"Model artifacts download completed for {model_id}")

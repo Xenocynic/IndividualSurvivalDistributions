@@ -80,7 +80,7 @@ class MLAPIClient:
             import json
             data = {
                 'parameters': json.dumps(default_params),
-                'return_cv_predictions': 'true' if return_cv_predictions else 'false'
+                'return_cv_predictions': 'true'
             }
             
             # Add features if provided
@@ -142,7 +142,7 @@ class MLAPIClient:
         try:
             payload = {
                 'model_id': model_id,
-                'return_cv_predictions': return_cv_predictions
+                'return_cv_predictions': True
             }
             
             if selected_features is not None:
@@ -207,7 +207,7 @@ class MLAPIClient:
                 'success': False,
                 'error': f'Prediction failed: {str(e)}'
             }
-    
+
     def list_models(self) -> Dict[str, Any]:
         """Get list of all trained models"""
         try:

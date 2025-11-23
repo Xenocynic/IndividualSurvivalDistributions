@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import type { TooltipProps } from "recharts";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
+import { getPredictorFullPredictions, getPredictorSurvivalCurves, type CvPredictions, type SurvivalCurvesData } from "../lib/predictors";
+import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
+import DCalibrationHistogram from "../components/DCalibrationHistogram";
+import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -36,6 +51,22 @@ interface PredictorDetail {
   features: string[];
   run_cross_validation: boolean;
   standardize_features: boolean;
+  model_id: string;
+  ml_training_status?: string;
+  ml_model_metrics?: {
+    Cindex?: { mean: number; std: number };
+    IBS?: { mean: number; std: number };
+    MAE_Hinge?: { mean: number; std: number };
+    MAE_PO?: { mean: number; std: number };
+    KM_cal?: { mean: number; std: number };
+    xCal_stats?: { mean: number; std: number };
+    wsc_xCal_stats?: { mean: number; std: number };
+    dcal_p?: { mean: number; std: number };
+    dcal_Chi?: { mean: number; std: number };
+    train_times?: { mean: number; std: number };
+    infer_times?: { mean: number; std: number };
+    [key: string]: any;
+  };
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
@@ -43,12 +74,50 @@ type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
 const NAVBAR_HEIGHT = 64;   // px
 const HEADER_HEIGHT = 60;   // px (approx: header row + 1px progress bar + padding)
 const MAX_HISTOGRAM_BARS = 20;
+const SURVIVAL_X_TICKS = 6;
+const SURVIVAL_Y_TICKS = 5;
+const EVENT_X_TICKS = 6;
+const EVENT_Y_TICKS = 5;
 
 type DatasetSubTab = "correlations" | "eventHistogram" | "survivalHistogram";
+type SurvivalHistogramBin = { bin_start: number; bin_end: number; count: number };
+interface SurvivalHistogramData {
+  bins: SurvivalHistogramBin[];
+  axisMin: number;
+  axisMax: number;
+}
+interface SurvivalChartDatum extends SurvivalHistogramBin {
+  center: number;
+}
+interface EventHistogramDatum extends HistogramBin {
+  center: number;
+  events: number;
+  censored: number;
+  total: number;
+}
 
 export default function PredictorDetailPage() {
   const { predictorId } = useParams<{ predictorId: string }>();
   const navigate = useNavigate();
+    const location = useLocation();
+
+  // fall back to the parent page + correct tab
+  type NavOrigin = "browse" | "dashboard";
+  const navOrigin: NavOrigin =
+    (location.state as any)?.from === "browse" ? "browse" : "dashboard";
+
+  const fallbackBackPath =
+    navOrigin === "browse" ? "/browse?tab=predictors" : "/dashboard?tab=predictors";
+
+  const handleBack = () => {
+    // if we have browser history to return to, use it
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    // else, go to the appropriate parent with the right tab preselected
+    navigate(fallbackBackPath, { replace: true });
+  };
 
   // State for data, loading, and errors
   const [predictor, setPredictor] = useState<PredictorDetail | null>(null);
@@ -56,10 +125,6 @@ export default function PredictorDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("meta");
-
-  // navigation handling - we want it to go the respective page the card was accessed from when 'back' is pressed
-  const location = useLocation();
-  const backTo = location.state?.from === "browse" ? "/browse" : "/dashboard";
 
   // Fetch predictor data when the component mounts
   useEffect(() => {
@@ -105,7 +170,7 @@ export default function PredictorDetailPage() {
       <div className="flex h-full flex-col items-center justify-center text-center">
         <p className="text-red-600">{error || "Predictor not found."}</p>
         <button
-          onClick={() => navigate(backTo)}
+          onClick={handleBack}
           className="mt-4 rounded-md bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200"
         >
           Back
@@ -119,11 +184,11 @@ export default function PredictorDetailPage() {
       case "meta":
         return <MetaTab predictor={predictor} />;
       case "dataset":
-        return <DatasetTab predictor={predictor} />;
+        return <DatasetTab predictor={predictor} navOrigin={navOrigin} />;
       case "retrain":
         return <RetrainTab predictor={predictor} />;
       case "cross-validation":
-        return <CrossValidationTab />;
+        return <CrossValidationTab predictor={predictor} />;
       default:
         return null;
     }
@@ -137,7 +202,7 @@ export default function PredictorDetailPage() {
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <button
-            onClick={() => navigate(backTo)}
+            onClick={handleBack}
             className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
             aria-label="Back"
           >
@@ -193,7 +258,7 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
   <div className={`rounded-md border border-neutral-200 bg-neutral-50 p-4 ${className}`}>{children}</div>
 );
 
-const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
+export const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="space-y-1">
     <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{label}</dt>
     <dd className="text-sm text-neutral-900">{value}</dd>
@@ -225,12 +290,23 @@ function MetaTab({ predictor }: { predictor: PredictorDetail }) {
   );
 }
 
-function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
+function DatasetTab({
+  predictor,
+  navOrigin,
+}: {
+  predictor: PredictorDetail;
+  navOrigin: "browse" | "dashboard";
+}) {
   const [activeView, setActiveView] = useState<DatasetSubTab>("correlations");
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [cvPredictions, setCvPredictions] = useState<CvPredictions | null>(null);
+  const [cvError, setCvError] = useState<string | null>(null);
+  const [isCvLoading, setIsCvLoading] = useState(false);
+
+  
 
   const datasetId = predictor.dataset?.dataset_id;
 
@@ -292,6 +368,12 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
     };
   }, [datasetId]);
 
+  useEffect(() => {
+    setCvPredictions(null);
+    setCvError(null);
+    setIsCvLoading(false);
+  }, [predictor?.predictor_id]);
+
   const generalStats = stats?.general_stats;
   const timeUnitLabel = generalStats?.time_unit || predictor.time_unit;
   const hasTimeStats =
@@ -304,6 +386,71 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
     () => stats?.event_time_histogram?.slice(0, MAX_HISTOGRAM_BARS) ?? [],
     [stats]
   );
+
+  const survivalHistogram = useMemo<SurvivalHistogramData | null>(() => {
+    if (!cvPredictions) return null;
+    const predicted = (cvPredictions.median_predictions ?? []).filter(
+      (val): val is number => typeof val === "number" && Number.isFinite(val)
+    );
+    if (!predicted.length) return null;
+
+    const rawMin = Math.min(...predicted);
+    const rawMax = Math.max(...predicted);
+    const padding = Math.max((rawMax - rawMin) * 0.05, 1);
+    const axisMin = getNiceFloor(Math.max(0, rawMin - padding));
+    const axisMaxCandidate = getNiceCeiling(rawMax + padding);
+    const axisMax = axisMaxCandidate <= axisMin ? axisMin + 1 : axisMaxCandidate;
+    const range = axisMax - axisMin || 1;
+    const fdBinWidth = getFreedmanDiaconisBinWidth(predicted);
+    const estimatedBins = fdBinWidth > 0 ? Math.round(range / fdBinWidth) : Math.round(Math.sqrt(predicted.length));
+    const binCount = Math.max(5, Math.min(MAX_HISTOGRAM_BARS, estimatedBins || 1));
+    const binWidth = range / binCount;
+
+    const bins: SurvivalHistogramBin[] = Array.from({ length: binCount }, (_, idx) => ({
+      bin_start: axisMin + idx * binWidth,
+      bin_end: axisMin + (idx + 1) * binWidth,
+      count: 0,
+    }));
+
+    const toIndex = (value: number) => {
+      if (value <= axisMin) return 0;
+      if (value >= axisMax) return binCount - 1;
+      const relative = (value - axisMin) / binWidth;
+      return Math.min(binCount - 1, Math.max(0, Math.floor(relative)));
+    };
+
+    predicted.forEach((value) => {
+      bins[toIndex(value)].count += 1;
+    });
+
+    return { bins, axisMin, axisMax };
+  }, [cvPredictions]);
+
+  useEffect(() => {
+    if (activeView !== "survivalHistogram") return;
+    if (!predictor || !predictor.predictor_id) return;
+    if (!predictor.model_id) {
+      setCvPredictions(null);
+      setCvError("This predictor has not been trained yet.");
+      return;
+    }
+    if (cvPredictions || isCvLoading) return;
+    setCvError(null);
+    setIsCvLoading(true);
+    getPredictorFullPredictions(predictor.predictor_id)
+      .then((data) => setCvPredictions(data))
+      .catch((err) => {
+        console.error("Failed to load full predictions", err);
+        const apiDetails = (err as { details?: unknown })?.details as Record<string, unknown> | undefined;
+        const message =
+          (apiDetails && typeof apiDetails.error === "string" && apiDetails.error) ||
+          (apiDetails && typeof apiDetails.message === "string" && apiDetails.message) ||
+          (typeof err?.message === "string" ? err.message : "Failed to load predicted survival data.");
+        setCvPredictions(null);
+        setCvError(message);
+      })
+      .finally(() => setIsCvLoading(false));
+  }, [activeView, predictor, cvPredictions, isCvLoading]);
 
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
@@ -346,14 +493,31 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
         return <EventHistogramChart bins={histogramBins} timeUnit={timeUnitLabel} />;
       case "survivalHistogram":
         return (
-          <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-            <p>Predicted survival histogram will be available once modelling outputs are produced.</p>
-          </div>
+          <PredictedSurvivalHistogram
+            histogram={survivalHistogram}
+            timeUnit={timeUnitLabel}
+            isLoading={isCvLoading}
+            error={cvError}
+            hasModel={Boolean(predictor.model_id)}
+          />
         );
       default:
         return null;
     }
-  }, [activeView, datasetId, handleRefreshStats, histogramBins, isInitialLoading, isRefreshing, stats, timeUnitLabel]);
+  }, [
+    activeView,
+    datasetId,
+    handleRefreshStats,
+    histogramBins,
+    isInitialLoading,
+    isRefreshing,
+    stats,
+    timeUnitLabel,
+    survivalHistogram,
+    cvError,
+    isCvLoading,
+    predictor,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -363,12 +527,13 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
             <InfoItem
               label="Dataset"
               value={
-                <Link
-                  to={`/datasets/${predictor.dataset.dataset_id}/view`}
-                  className="font-mono text-blue-600 hover:underline"
-                >
-                  {predictor.dataset.dataset_name}
-                </Link>
+              <Link
+                to={`/datasets/${predictor.dataset.dataset_id}/view`}
+                state={{ from: navOrigin }}
+                className="font-mono text-blue-600 hover:underline"
+              >
+                {predictor.dataset.dataset_name}
+              </Link>
               }
             />
             <InfoItem label="Dataset ID" value={predictor.dataset.dataset_id} />
@@ -448,7 +613,7 @@ function DatasetTab({ predictor }: { predictor: PredictorDetail }) {
 type FeatureCorrelationRow = DatasetStats["feature_correlations"][number];
 type HistogramBin = DatasetStats["event_time_histogram"][number];
 
-function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
+export function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
@@ -600,7 +765,7 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
   );
 }
 
-function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUnit?: string | null }) {
+export function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUnit?: string | null }) {
   if (!bins.length) {
     return (
       <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
@@ -609,7 +774,9 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     );
   }
 
-  const normalizedBins = bins.map((bin) => {
+  const normalizedBins: EventHistogramDatum[] = bins.map((bin) => {
+    const start = typeof bin.bin_start === "number" ? bin.bin_start : 0;
+    const end = typeof bin.bin_end === "number" ? bin.bin_end : start;
     const events = typeof bin.events === "number" ? bin.events : bin.count ?? 0;
     const censored =
       typeof bin.censored === "number"
@@ -618,118 +785,269 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     const total = typeof bin.count === "number" ? bin.count : events + censored;
     return {
       ...bin,
+      bin_start: start,
+      bin_end: end,
+      center: (start + end) / 2,
       events,
       censored,
       total,
     };
   });
 
-  const maxCount = Math.max(
-    ...normalizedBins.map((bin) => Math.max(bin.events, bin.censored, bin.total)),
-    1
+  const axisMin = Math.min(...normalizedBins.map((bin) => bin.bin_start ?? 0));
+  const axisMax = Math.max(...normalizedBins.map((bin) => bin.bin_end ?? 0));
+  const resolvedMin = Number.isFinite(axisMin) ? axisMin : 0;
+  const resolvedMax = Number.isFinite(axisMax) && axisMax > resolvedMin ? axisMax : resolvedMin + 1;
+  const range = resolvedMax - resolvedMin || 1;
+
+  const maxCount = Math.max(...normalizedBins.map((bin) => bin.total), 1);
+  const yTicks = Array.from({ length: EVENT_Y_TICKS }, (_, idx) =>
+    Math.round((maxCount / (EVENT_Y_TICKS - 1 || 1)) * idx)
   );
-
-  const chartHeight = 260;
-  const barWidth = 22;
-  const gap = 28;
-  const svgWidth = normalizedBins.length * (barWidth * 2 + gap) + gap;
-
-  const yTicks = [0.25, 0.5, 0.75, 1].map((fraction) => Math.round(maxCount * fraction));
+  const xTicks = Array.from({ length: EVENT_X_TICKS }, (_, idx) =>
+    resolvedMin + (range / (EVENT_X_TICKS - 1 || 1)) * idx
+  );
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <svg
-          width="100%"
-          height={chartHeight + 60}
-          viewBox={`0 0 ${Math.max(svgWidth, 700)} ${chartHeight + 60}`}
-          className="rounded border border-neutral-200 bg-white"
-        >
-          {yTicks.map((tick) => {
-            const y = chartHeight - (tick / maxCount) * chartHeight;
-            return (
-              <g key={tick}>
-                <line
-                  x1={0}
-                  x2={svgWidth}
-                  y1={y}
-                  y2={y}
-                  stroke="#e5e7eb"
-                  strokeDasharray="4 6"
-                />
-                <text
-                  x={5}
-                  y={y - 4}
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {normalizedBins.map((bin, index) => {
-            const baseX = gap + index * (barWidth * 2 + gap);
-            const eventsHeight = (bin.events / maxCount) * chartHeight;
-            const censoredHeight = (bin.censored / maxCount) * chartHeight;
-            return (
-              <g key={`${bin.bin_start}-${bin.bin_end}-${index}`}>
-                <rect
-                  x={baseX}
-                  y={chartHeight - eventsHeight}
-                  width={barWidth}
-                  height={eventsHeight}
-                  fill="#1d4ed8"
-                  rx={2}
-                />
-                <rect
-                  x={baseX + barWidth + 4}
-                  y={chartHeight - censoredHeight}
-                  width={barWidth}
-                  height={censoredHeight}
-                  fill="#e11d48"
-                  rx={2}
-                />
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 16}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-500"
-                >
-                  {formatHistogramLabel(bin.bin_start)}
-                </text>
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 30}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {formatHistogramLabel(bin.bin_end)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+      <div className="rounded border border-neutral-200 bg-white p-4">
+        <div className="h-[340px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={normalizedBins}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barGap={8}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[resolvedMin, resolvedMax]}
+                ticks={xTicks}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTicks}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<EventHistogramTooltip timeUnit={timeUnit} />} />
+              <Legend
+                verticalAlign="top"
+                height={32}
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Bar
+                dataKey="events"
+                name="Uncensored"
+                fill="#1d4ed8"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+              <Bar
+                dataKey="censored"
+                name="Censored"
+                fill="#e11d48"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <p className="text-xs text-neutral-500">
         Counts represent samples per time bucket{timeUnit ? ` (${timeUnit})` : ""}.
       </p>
-      <div className="flex flex-wrap gap-4 text-xs text-neutral-500">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-          Uncensored
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
-          Censored
-        </span>
-      </div>
     </div>
   );
 }
 
-function formatInteger(value: number | null | undefined): string {
+function PredictedSurvivalHistogram({
+  histogram,
+  timeUnit,
+  isLoading,
+  error,
+  hasModel,
+}: {
+  histogram: SurvivalHistogramData | null;
+  timeUnit?: string | null;
+  isLoading: boolean;
+  error: string | null;
+  hasModel: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <p>Loading predicted survival distribution…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!hasModel) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>This predictor has not been trained yet.</p>
+      </div>
+    );
+  }
+
+  if (!histogram || !histogram.bins.length) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>Predicted survival data is not available.</p>
+      </div>
+    );
+  }
+
+  const { bins, axisMin, axisMax } = histogram;
+  const maxValue = Math.max(...bins.map((bin) => bin.count), 1);
+  const range = axisMax - axisMin || 1;
+
+  const yTickValues = Array.from({ length: SURVIVAL_Y_TICKS }, (_, idx) =>
+    Math.round((maxValue / (SURVIVAL_Y_TICKS - 1 || 1)) * idx)
+  );
+  const xTickValues = Array.from({ length: SURVIVAL_X_TICKS }, (_, idx) =>
+    axisMin + (range / (SURVIVAL_X_TICKS - 1 || 1)) * idx
+  );
+
+  const chartData: SurvivalChartDatum[] = bins.map((bin) => ({
+    ...bin,
+    center: (bin.bin_start + bin.bin_end) / 2,
+  }));
+  const barSize = Math.max(8, Math.floor(600 / bins.length));
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded border border-neutral-200 bg-white p-4">
+        <div className="h-[360px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barSize={barSize}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[axisMin, axisMax]}
+                ticks={xTickValues}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTickValues}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<SurvivalTooltip timeUnit={timeUnit} />} />
+              <Bar
+                dataKey="count"
+                fill="#2563eb"
+                radius={[4, 4, 0, 0]}
+                name="Predicted median survival"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <p className="text-xs text-neutral-500">
+        Each bar counts test patients whose predicted median survival falls inside the matching time bucket.
+      </p>
+    </div>
+  );
+}
+
+function SurvivalTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
+
+  const datum = payload[0].payload as SurvivalChartDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Median survival</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} – {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Count: {datum.count}</p>
+    </div>
+  );
+}
+
+function EventHistogramTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) return null;
+  const datum = payload[0].payload as EventHistogramDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Time bucket</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} – {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Uncensored: {datum.events}</p>
+      <p className="text-neutral-500">Censored: {datum.censored}</p>
+      <p className="text-neutral-500">Total: {datum.total}</p>
+    </div>
+  );
+}
+
+export function formatInteger(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -772,7 +1090,7 @@ function formatScientific(value: number | null | undefined): string {
   return value.toExponential(5);
 }
 
-function formatWithUnit(value: number | null | undefined, unit?: string | null): string {
+export function formatWithUnit(value: number | null | undefined, unit?: string | null): string {
   const formatted = formatFloat(value);
   if (formatted === "—") {
     return formatted;
@@ -805,6 +1123,110 @@ function formatHistogramLabel(value: number | null | undefined): string {
   }
   const digits = Math.abs(value) >= 100 ? 0 : 1;
   return Number(value.toFixed(digits)).toLocaleString();
+}
+
+/**
+ * Calculate mean and standard deviation from an array of values
+ */
+function calculateMeanAndStd(values: number[]): { mean: number; std: number } {
+  if (!values || values.length === 0) {
+    return { mean: 0, std: 0 };
+  }
+
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+
+  if (values.length === 1) {
+    return { mean, std: 0 };
+  }
+
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  const std = Math.sqrt(variance);
+
+  return { mean, std };
+}
+
+/**
+ * Format a metric value with ± standard deviation
+ * Handles objects with {mean, std}, arrays, or single values
+ */
+function formatMetricWithStd(values: any, decimals: number = 3): string {
+  // Handle undefined or null
+  if (values === undefined || values === null) {
+    return "—";
+  }
+
+  // Handle object with mean and std properties (the actual format from backend)
+  if (typeof values === 'object' && values !== null && 'mean' in values && 'std' in values) {
+    const mean = Number(values.mean);
+    const std = Number(values.std);
+    if (!isNaN(mean) && !isNaN(std)) {
+      return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+    }
+  }
+
+  // Handle single number (not an array or object)
+  if (typeof values === 'number') {
+    return `${values.toFixed(decimals)} ± 0.000`;
+  }
+
+  // Handle array of values (calculate mean and std)
+  if (Array.isArray(values) && values.length > 0) {
+    const { mean, std } = calculateMeanAndStd(values);
+    return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+  }
+
+  return "—";
+}
+
+function getNiceCeiling(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 1;
+  }
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized <= 1) niceNormalized = 1;
+  else if (normalized <= 2) niceNormalized = 2;
+  else if (normalized <= 5) niceNormalized = 5;
+  else niceNormalized = 10;
+  return niceNormalized * magnitude;
+}
+
+function getNiceFloor(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized >= 5) niceNormalized = 5;
+  else if (normalized >= 2) niceNormalized = 2;
+  else niceNormalized = 1;
+  const candidate = niceNormalized * magnitude;
+  return candidate > value ? candidate - magnitude : candidate;
+}
+
+function getFreedmanDiaconisBinWidth(values: number[]): number {
+  if (values.length < 2) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const q1 = getPercentile(sorted, 0.25);
+  const q3 = getPercentile(sorted, 0.75);
+  const iqr = q3 - q1;
+  if (iqr <= 0) return 0;
+  return (2 * iqr) / Math.cbrt(values.length);
+}
+
+function getPercentile(sortedValues: number[], percentile: number): number {
+  if (!sortedValues.length) return 0;
+  const index = (sortedValues.length - 1) * percentile;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+  const weight = index - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
 }
 
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
@@ -874,7 +1296,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   const handleRetrain = async () => {
     setIsRetraining(true);
     const retrainingConfig = {
-      features: Array.from(selectedFeatures),
+      selected_features: Array.from(selectedFeatures),
       parameters: {
         num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
         regularization,
@@ -890,13 +1312,32 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
         run_cross_validation: runCrossValidation,
         standardize_features: standardizeFeatures,
       },
+      model_id: predictor.model_id
     };
-    console.log("TODO: Start retraining with config:", retrainingConfig);
-    // TODO: Replace with actual API call to the backend retraining endpoint
-    // Example: await api.post(`/api/predictors/${predictor.predictor_id}/retrain/`, retrainingConfig);
-    await new Promise((res) => setTimeout(res, 2000)); // Simulate API delay
-    setIsRetraining(false);
-    alert("Retraining job started! (See console for config)");
+    try {
+      const response = await fetch("http://localhost:5000/retrain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(retrainingConfig),
+      });
+
+      // Check if the response was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      alert(`Retraining job started! New model ID: ${data.model_id}`);
+
+    } catch (err: any) {
+      console.error("Retrain failed:", err);
+      alert(`Retraining failed: ${err.message}`);
+    } finally {
+      setIsRetraining(false);
+    }
   };
 
   return (
@@ -1165,59 +1606,199 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   );
 }
 
-function CrossValidationTab() {
+function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
+  const [activeView, setActiveView] = useState<"statistics" | "individual" | "dcalibration" | "kaplanmeier">("statistics");
+  const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
+  const [isLoadingCurves, setIsLoadingCurves] = useState(false);
+  const [curvesError, setCurvesError] = useState<string | null>(null);
+
+  const handleViewIndividualPredictions = useCallback(async () => {
+    // Switch to individual view immediately
+    setActiveView("individual");
+    
+    if (!predictor.model_id) {
+      setCurvesError("This predictor has not been trained yet.");
+      return;
+    }
+
+    if (survivalCurves) {
+      return;
+    }
+
+    setIsLoadingCurves(true);
+    setCurvesError(null);
+    try {
+      const data = await getPredictorSurvivalCurves(predictor.predictor_id);
+      setSurvivalCurves(data);
+    } catch (err) {
+      console.error("Failed to load survival curves", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load survival curves data. Please try again.";
+      setCurvesError(errorMessage);
+    } finally {
+      setIsLoadingCurves(false);
+    }
+  }, [predictor.predictor_id, predictor.model_id, survivalCurves]);
+
   return (
     <div className="space-y-6">
       {/* centered actions row */}
       <div className="flex flex-wrap justify-center gap-2">
-        <button className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white">
+        <button
+          onClick={() => setActiveView("statistics")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "statistics"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
           5-Fold Cross-Validation Statistics
         </button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">
           Download Predictions (CSV)
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Individual Predictions</button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">D-Calibration Histogram</button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Kaplan Meier Visualization</button>
+        <button
+          onClick={handleViewIndividualPredictions}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "individual"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Individual Predictions
+        </button>
+        <button
+          onClick={() => setActiveView("dcalibration")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "dcalibration"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          D-Calibration Histogram
+        </button>
+        <button
+          onClick={() => setActiveView("kaplanmeier")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "kaplanmeier"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Kaplan Meier Visualization
+        </button>
         <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Show Feature Weights</button>
       </div>
 
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-neutral-100">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">Measure</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (median)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (mean)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">K-M Predictor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {[
-                "Concordance Index",
-                "Hinged L1 Loss",
-                "Uncensored L1 Loss",
-                "Marginal L1 Loss",
-                "Hinged L1 Log-Loss",
-                "Uncensored L1 Log-Loss",
-                "Marginal L2 Loss",
-                "Log-Likelihood Loss",
-                "D-calibration χ² statistic",
-                "D-calibration p-value",
-              ].map((row) => (
-                <tr key={row} className="odd:bg-white even:bg-neutral-50">
-                  <td className="px-3 py-2 text-neutral-800">{row}</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-neutral-500">* mean ± standard deviation.</p>
+      {activeView === "kaplanmeier" ? (
+        <Card>
+          <KaplanMeierVisualization
+            predictorId={predictor.predictor_id}
+            predictorName={predictor.name}
+            timeUnit={predictor.time_unit}
+          />
+        </Card>
+      ) : activeView === "dcalibration" ? (
+        <Card>
+          <DCalibrationHistogram 
+            predictorId={predictor.predictor_id} 
+            predictorName={predictor.name}
+          />
+        </Card>
+      ) : activeView === "individual" ? (
+        <Card>
+          {curvesError ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p className="text-red-600">{curvesError}</p>
+            </div>
+          ) : isLoadingCurves ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+              <p>Loading survival curves...</p>
+            </div>
+          ) : survivalCurves ? (
+            <IndividualSurvivalCurves 
+              data={survivalCurves} 
+              timeUnit={predictor.time_unit} 
+              predictorId={predictor.predictor_id}
+            />
+          ) : (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p>No survival curves data available.</p>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
+
+            {!predictor.ml_model_metrics ? (
+              <div className="py-8 text-center text-sm text-neutral-500">
+                <p>No metrics available. This predictor may not have been trained yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-neutral-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-700">Metric</th>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-700">Value (mean ± std)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Concordance Index (C-index)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.Cindex, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Integrated Brier Score (IBS)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.IBS, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">MAE Hinge</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.MAE_Hinge, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">MAE PO</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.MAE_PO, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">KM Calibration</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.KM_cal, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">X-Calibration Statistics</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.xCal_stats, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">WSC X-Calibration Statistics</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.wsc_xCal_stats, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">D-Calibration p-value</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.dcal_p, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">D-Calibration χ² statistic</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.dcal_Chi, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Training Time (seconds)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.train_times, 3)}</td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">Inference Time (seconds)</td>
+                        <td className="px-3 py-2 text-neutral-600 font-mono">{formatMetricWithStd(predictor.ml_model_metrics.infer_times, 3)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  * Values shown as mean ± standard deviation across cross-validation folds.
+                </p>
+              </>
+            )}
       </Card>
 
       <Card>
@@ -1249,6 +1830,8 @@ function CrossValidationTab() {
           <div className="h-56 w-full rounded border-2 border-neutral-300" />
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

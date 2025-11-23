@@ -19,6 +19,13 @@ class Predictor(models.Model):
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="predictors")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_predictors")
     is_private = models.BooleanField(default=False)  # False = public, True = private
+    # The model_id from the ML server
+    model_id = models.CharField(
+        unique=True,     # if each ML model is used by only one predictor
+        null=True,       # predictor might exist before training completes
+        blank=True,
+        help_text="Unique identifier for the trained model from the ML server."
+    )
 
     class Meta:
         ordering = ["name"]
@@ -54,12 +61,6 @@ class Predictor(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-    ml_model_id = models.CharField(
-        max_length=100, 
-        null=True, 
-        blank=True,
-        help_text="ID of the trained ML model from the ML API"
-    )
     ml_trained_at = models.DateTimeField(
         null=True, 
         blank=True,
