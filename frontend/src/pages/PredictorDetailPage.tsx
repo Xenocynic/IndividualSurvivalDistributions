@@ -14,7 +14,7 @@ import type { TooltipProps } from "recharts";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
-import { getPredictorFullPredictions, getPredictorSurvivalCurves, type CvPredictions, type SurvivalCurvesData } from "../lib/predictors";
+import { getPredictorFullPredictions, getPredictorSurvivalCurves, getTrainingStatus, retrainPredictorAsync, type CvPredictions, type SurvivalCurvesData } from "../lib/predictors";
 import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
@@ -199,7 +199,7 @@ export default function PredictorDetailPage() {
       case "dataset":
         return <DatasetTab predictor={predictor} navOrigin={navOrigin} />;
       case "retrain":
-        return <RetrainTab predictor={predictor} />;
+        return <RetrainTab predictor={predictor} onShowTrainingModal={() => setShowTrainingModal(true)} />;
       case "cross-validation":
         return <CrossValidationTab predictor={predictor} />;
       default:
@@ -1210,7 +1210,7 @@ function getPercentile(sortedValues: number[], percentile: number): number {
   return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
 }
 
-function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
+function RetrainTab({ predictor, onShowTrainingModal }: { predictor: PredictorDetail; onShowTrainingModal: () => void }) {
   // --- State for Features ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
@@ -1276,42 +1276,29 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   // --- Retrain Handler ---
   const handleRetrain = async () => {
     setIsRetraining(true);
-    const retrainingConfig = {
-      selected_features: Array.from(selectedFeatures),
-      parameters: {
-        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      },
-      model_id: predictor.model_id
-    };
     try {
-      const response = await fetch("http://localhost:5000/retrain", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await retrainPredictorAsync(predictor.predictor_id, predictor.model_id, {
+        selected_features: Array.from(selectedFeatures),
+        parameters: {
+          num_time_points: numTimePoints === '' ? null : Number(numTimePoints),
+          regularization,
+          objective_function: objectiveFunction,
+          marginal_loss_type: marginalLossType,
+          c_param_search_scope: cParamSearchScope,
+          cox_feature_selection: coxFeatureSelection,
+          mrmr_feature_selection: mrmrFeatureSelection,
+          mtlr_predictor: mtlrPredictor,
+          tune_parameters: tuneParameters,
+          use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+          use_predefined_folds: usePredefinedFolds,
+          run_cross_validation: runCrossValidation,
+          standardize_features: standardizeFeatures,
+          n_exp: 10  // default folds
         },
-        body: JSON.stringify(retrainingConfig),
       });
 
-      // Check if the response was successful
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      alert(`Retraining job started! New model ID: ${data.model_id}`);
+      // Show training modal
+      onShowTrainingModal();
 
     } catch (err: any) {
       console.error("Retrain failed:", err);
@@ -1320,6 +1307,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       setIsRetraining(false);
     }
   };
+
 
   return (
     <div className="space-y-8">

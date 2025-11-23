@@ -294,6 +294,30 @@ export async function getTrainingStatus(predictorId: number): Promise<{
 }
 
 /**
+ * Start async retraining for a predictor
+ */
+export async function retrainPredictorAsync(
+  predictorId: number,
+  modelId: string,
+  config: {
+    selected_features?: string[];
+    parameters?: Record<string, any>;
+  }
+): Promise<{
+  message: string;
+  predictor_id: number;
+  task_id: string;
+  status: string;
+}> {
+  return api.post('/api/predictors/ml/retrain-async/', {
+    predictor_id: predictorId,
+    model_id: modelId,
+    selected_features: config.selected_features,
+    parameters: config.parameters,
+  });
+}
+
+/**
  * Make a prediction using a trained predictor's ML model
  */
 export async function predictWithPredictor(

@@ -784,6 +784,118 @@ def ml_retrain_model(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+def ml_retrain_model_async(request):
+    """
+    Triggers ASYNCHRONOUS retraining job on the ML API with progress tracking.
+    Returns immediately with task_id, then retraining continues in background.
+
+    Request body:
+    {
+        "predictor_id": 123,  // REQUIRED - the predictor to retrain
+        "model_id": "model_xyz",  // REQUIRED - existing model to retrain from
+        "selected_features": [...],  // Optional feature list
+        "parameters": {       // Optional training parameters
+            "n_epochs": 100,
+            "dropout": 0.2,
+            "neurons": [64, 64],
+            "n_exp": 10
+        }
+    }
+
+    Response:
+    {
+        "message": "Retraining started",
+        "predictor_id": 123,
+        "task_id": "abc-123-def-456"
+    }
+
+    Use GET /api/predictors/{predictor_id}/training-status/ to poll for progress.
+    """
+    try:
+        from .models import Predictor
+        from .training_tasks import train_model_task
+
+        predictor_id = request.data.get('predictor_id')
+        model_id = request.data.get('model_id')
+
+        if not predictor_id:
+            return Response(
+                {"error": "predictor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not model_id:
+            return Response(
+                {"error": "model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify predictor exists and user has access
+        try:
+            predictor = Predictor.objects.get(predictor_id=predictor_id)
+            if predictor.owner != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "Access denied"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Predictor.DoesNotExist:
+            return Response(
+                {"error": f"Predictor {predictor_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get dataset path from predictor
+        dataset = predictor.dataset
+        if not dataset or not dataset.file_path:
+            return Response(
+                {"error": "Dataset has no associated file."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+        if not os.path.exists(full_file_path):
+            return Response(
+                {"error": f"Dataset file not found at path: {full_file_path}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get parameters
+        parameters = request.data.get('parameters', {})
+        selected_features = request.data.get('selected_features', None)
+
+        # Add selected features to parameters if provided
+        if selected_features:
+            parameters['selected_features'] = selected_features
+
+        # Mark predictor as training
+        predictor.ml_training_status = 'training'
+        predictor.save()
+
+        # Dispatch Celery task
+        task = train_model_task.delay(predictor_id, full_file_path, parameters)
+
+        # Store task ID in predictor for tracking
+        predictor.ml_training_progress = {"task_id": task.id, "status": "queued"}
+        predictor.save()
+
+        return Response({
+            "message": "Retraining started",
+            "predictor_id": predictor_id,
+            "task_id": task.id,
+            "status": "training"
+        }, status=status.HTTP_202_ACCEPTED)
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to start async retraining: {str(e)}")
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
 def ml_predict(request):
     """
     Make predictions using a trained model
