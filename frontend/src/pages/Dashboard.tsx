@@ -74,12 +74,15 @@ type Tab = "predictors" | "datasets" | "folders";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const currentUserId = (user as any)?.id ?? (user as any)?.pk;
+  const currentUserId = useMemo(
+    () => (user as any)?.id ?? (user as any)?.pk,
+    [user]
+  );
   const navigate = useNavigate();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // dderive activeTab from URL (?tab=predictors|datasets|folders)
+  // derive activeTab from URL (?tab=predictors|datasets|folders)
   const activeTab: Tab = (() => {
     const q = searchParams.get("tab");
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
@@ -106,24 +109,21 @@ export default function Dashboard() {
   // Track which tabs have been loaded
   const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set());
 
-  // selection is per-tab
-  const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(
-    null
-  );
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
-    null
-  );
+  // Combined selection state
+  const [selection, setSelection] = useState({
+    predictorId: null as string | null,
+    datasetId: null as string | null,
+  });
 
-  // separate search states for each tab
-  const [predictorQuery, setPredictorQuery] = useState("");
-  const [datasetQuery, setDatasetQuery] = useState("");
-  const [folderQuery, setFolderQuery] = useState("");
-
-  // separate ownership filters for each tab
-  const [predictorOwnership, setPredictorOwnership] =
-    useState<Ownership>("all");
-  const [datasetOwnership, setDatasetOwnership] = useState<Ownership>("all");
-  const [folderOwnership, setFolderOwnership] = useState<Ownership>("all");
+  // Combined tab state
+  const [tabState, setTabState] = useState({
+    predictorQuery: "",
+    datasetQuery: "",
+    folderQuery: "",
+    predictorOwnership: "all" as Ownership,
+    datasetOwnership: "all" as Ownership,
+    folderOwnership: "all" as Ownership,
+  });
 
   // delete modal
   const [pendingDelete, setPendingDelete] = useState<PredictorItem | null>(
@@ -172,69 +172,43 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    // Early return if tab already loaded
+    if (loadedTabs.has(activeTab)) {
+      setIsLoading(false);
+      return;
+    }
+
     let mounted = true;
-    // AbortController for cleanup if component unmounts or user changes rapidly
     const controller = new AbortController();
-
-    // Track whether the fetch finished
-    let didFinish = false;
-
+    
     setError(null);
+    
+    const loadingTimer = setTimeout(() => {
+      if (mounted) setIsLoading(true);
+    }, 300);
 
-    // After 300 ms, show the loading screen
-    const SHOW_LOADING_DELAY = 300;
-
-    // track whether we’ve already fetched data for this tab
-    const isInitialPredictorFetch =
-      !loadedTabs.has("predictors") && activeTab === "predictors";
-    const isInitialDatasetFetch =
-      !loadedTabs.has("datasets") && activeTab === "datasets";
-    const isInitialFolderFetch =
-      !loadedTabs.has("folders") && activeTab === "folders";
-    const isInitialFetch =
-      isInitialPredictorFetch || isInitialDatasetFetch || isInitialFolderFetch;
-
-    // Define loadingTimer
-    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
-
-    async function fetchActive() {
-      // If we already have data for this tab, don't fetch and clear loading
-      if (!isInitialFetch) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Only trigger loader delay if it's the first fetch of the data
-      loadingTimer = setTimeout(() => {
-        if (!didFinish && mounted) setIsLoading(true);
-      }, SHOW_LOADING_DELAY);
-
+    const fetchData = async () => {
       try {
-        // Always fetch folders alongside the active tab data
         const promises = [];
 
         if (activeTab === "predictors") {
           promises.push(
-            api
-              .get<PredictorItem[]>(`/api/predictors/`)
-              .then((predictorData) => {
-                if (!mounted) return;
-                const currentUserId =
-                  (user as any)?.id ?? (user as any)?.pk ?? undefined;
-                const mapped = Array.isArray(predictorData)
-                  ? predictorData.map((it) =>
-                      mapApiPredictorToUi(it, currentUserId)
-                    )
-                  : [];
-                setPredictors(mapped);
-              })
+            api.get<PredictorItem[]>(`/api/predictors/`, { 
+              signal: controller.signal 
+            }).then((predictorData) => {
+              if (!mounted) return;
+              const mapped = Array.isArray(predictorData)
+                ? predictorData.map((it) => mapApiPredictorToUi(it, currentUserId))
+                : [];
+              setPredictors(mapped);
+            })
           );
         } else if (activeTab === "datasets") {
           promises.push(
-            api.get<DatasetItem[]>(`/api/datasets/`).then((data) => {
+            api.get<DatasetItem[]>(`/api/datasets/`, { 
+              signal: controller.signal 
+            }).then((data) => {
               if (!mounted) return;
-              const currentUserId =
-                (user as any)?.id ?? (user as any)?.pk ?? undefined;
               const mapped = Array.isArray(data)
                 ? data.map((it) => mapApiDatasetToUi(it, currentUserId))
                 : [];
@@ -242,39 +216,41 @@ export default function Dashboard() {
             })
           );
         }
-        // For folders tab, we only need to fetch folders (handled below)
 
         // Always fetch folders
         promises.push(fetchFolders());
 
         await Promise.all(promises);
-      } catch (err: any) {
-        if (err?.status === 0) {
-          setError("Network error");
-        } else {
-          setError(
-            err?.details?.message ?? err?.statusText ?? "Failed to load"
-          );
+        
+        if (mounted) {
+          setLoadedTabs(prev => new Set(prev).add(activeTab));
         }
-        console.error("Fetch error", error);
+      } catch (err: any) {
+        // Ignore abort errors
+        if (err.name === 'AbortError') return;
+        
+        if (mounted) {
+          if (err?.status === 0) {
+            setError("Network error");
+          } else {
+            setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
+          }
+          console.error("Fetch error", err);
+        }
       } finally {
-        // clear the timeout no matter what
-        didFinish = true;
-        if (loadingTimer) clearTimeout(loadingTimer);
+        clearTimeout(loadingTimer);
         if (mounted) setIsLoading(false);
       }
-    }
+    };
 
-    // debounce fetch start by 250 ms
-    const t = window.setTimeout(() => fetchActive(), 250);
+    fetchData();
 
     return () => {
       mounted = false;
       controller.abort();
-      clearTimeout(t);
-      if (loadingTimer) clearTimeout(loadingTimer);
+      clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]);
+  }, [activeTab, loadedTabs, currentUserId]);
 
   // Simple loading state management
   useEffect(() => {
@@ -301,46 +277,51 @@ export default function Dashboard() {
     loadedTabs,
   ]);
 
-  // filter functionality for predictors and datasets - uses tab-specific states
+  // filter functionality for predictors and datasets
   const filteredPredictors = useMemo(() => {
-    const q = predictorQuery.trim().toLowerCase();
-    let list = predictors.filter((it) =>
-      q ? it.title.toLowerCase().includes(q) : true
-    );
-    if (predictorOwnership === "owner") list = list.filter((it) => it.owner);
-    if (predictorOwnership === "viewer") list = list.filter((it) => !it.owner);
-    return list;
-  }, [predictors, predictorQuery, predictorOwnership]);
+    if (!tabState.predictorQuery && tabState.predictorOwnership === 'all') {
+      return predictors;
+    }
+    
+    const q = tabState.predictorQuery.trim().toLowerCase();
+    return predictors.filter(it => {
+      if (q && !it.title.toLowerCase().includes(q)) return false;
+      if (tabState.predictorOwnership === 'owner' && !it.owner) return false;
+      if (tabState.predictorOwnership === 'viewer' && it.owner) return false;
+      return true;
+    });
+  }, [predictors, tabState.predictorQuery, tabState.predictorOwnership]);
 
   const filteredDatasets = useMemo(() => {
-    const q = datasetQuery.trim().toLowerCase();
-    let list = datasets.filter((it) => {
+    if (!tabState.datasetQuery && tabState.datasetOwnership === 'all') {
+      return datasets;
+    }
+    
+    const q = tabState.datasetQuery.trim().toLowerCase();
+    return datasets.filter(it => {
       const title = it?.title ?? "";
-      return q ? title.toLowerCase().includes(q) : true;
+      if (q && !title.toLowerCase().includes(q)) return false;
+      if (tabState.datasetOwnership === 'owner' && !it.owner) return false;
+      if (tabState.datasetOwnership === 'viewer' && it.owner) return false;
+      return true;
     });
-    if (datasetOwnership === "owner") list = list.filter((it) => it.owner);
-    if (datasetOwnership === "viewer") list = list.filter((it) => !it.owner);
-    return list;
-  }, [datasets, datasetQuery, datasetOwnership]);
+  }, [datasets, tabState.datasetQuery, tabState.datasetOwnership]);
 
   // filter folders based on search, ownership, type, and sorting
   const filteredFolders = useMemo(() => {
-    const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
-
-    // Start with all folders
     let list = folders;
 
     // Apply ownership filter
     list = list.filter((folder) => {
       const isOwner = currentUserId ? folder.owner.id === currentUserId : false;
-      if (folderOwnership === "owner") return isOwner;
-      if (folderOwnership === "viewer") return !isOwner;
+      if (tabState.folderOwnership === "owner") return isOwner;
+      if (tabState.folderOwnership === "viewer") return !isOwner;
       return true;
     });
 
     // Apply search query (searches both folders and items)
-    if (folderQuery.trim()) {
-      const q = folderQuery.trim().toLowerCase();
+    if (tabState.folderQuery.trim()) {
+      const q = tabState.folderQuery.trim().toLowerCase();
       list = list.filter((folder) => {
         // Search in folder name and description
         const folderMatch =
@@ -367,45 +348,48 @@ export default function Dashboard() {
     return list;
   }, [
     folders,
-    folderQuery,
-    folderOwnership,
+    tabState.folderQuery,
+    tabState.folderOwnership,
     folderTypeFilter,
     folderSortOption,
-    user,
+    currentUserId,
   ]);
 
   // if you click, you select it and can choose to edit or delete / view
-  const toggleSelect = (id: string) => {
-    if (activeTab == "predictors") {
-      setSelectedPredictorId((curr) => (curr === id ? null : id));
-      setSelectedDatasetId(null);
+  const toggleSelect = useCallback((id: string) => {
+    if (activeTab === "predictors") {
+      setSelection(prev => ({
+        predictorId: prev.predictorId === id ? null : id,
+        datasetId: null
+      }));
     } else {
-      setSelectedDatasetId((curr) => (curr === id ? null : id));
-      setSelectedPredictorId(null)
+      setSelection(prev => ({
+        datasetId: prev.datasetId === id ? null : id,
+        predictorId: null
+      }));
     }
-  }
+  }, [activeTab]);
 
   // remove selection established above
   const clearSelection = useCallback(() => {
-    setSelectedPredictorId(null);
-    setSelectedDatasetId(null);
+    setSelection({ predictorId: null, datasetId: null });
   }, []);
 
   // create Predictor - navigate to the Create Predictor page
-  function createPredictor() {
+  const createPredictor = useCallback(() => {
     navigate("/predictors/new");
-  }
+  }, [navigate]);
 
   // create Dataset - navigate to the Upload/Create Dataset page
-  function addDataset() {
+  const addDataset = useCallback(() => {
     navigate("/datasets/new");
-  }
+  }, [navigate]);
 
   // Folder management functions
-  function handleCreateFolder() {
+  const handleCreateFolder = useCallback(() => {
     setShowFolderModal(true);
     setFolderError(null);
-  }
+  }, []);
 
   async function handleFolderCreation(data: CreateFolderRequest) {
     setIsCreatingFolder(true);
@@ -478,11 +462,11 @@ export default function Dashboard() {
     }
   }
 
-  async function handleRemoveFromFolder(
+  const handleRemoveFromFolder = useCallback(async (
     itemId: string,
     itemType: "predictor" | "dataset",
     folderId: string
-  ) {
+  ) => {
     // Set loading states
     setLoadingFolders((prev) => new Set(prev).add(folderId));
 
@@ -526,31 +510,29 @@ export default function Dashboard() {
         return newSet;
       });
     }
-  }
+  }, []);
 
-  const handleDrop = (item: DragItem, folderId?: string) => {
+  const handleDrop = useCallback((item: DragItem, folderId?: string) => {
     moveItem(item, folderId);
-  };
+  }, [moveItem]);
 
   // navigate to edit page
-  function editItem(id: string) {
+  const editItem = useCallback((id: string) => {
     if (activeTab === "predictors") {
-      // Navigate to predictor edit page
       navigate(`/predictors/${id}/edit`);
     } else {
-      // Navigate to dataset edit page
       navigate(`/datasets/${id}/edit`);
     }
-  }
+  }, [activeTab, navigate]);
 
-  // navigate to view page - WIRED
-  function viewItem(id: string) {
+  // navigate to view page
+  const viewItem = useCallback((id: string) => {
     if (activeTab === "predictors") {
       navigate(`/predictors/${id}`, { state: { from: "dashboard" } });
     } else {
       navigate(`/datasets/${id}/view`);
     }
-  }
+  }, [activeTab, navigate]);
 
   // download dataset file
   async function downloadItem(id: string, allowAdminAccess: boolean, isOwner: boolean) {
@@ -592,8 +574,8 @@ export default function Dashboard() {
         // Remove from local state after successful API call
         setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
 
-        if (selectedPredictorId == predictorId) {
-          setSelectedPredictorId(null);
+        if (selection.predictorId === predictorId) {
+          setSelection(prev => ({ ...prev, predictorId: null }));
         }
       } else {
         // Delete dataset via API
@@ -602,7 +584,9 @@ export default function Dashboard() {
 
         // Remove from local state after successful API call
         setDatasets((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-        if (selectedDatasetId === pendingDelete.id) setSelectedDatasetId(null);
+        if (selection.datasetId === pendingDelete.id) {
+          setSelection(prev => ({ ...prev, datasetId: null }));
+        }
       }
 
       setPendingDelete(null);
@@ -615,14 +599,6 @@ export default function Dashboard() {
       setIsDeleting(false);
     }
   }
-
-  const list = useMemo(() => {
-    return activeTab === "predictors"
-    ? filteredPredictors
-    : activeTab === "datasets"
-    ? filteredDatasets
-    : folders;
-  }, [activeTab, filteredPredictors, filteredDatasets, folders]);
 
   return (
     <DragDropProvider>
@@ -666,35 +642,39 @@ export default function Dashboard() {
               }}
               query={
                 activeTab === "predictors"
-                  ? predictorQuery
+                  ? tabState.predictorQuery
                   : activeTab === "datasets"
-                  ? datasetQuery
-                  : folderQuery
+                  ? tabState.datasetQuery
+                  : tabState.folderQuery
               }
-              onQueryChange={
-                activeTab === "predictors"
-                  ? setPredictorQuery
-                  : activeTab === "datasets"
-                  ? setDatasetQuery
-                  : setFolderQuery
-              }
+              onQueryChange={(value) => {
+                if (activeTab === "predictors") {
+                  setTabState(prev => ({ ...prev, predictorQuery: value }));
+                } else if (activeTab === "datasets") {
+                  setTabState(prev => ({ ...prev, datasetQuery: value }));
+                } else {
+                  setTabState(prev => ({ ...prev, folderQuery: value }));
+                }
+              }}
               onCreatePredictor={createPredictor}
               onCreateDataset={addDataset}
               onCreateFolder={handleCreateFolder}
               ownership={
                 activeTab === "predictors"
-                  ? predictorOwnership
+                  ? tabState.predictorOwnership
                   : activeTab === "datasets"
-                  ? datasetOwnership
-                  : folderOwnership
+                  ? tabState.datasetOwnership
+                  : tabState.folderOwnership
               }
-              onOwnershipChange={
-                activeTab === "predictors"
-                  ? setPredictorOwnership
-                  : activeTab === "datasets"
-                  ? setDatasetOwnership
-                  : setFolderOwnership
-              }
+              onOwnershipChange={(value) => {
+                if (activeTab === "predictors") {
+                  setTabState(prev => ({ ...prev, predictorOwnership: value }));
+                } else if (activeTab === "datasets") {
+                  setTabState(prev => ({ ...prev, datasetOwnership: value }));
+                } else {
+                  setTabState(prev => ({ ...prev, folderOwnership: value }));
+                }
+              }}
               folderTypeFilter={
                 activeTab === "folders" ? folderTypeFilter : undefined
               }
@@ -769,8 +749,6 @@ export default function Dashboard() {
                 {/* Folders Grid */}
                 <div className='grid gap-4 sm:grid-cols-1 lg:grid-cols-2'>
                   {filteredFolders.map((folder) => {
-                    const currentUserId =
-                      (user as any)?.id ?? (user as any)?.pk ?? undefined;
                     return (
                       <div
                         key={`folder-${folder.folder_id}`}
@@ -800,15 +778,15 @@ export default function Dashboard() {
                           onItemSelect={(itemId, itemType) => {
                             // Handle item selection within folders
                             if (itemType === "predictor") {
-                              setSelectedPredictorId((prev) =>
-                                prev === itemId ? null : itemId
-                              );
-                              setSelectedDatasetId(null);
+                              setSelection(prev => ({
+                                predictorId: prev.predictorId === itemId ? null : itemId,
+                                datasetId: null
+                              }));
                             } else {
-                              setSelectedDatasetId((prev) =>
-                                prev === itemId ? null : itemId
-                              );
-                              setSelectedPredictorId(null);
+                              setSelection(prev => ({
+                                datasetId: prev.datasetId === itemId ? null : itemId,
+                                predictorId: null
+                              }));
                             }
                           }}
                           onItemEdit={(itemId, _itemType) => editItem(itemId)}
@@ -829,10 +807,8 @@ export default function Dashboard() {
                           }
                           selectedItems={
                             new Set([
-                              ...(selectedPredictorId
-                                ? [selectedPredictorId]
-                                : []),
-                              ...(selectedDatasetId ? [selectedDatasetId] : []),
+                              ...(selection.predictorId ? [selection.predictorId] : []),
+                              ...(selection.datasetId ? [selection.datasetId] : []),
                             ])
                           }
                           currentUserId={currentUserId}
@@ -870,13 +846,13 @@ export default function Dashboard() {
                 >
                   {/* Individual Items - show items not in folders */}
                   {activeTab === "predictors"
-                    ? filteredPredictors // Use specific array
+                    ? filteredPredictors
                         .filter((item) => !item.folderId)
                         .map((it) => (
                           <PredictorCard
                             key={it.id}
                             item={it}
-                            selected={selectedPredictorId === it.id} 
+                            selected={selection.predictorId === it.id} 
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
@@ -889,13 +865,13 @@ export default function Dashboard() {
                             isLoading={isItemLoading(it.id)}
                           />
                         ))
-                    : filteredDatasets // Use specific array 
+                    : filteredDatasets
                         .filter((item) => !item.folderId)
                         .map((it) => (
                           <DatasetCard
                             key={it.id}
                             item={{ ...it, owner: Boolean(it.owner) }}
-                            selected={selectedDatasetId === it.id}
+                            selected={selection.datasetId === it.id}
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
@@ -922,7 +898,7 @@ export default function Dashboard() {
                           />
                         ))}
 
-                  {/* Empty state hint - Adjusted to use specific arrays */}
+                  {/* Empty state hint */}
                   {(activeTab === "predictors" ? filteredPredictors : filteredDatasets)
                     .filter((item) => !item.folderId).length === 0 &&
                     !isLoading && (
