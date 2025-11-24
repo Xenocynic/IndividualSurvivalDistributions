@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
@@ -54,7 +54,7 @@ export default function Browse() {
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
   })();
 
-  const selectTab = (t: Tab) => {
+  const selectTab = useCallback((t: Tab) => {
     setSearchParams(prev => {
       const sp = new URLSearchParams(prev);
       sp.set("tab", t);
@@ -62,7 +62,7 @@ export default function Browse() {
     }, { replace: true });
     setSelectedPredictorId(null);
     setSelectedDatasetId(null);
-  };
+  }, [setSearchParams]);
 
   // Track loaded tabs to prevent re-fetching
   const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set());
@@ -103,7 +103,8 @@ export default function Browse() {
 
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
-  function toggleSelect(id: string) {
+
+  const toggleSelect = useCallback((id: string) => {
     if (activeTab === "predictors") {
       setSelectedPredictorId((curr) => (curr === id ? null : id));
       setSelectedDatasetId(null);
@@ -111,10 +112,10 @@ export default function Browse() {
       setSelectedDatasetId((curr) => (curr === id ? null : id));
       setSelectedPredictorId(null);
     }
-  }
+  }, [activeTab]);
 
   // Fetch pinned predictors from your backend API
-  async function fetchPinnedPredictors() {
+  const fetchPinnedPredictors = useCallback(async () => {
     if (!user) {
       return;
     }
@@ -125,12 +126,12 @@ export default function Browse() {
     } catch (err) {
       console.error("Failed to fetch pinned predictors:", err);
     }
-  }
+  }, [user]);
 
   // ----------------------------
   // Fetch pinned datasets
   // ----------------------------
-  async function fetchPinnedDatasets() {
+  const fetchPinnedDatasets = useCallback(async () => {
     if (!user) {
       return;
     }
@@ -141,14 +142,14 @@ export default function Browse() {
     } catch (err) {
       console.error("Failed to fetch pinned datasets:", err);
     }
-  }
+  }, [user]);
 
   // Load pinned predictors from backend on mount
   // Call on mount or whenever the active tab is "predictors"
   useEffect(() => {
     if (activeTab === "predictors") fetchPinnedPredictors();
     else if (activeTab === "datasets") fetchPinnedDatasets();
-  }, [user, activeTab]);
+  }, [user, activeTab, fetchPinnedPredictors, fetchPinnedDatasets]);
 
   // ----------------------------
   // Fetch data for active tab
@@ -330,7 +331,8 @@ export default function Browse() {
   // Toggle pin (predictors & datasets)
   // ----------------------------
 
-  async function togglePin(id: string) {
+  // Memoized to prevent button re-renders in list items
+  const togglePin = useCallback(async (id: string) => {
     if (!user) return;
 
     if (activeTab === "predictors") {
@@ -371,20 +373,20 @@ export default function Browse() {
         });
       }
     }
-  }
+  }, [user, activeTab, pinnedPredictorIds, pinnedDatasetIds]);
 
   // Separate function for folder pinning
-  function toggleFolderPin(folderId: string) {
+  const toggleFolderPin = useCallback((folderId: string) => {
     setPinnedFolderIds((prev) => {
       const next = new Set(prev);
       if (next.has(folderId)) next.delete(folderId);
       else next.add(folderId);
       return next;
     });
-  }
+  }, []);
 
   // download dataset file
-  async function downloadDataset(id: string) {
+  const downloadDataset = useCallback(async (id: string) => {
     try {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
@@ -399,10 +401,11 @@ export default function Browse() {
     } catch (error: any) {
       alert(`Download failed: ${error.message || 'Unknown error'}`);
     }
-  }
+  }, []);
 
   // Folder expansion handlers
-  async function handleToggleFolderExpand(folderId: string) {
+  // Optimization: Memoized, includes folders dependency since we read from it
+  const handleToggleFolderExpand = useCallback(async (folderId: string) => {
     const isExpanded = expandedFolders.has(folderId);
 
     if (isExpanded) {
@@ -434,24 +437,24 @@ export default function Browse() {
 
       if (folder) addFolderToRecent(folder);
     }
-  }
+  }, [expandedFolders, folders]);
 
   // Recent folder selection handler
-  function handleRecentFolderSelect(folderId: string) {
+  const handleRecentFolderSelect = useCallback((folderId: string) => {
     setExpandedFolders(prev => new Set(prev).add(folderId));
     setTimeout(() => {
       const element = document.getElementById(`browse-folder-${folderId}`);
       if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
-  }
+  }, []);
 
-  function handleItemView(itemId: string, itemType: 'predictor' | 'dataset') {
+  const handleItemView = useCallback((itemId: string, itemType: 'predictor' | 'dataset') => {
     if (itemType === 'predictor') {
       window.open(`/predictors/${itemId}/view`, '_blank');
     } else {
       window.open(`/datasets/${itemId}/view`, '_blank');
     }
-  }
+  }, []);
 
   const tabLabel = activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders";
 
