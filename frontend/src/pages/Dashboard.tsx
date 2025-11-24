@@ -24,7 +24,7 @@
  * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
@@ -71,34 +71,6 @@ import {
 import type { FolderSortOption, FolderType } from "../components/folder";
 
 type Tab = "predictors" | "datasets" | "folders";
-
-// mock data - remove or comment out once we get frontend / backend connected
-// const MOCK_PREDICTORS: PredictorItem[] = [
-//   { id: "1", title: "Predictor A", status: "DRAFT", updatedAt: "2 days ago", owner: true,
-//     notes:  "This is a description of Predictor A. It is quite frankly the worst predictor ever."
-//     },
-//   { id: "2", title: "Predictor B", status: "DRAFT", updatedAt: "5 days ago", owner: false,
-//     notes: "This is a description of Predictor B. It is quite frankly the BEST predictor ever!"
-//     },
-//   { id: "3", title: "Super Magical Disease Detector", status: "DRAFT", updatedAt: "1 week ago", owner: false,
-//         notes: "This is a description of the most super duper magical predictor ever!!! It works like... a charm!!!!!"
-//     },
-//   { id: "4", title: "Liver Cancer Remission", status: "PUBLISHED", updatedAt: "Mar 10, 2009", owner: true,
-//     notes: "This is a description of the most serious predictor on the list."
-//     },
-// ];
-
-// const MOCK_DATASETS: PredictorItem[] = [
-//   { id: "d1", title: "Hospital Readmissions 2024", updatedAt: "3 days ago", owner: true,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d2", title: "Cancer Registry Cohort", updatedAt: "Aug 20, 2023", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d3", title: "CERVICAL CANCER CSV Upload", updatedAt: "Jul 02, 2010", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-// ];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -193,7 +165,6 @@ export default function Dashboard() {
         ? folderData.map((it) => mapApiFolderToUi(it))
         : [];
       setFolders(mapped);
-      console.log("mapped folders:", JSON.parse(JSON.stringify(mapped)));
     } catch (err: any) {
       console.error("Failed to fetch folders:", err);
       // Don't set error for folders as it's not critical
@@ -215,11 +186,11 @@ export default function Dashboard() {
 
     // track whether we’ve already fetched data for this tab
     const isInitialPredictorFetch =
-      predictors.length === 0 && activeTab === "predictors";
+      !loadedTabs.has("predictors") && activeTab === "predictors";
     const isInitialDatasetFetch =
-      datasets.length === 0 && activeTab === "datasets";
+      !loadedTabs.has("datasets") && activeTab === "datasets";
     const isInitialFolderFetch =
-      folders.length === 0 && activeTab === "folders";
+      !loadedTabs.has("folders") && activeTab === "folders";
     const isInitialFetch =
       isInitialPredictorFetch || isInitialDatasetFetch || isInitialFolderFetch;
 
@@ -256,10 +227,6 @@ export default function Dashboard() {
                     )
                   : [];
                 setPredictors(mapped);
-                console.log(
-                  "mapped predictors:",
-                  JSON.parse(JSON.stringify(mapped))
-                );
               })
           );
         } else if (activeTab === "datasets") {
@@ -272,10 +239,6 @@ export default function Dashboard() {
                 ? data.map((it) => mapApiDatasetToUi(it, currentUserId))
                 : [];
               setDatasets(mapped);
-              console.log(
-                "mapped datasets:",
-                JSON.parse(JSON.stringify(mapped))
-              );
             })
           );
         }
@@ -412,21 +375,21 @@ export default function Dashboard() {
   ]);
 
   // if you click, you select it and can choose to edit or delete / view
-  function toggleSelect(id: string) {
-    if (activeTab === "predictors") {
+  const toggleSelect = (id: string) => {
+    if (activeTab == "predictors") {
       setSelectedPredictorId((curr) => (curr === id ? null : id));
       setSelectedDatasetId(null);
     } else {
       setSelectedDatasetId((curr) => (curr === id ? null : id));
-      setSelectedPredictorId(null);
+      setSelectedPredictorId(null)
     }
   }
 
   // remove selection established above
-  function clearSelection() {
+  const clearSelection = useCallback(() => {
     setSelectedPredictorId(null);
     setSelectedDatasetId(null);
-  }
+  }, []);
 
   // create Predictor - navigate to the Create Predictor page
   function createPredictor() {
@@ -589,10 +552,6 @@ export default function Dashboard() {
     }
   }
 
-  // Handle double-click navigation - commented ot because its not meant tp do anything now
-  //function handleCardDoubleClick(id: string) {
-  //}
-
   // download dataset file
   async function downloadItem(id: string, allowAdminAccess: boolean, isOwner: boolean) {
     try {
@@ -657,14 +616,13 @@ export default function Dashboard() {
     }
   }
 
-  const list =
-    activeTab === "predictors"
-      ? filteredPredictors
-      : activeTab === "datasets"
-      ? filteredDatasets
-      : [];
-  const selectedId =
-    activeTab === "predictors" ? selectedPredictorId : selectedDatasetId;
+  const list = useMemo(() => {
+    return activeTab === "predictors"
+    ? filteredPredictors
+    : activeTab === "datasets"
+    ? filteredDatasets
+    : folders;
+  }, [activeTab, filteredPredictors, filteredDatasets, folders]);
 
   return (
     <DragDropProvider>
@@ -702,7 +660,7 @@ export default function Dashboard() {
               activeTab={activeTab}
               onTabChange={(t) => {
                 selectTab(t);                
-                if (t === "folders") {
+                if (t === "folders" && !loadedTabs.has("folders")) {
                   void fetchFolders();        
                 }
               }}
@@ -912,13 +870,13 @@ export default function Dashboard() {
                 >
                   {/* Individual Items - show items not in folders */}
                   {activeTab === "predictors"
-                    ? list
-                        .filter((item) => !item.folderId) // Only show items not in folders
+                    ? filteredPredictors // Use specific array
+                        .filter((item) => !item.folderId)
                         .map((it) => (
                           <PredictorCard
                             key={it.id}
                             item={it}
-                            selected={selectedId === it.id}
+                            selected={selectedPredictorId === it.id} 
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
@@ -931,13 +889,13 @@ export default function Dashboard() {
                             isLoading={isItemLoading(it.id)}
                           />
                         ))
-                    : list
-                        .filter((item) => !item.folderId) // Only show items not in folders
+                    : filteredDatasets // Use specific array 
+                        .filter((item) => !item.folderId)
                         .map((it) => (
                           <DatasetCard
                             key={it.id}
                             item={{ ...it, owner: Boolean(it.owner) }}
-                            selected={selectedId === it.id}
+                            selected={selectedDatasetId === it.id}
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
@@ -947,10 +905,15 @@ export default function Dashboard() {
                             }
                             onView={viewItem}
                             onDownload={() => {
-                              const isOwner = isUserOwner(it.owner, currentUserId);
+                              const isOwner = isUserOwner(
+                                it.owner,
+                                currentUserId
+                              );
                               downloadItem(
                                 it.id,
-                                'allow_admin_access' in it ? it.allow_admin_access ?? false : false,
+                                "allow_admin_access" in it
+                                  ? it.allow_admin_access ?? false
+                                  : false,
                                 isOwner
                               );
                             }}
@@ -959,8 +922,9 @@ export default function Dashboard() {
                           />
                         ))}
 
-                  {/* Empty state hint for drag and drop - only show if not loading */}
-                  {list.filter((item) => !item.folderId).length === 0 &&
+                  {/* Empty state hint - Adjusted to use specific arrays */}
+                  {(activeTab === "predictors" ? filteredPredictors : filteredDatasets)
+                    .filter((item) => !item.folderId).length === 0 &&
                     !isLoading && (
                       <div className='col-span-full flex items-center justify-center py-12 text-center'>
                         <div className='max-w-sm'>
