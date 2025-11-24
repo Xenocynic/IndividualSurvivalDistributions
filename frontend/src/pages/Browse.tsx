@@ -64,6 +64,9 @@ export default function Browse() {
     setSelectedDatasetId(null);
   };
 
+  // Track loaded tabs to prevent re-fetching
+  const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set());
+
   // Separate search states for each tab
   const [predictorQuery, setPredictorQuery] = useState("");
   const [datasetQuery, setDatasetQuery] = useState("");
@@ -158,6 +161,13 @@ export default function Browse() {
     let didFinish = false;
     let loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // Check if already loaded to avoid repeated fetching
+    // Skip if activeTab is "folders" as that is handled by a separate effect
+    if (loadedTabs.has(activeTab) || activeTab === "folders") {
+        setIsLoading(false);
+        return;
+    }
+
     const SHOW_LOADING_DELAY = 300;
 
     // Track whether we've already fetched data for this tab
@@ -193,6 +203,8 @@ export default function Browse() {
             return item;
           });
           setPredictors(uiPreds);
+          // Mark as loaded
+          setLoadedTabs(prev => new Set(prev).add("predictors"));
         } else if (activeTab === "datasets") {
           const apiDsets = await listPublicDatasets();
           if (!mounted) return;
@@ -212,6 +224,8 @@ export default function Browse() {
             return item;
           });
           setDatasets(uiDsets);
+          // Mark as loaded
+          setLoadedTabs(prev => new Set(prev).add("datasets"));
         }
       } catch (err: any) {
         if (err?.status === 0) setError("Network error");
@@ -232,13 +246,16 @@ export default function Browse() {
       clearTimeout(t);
       if (loadingTimer) clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, activeTab, loadedTabs]); // Added loadedTabs dependency
 
   // Separate effect to fetch folders (always loaded)
   useEffect(() => {
     let mounted = true;
 
     async function fetchFolders() {
+      // if folders are already loaded, skip
+      if (folders.length > 0) return;
+
       try {
         const apiFolders = await listPublicFolders();
         if (!mounted) return;
