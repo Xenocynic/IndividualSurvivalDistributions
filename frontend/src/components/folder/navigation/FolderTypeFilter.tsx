@@ -17,11 +17,11 @@ interface FolderTypeFilterProps {
   className?: string;
 }
 
-const TYPE_OPTIONS: { value: FolderType; label: string; icon: string }[] = [
-  { value: "all", label: "All Folders", icon: "📁" },
-  { value: "predictor-only", label: "Predictors Only", icon: "🔮" },
-  { value: "dataset-only", label: "Datasets Only", icon: "📊" },
-  { value: "mixed", label: "Mixed Content", icon: "📦" },
+const TYPE_OPTIONS: { value: FolderType; label: string; }[] = [
+  { value: "all", label: "All Folders"},
+  { value: "predictor-only", label: "Predictors Only"},
+  { value: "dataset-only", label: "Datasets Only"},
+  { value: "mixed", label: "Mixed Content" },
 ];
 
 export default function FolderTypeFilter({
@@ -55,7 +55,6 @@ export default function FolderTypeFilter({
       >
         <Filter className="h-4 w-4 text-gray-500" />
         <span className="hidden sm:inline">{currentOption.label}</span>
-        <span className="sm:hidden">{currentOption.icon}</span>
       </button>
 
       {open && (
@@ -74,7 +73,7 @@ export default function FolderTypeFilter({
                 onChange(option.value);
               }}
             >
-              <span className="text-lg">{option.icon}</span>
+              <span className="text-lg"></span>
               <span>{option.label}</span>
             </button>
           ))}
