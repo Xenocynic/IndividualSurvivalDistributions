@@ -179,23 +179,36 @@ export function mapApiPredictorToUi(
     }
   };
 
+  // Choose a single "raw" updated timestamp from the API payload.
+  const rawUpdated =
+    item.updated_at ??
+    item.updatedAt ??
+    item.modified ??
+    item.last_edited ??
+    undefined;
+
   return {
     id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
     title: item.name ?? item.title ?? "Untitled predictor",
-    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
-    updatedAt:
-      formatDate(item.updated_at) ??
-      item.modified ??
-      item.last_edited ??
-      undefined,
+    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"),
+
+    // Human-readable date for display
+    updatedAt: rawUpdated ? formatDate(rawUpdated) : undefined,
+
+    // Raw ISO-ish timestamp for filtering/sorting
+    updatedAtRaw: rawUpdated,
+
+    // Owner is coerced to a boolean relative to the current user id
     owner:
       typeof item.owner === "number" && currentUserId !== undefined
         ? item.owner === currentUserId
         : Boolean(item.owner),
+
     notes: item.description ?? item.notes ?? "",
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
   };
+
 }
 
 // ========================================

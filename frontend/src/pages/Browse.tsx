@@ -10,43 +10,105 @@ import {
   FolderTypeFilter,
   RecentFolders,
   type FolderSortOption,
-  type FolderType
+  type FolderType,
 } from "../components/folder";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
-import { listPublicPredictors, listPinnedPredictors, pinPredictor, unpinPredictor } from "../lib/predictors";
-import { listPublicFolders, getPublicFolderContents, mapApiFolderToUi, type Folder } from "../lib/folders";
-import { listPublicDatasets, listPinnedDatasets, pinDataset, unpinDataset, downloadDatasetFile } from "../lib/datasets";
+import {
+  listPublicPredictors,
+  listPinnedPredictors,
+  pinPredictor,
+  unpinPredictor,
+} from "../lib/predictors";
+import {
+  listPublicFolders,
+  getPublicFolderContents,
+  mapApiFolderToUi,
+  type Folder,
+} from "../lib/folders";
+import {
+  listPublicDatasets,
+  listPinnedDatasets,
+  pinDataset,
+  unpinDataset,
+  downloadDatasetFile,
+} from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
 import { useAuth } from "../auth/AuthContext";
-import {
-  sortFolders,
-  filterFoldersByType,
-  DEFAULT_FOLDER_SORT,
-} from "../lib/folderUtils";
+import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
 import { useNavigate, useSearchParams } from "react-router-dom";
+
+import {
+  filterPredictors,
+  sortPredictors,
+  filterDatasets,
+  sortDatasets,
+  filterFolders,
+} from "../lib/filtering";
+import type {
+  PredictorFilterState,
+  DatasetFilterState,
+  FolderFilterState,
+} from "../types/flitering";
+import type { PredictorItem } from "../components/PredictorCard";
+import type { DatasetItem } from "../components/DatasetCard";
 
 type Tab = "predictors" | "datasets" | "folders";
 
 /**
- * Item is the local UI shape used by Browse cards.
- * We derive it from API objects via the mapper layer, then normalize
- * here into the fields Browse needs (title / owner / visibility / notes/etc.).
+ * Browse-specific extensions to the base card item types
+ * used on the Dashboard.
  */
-type Item = {
-  id: string;
-  title: string;
-  updatedAt: string;
-  isPublic: boolean;
-  ownerName: string;
-  notes?: string;
+type BrowseBase = {
+  ownerName?: string | null | undefined;
+  // raw timestamp for chronological filtering
+  updatedAtRaw?: string | null | undefined;
+  // these are mainly used for datasets but kept shared for simplicity
   hasFile?: boolean;
-  originalFilename?: string;
+  originalFilename?: string | null | undefined;
 };
+
+type BrowsePredictor = PredictorItem & BrowseBase;
+type BrowseDataset = DatasetItem & BrowseBase;
+type BrowseItem = BrowsePredictor | BrowseDataset;
+
+// local types for advanced filters
+type KeywordTarget = "title" | "notes" | "both";
+type TimeWindow = "any" | "7d" | "30d" | "365d";
+
+const DEFAULT_PREDICTOR_SORT = {
+  field: "updatedAt" as const,
+  direction: "desc" as const,
+};
+
+const DEFAULT_DATASET_SORT = {
+  field: "updatedAt" as const,
+  direction: "desc" as const,
+};
+
+// helper: updatedWithin matcher (uses raw ISO timestamp where possible)
+function matchesUpdatedWithin(
+  updatedAt: string | null | undefined,
+  window: TimeWindow
+): boolean {
+  if (!updatedAt || window === "any") return true;
+
+  const parsed = Date.parse(updatedAt);
+  // if we can't parse the date, don't exclude it
+  if (Number.isNaN(parsed)) return true;
+
+  const now = Date.now();
+  const days =
+    window === "7d" ? 7 : window === "30d" ? 30 : window === "365d" ? 365 : 0;
+  if (days <= 0) return true;
+
+  const cutoff = now - days * 24 * 60 * 60 * 1000;
+  return parsed >= cutoff;
+}
 
 export default function Browse() {
   const { user } = useAuth();
 
-  // tab navigation ahndling (same thing as Dashboard mostly)
+  // tab navigation handling (same thing as Dashboard mostly)
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab: Tab = (() => {
@@ -55,11 +117,14 @@ export default function Browse() {
   })();
 
   const selectTab = (t: Tab) => {
-    setSearchParams(prev => {
-      const sp = new URLSearchParams(prev);
-      sp.set("tab", t);
-      return sp;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("tab", t);
+        return sp;
+      },
+      { replace: true }
+    );
     setSelectedPredictorId(null);
     setSelectedDatasetId(null);
   };
@@ -70,14 +135,36 @@ export default function Browse() {
   const [folderQuery, setFolderQuery] = useState("");
 
   // Separate visibility filters for each tab
-  const [predictorVisibility, setPredictorVisibility] = useState<Visibility>("all");
-  const [datasetVisibility, setDatasetVisibility] = useState<Visibility>("all");
+  const [predictorVisibility, setPredictorVisibility] =
+    useState<Visibility>("all");
+  const [datasetVisibility, setDatasetVisibility] =
+    useState<Visibility>("all");
   const [folderVisibility, setFolderVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
 
+  // --- Advanced filter state (Browse only) ---
+
+  // where to search (title / notes / both)
+  const [predictorKeywordTarget, setPredictorKeywordTarget] =
+    useState<KeywordTarget>("both");
+  const [datasetKeywordTarget, setDatasetKeywordTarget] =
+    useState<KeywordTarget>("both");
+
+  // updated within time windows
+  const [predictorUpdatedWithin, setPredictorUpdatedWithin] =
+    useState<TimeWindow>("any");
+  const [datasetUpdatedWithin, setDatasetUpdatedWithin] =
+    useState<TimeWindow>("any");
+
+  // owner username search (shared between predictors/datasets)
+  const [ownerNameQuery, setOwnerNameQuery] = useState("");
+
+  // datasets: only show those with a downloadable file
+  const [datasetHasFileOnly, setDatasetHasFileOnly] = useState(false);
+
   // API-loaded data (mapped through the mappers)
-  const [predictors, setPredictors] = useState<Item[]>([]);
-  const [datasets, setDatasets] = useState<Item[]>([]);
+  const [predictors, setPredictors] = useState<BrowsePredictor[]>([]);
+  const [datasets, setDatasets] = useState<BrowseDataset[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
 
   // Loading state
@@ -85,21 +172,35 @@ export default function Browse() {
   const [error, setError] = useState<string | null>(null);
 
   // Pinned IDs separated per tab (pinning is ONLY on Browse)
-  const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
-  const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
-  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(new Set());
+  const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(
+    new Set()
+  );
 
   // Folder expansion state
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
 
   // Folder-specific filters (search uses main query state)
-  const [folderSortOption, setFolderSortOption] = useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
+  const [folderSortOption, setFolderSortOption] =
+    useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
   const navigate = useNavigate();
 
-  const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(
+    null
+  );
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
+    null
+  );
+
   function toggleSelect(id: string) {
     if (activeTab === "predictors") {
       setSelectedPredictorId((curr) => (curr === id ? null : id));
@@ -112,25 +213,23 @@ export default function Browse() {
 
   // Fetch pinned predictors from your backend API
   async function fetchPinnedPredictors() {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
+
     try {
-      const pinned = await listPinnedPredictors(); // call your API
-      const pinnedSet = new Set(pinned.map((p) => String(p.predictor.predictor_id)));
+      const pinned = await listPinnedPredictors();
+      const pinnedSet = new Set(
+        pinned.map((p) => String(p.predictor.predictor_id))
+      );
       setPinnedPredictorIds(pinnedSet);
     } catch (err) {
       console.error("Failed to fetch pinned predictors:", err);
     }
   }
 
-  // ----------------------------
   // Fetch pinned datasets
-  // ----------------------------
   async function fetchPinnedDatasets() {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
+
     try {
       const pinned = await listPinnedDatasets();
       const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
@@ -140,16 +239,11 @@ export default function Browse() {
     }
   }
 
-  // Load pinned predictors from backend on mount
-  // Call on mount or whenever the active tab is "predictors"
+  // Load pinned items from backend on mount / tab change
   useEffect(() => {
     if (activeTab === "predictors") fetchPinnedPredictors();
     else if (activeTab === "datasets") fetchPinnedDatasets();
   }, [user, activeTab]);
-
-  // ----------------------------
-  // Fetch data for active tab
-  // ----------------------------
 
   // Fetch & map once on mount or when tab changes
   useEffect(() => {
@@ -161,8 +255,10 @@ export default function Browse() {
     const SHOW_LOADING_DELAY = 300;
 
     // Track whether we've already fetched data for this tab
-    const isInitialPredictorFetch = predictors.length === 0 && activeTab === "predictors";
-    const isInitialDatasetFetch = datasets.length === 0 && activeTab === "datasets";
+    const isInitialPredictorFetch =
+      predictors.length === 0 && activeTab === "predictors";
+    const isInitialDatasetFetch =
+      datasets.length === 0 && activeTab === "datasets";
     const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
 
     setError(null);
@@ -180,42 +276,44 @@ export default function Browse() {
         if (activeTab === "predictors") {
           const apiPreds = await listPublicPredictors();
           if (!mounted) return;
-          const uiPreds = apiPreds.map((p: any) => {
+
+          const uiPreds: BrowsePredictor[] = apiPreds.map((p: any) => {
             const ui = toPredictorItem(p);
-            const item: Item = {
-              id: ui.id,
-              title: ui.title,
-              updatedAt: ui.updatedAt ?? "",
-              isPublic: !!ui.isPublic,
+            // extend the Dashboard-style UI item with browse-specific fields
+            const item: BrowsePredictor = {
+              ...ui,
               ownerName: p.owner?.username || "Unknown Owner",
-              notes: ui.notes,
+              updatedAtRaw: (p as any).updated_at ?? null,
             };
             return item;
           });
+
           setPredictors(uiPreds);
         } else if (activeTab === "datasets") {
           const apiDsets = await listPublicDatasets();
           if (!mounted) return;
-          const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
-          const uiDsets = apiDsets.map((d) => {
+          const currentUserId =
+            (user as any)?.id ?? (user as any)?.pk ?? undefined;
+
+          const uiDsets: BrowseDataset[] = apiDsets.map((d: any) => {
             const ui = toDatasetItem(d, currentUserId);
-            const item: Item = {
-              id: ui.id,
-              title: ui.title,
-              updatedAt: ui.updatedAt ?? "",
-              isPublic: !!(d as any).is_public,
-              ownerName: ui.ownerName || (d as any).owner_name || "Owner",
-              notes: ui.notes,
-              hasFile: ui.hasFile,
-              originalFilename: ui.originalFilename,
+            const item: BrowseDataset = {
+              ...ui,
+              // prefer mapper's ownerName, fall back to API field
+              ownerName: ui.ownerName || d.owner_name || "Owner",
+              updatedAtRaw: d.updated_at ?? null,
             };
             return item;
           });
+
           setDatasets(uiDsets);
         }
       } catch (err: any) {
         if (err?.status === 0) setError("Network error");
-        else setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
+        else
+          setError(
+            err?.details?.message ?? err?.statusText ?? "Failed to load"
+          );
         console.error("Fetch error", err);
       } finally {
         didFinish = true;
@@ -232,7 +330,7 @@ export default function Browse() {
       clearTimeout(t);
       if (loadingTimer) clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, activeTab, predictors.length, datasets.length]);
 
   // Separate effect to fetch folders (always loaded)
   useEffect(() => {
@@ -244,10 +342,13 @@ export default function Browse() {
         if (!mounted) return;
         const uiFolders = apiFolders
           .map(mapApiFolderToUi)
-          .filter(folder => !folder.is_private && folder.public_item_count > 0);
+          .filter(
+            (folder) =>
+              !folder.is_private && folder.public_item_count > 0
+          );
         setFolders(uiFolders);
       } catch (err) {
-        console.error('Failed to fetch folders:', err);
+        console.error("Failed to fetch folders:", err);
       }
     }
 
@@ -258,61 +359,167 @@ export default function Browse() {
     };
   }, [user]);
 
-  const list = activeTab === "predictors" ? predictors : activeTab === "datasets" ? datasets : [];
+  // base list for pinned panel (only predictors/datasets)
+  const list: BrowseItem[] =
+    activeTab === "predictors"
+      ? predictors
+      : activeTab === "datasets"
+      ? datasets
+      : [];
 
-  const filtered = useMemo(() => {
-    if (activeTab === "folders") return [];
+  // filtered items for predictors / datasets
+  const filteredPredictors = useMemo<BrowsePredictor[]>(() => {
+    if (activeTab !== "predictors") return [];
 
-    const currentQuery = activeTab === "predictors" ? predictorQuery : datasetQuery;
-    const currentVisibility = activeTab === "predictors" ? predictorVisibility : datasetVisibility;
+    const keywords = predictorQuery.trim()
+      ? predictorQuery.trim().split(/\s+/)
+      : [];
 
-    const q = currentQuery.trim().toLowerCase();
-    let arr = list.filter((it) => (q ? it.title.toLowerCase().includes(q) : true));
-    if (currentVisibility === "public") arr = arr.filter((it) => it.isPublic);
-    if (currentVisibility === "private") arr = arr.filter((it) => !it.isPublic);
-    return arr;
-  }, [list, predictorQuery, datasetQuery, predictorVisibility, datasetVisibility, activeTab]);
+    const filter: PredictorFilterState = {
+      keywords,
+      keywordTarget: predictorKeywordTarget,
+      ownership: "all",
+      visibility: predictorVisibility,
+    };
+
+    // base keyword + visibility filtering
+    let base = filterPredictors(
+      predictors,
+      filter
+    ) as BrowsePredictor[];
+
+    // owner-name filter
+    if (ownerNameQuery.trim()) {
+      const needle = ownerNameQuery.trim().toLowerCase();
+      base = base.filter((item) =>
+        (item.ownerName ?? "").toLowerCase().includes(needle)
+      );
+    }
+
+    // time window filter (use raw timestamp if available)
+    if (predictorUpdatedWithin !== "any") {
+      base = base.filter((item) =>
+        matchesUpdatedWithin(
+          item.updatedAtRaw ?? item.updatedAt,
+          predictorUpdatedWithin
+        )
+      );
+    }
+
+    return sortPredictors(
+      base,
+      DEFAULT_PREDICTOR_SORT
+    ) as BrowsePredictor[];
+  }, [
+    activeTab,
+    predictors,
+    predictorQuery,
+    predictorVisibility,
+    predictorKeywordTarget,
+    predictorUpdatedWithin,
+    ownerNameQuery,
+  ]);
+
+  const filteredDatasets = useMemo<BrowseDataset[]>(() => {
+    if (activeTab !== "datasets") return [];
+
+    const keywords = datasetQuery.trim()
+      ? datasetQuery.trim().split(/\s+/)
+      : [];
+
+    const filter: DatasetFilterState = {
+      keywords,
+      keywordTarget: datasetKeywordTarget,
+      ownership: "all",
+      visibility: datasetVisibility,
+    };
+
+    // base keyword + visibility filtering
+    let base = filterDatasets(
+      datasets,
+      filter
+    ) as BrowseDataset[];
+
+    // owner-name filter
+    if (ownerNameQuery.trim()) {
+      const needle = ownerNameQuery.trim().toLowerCase();
+      base = base.filter((item) =>
+        (item.ownerName ?? "").toLowerCase().includes(needle)
+      );
+    }
+
+    // time window filter (use raw timestamp if available)
+    if (datasetUpdatedWithin !== "any") {
+      base = base.filter((item) =>
+        matchesUpdatedWithin(
+          item.updatedAtRaw ?? item.updatedAt,
+          datasetUpdatedWithin
+        )
+      );
+    }
+
+    // has-file-only filter
+    if (datasetHasFileOnly) {
+      base = base.filter((item) => !!item.hasFile);
+    }
+
+    return sortDatasets(base, DEFAULT_DATASET_SORT) as BrowseDataset[];
+  }, [
+    activeTab,
+    datasets,
+    datasetQuery,
+    datasetVisibility,
+    datasetKeywordTarget,
+    datasetUpdatedWithin,
+    ownerNameQuery,
+    datasetHasFileOnly,
+  ]);
+
+  const filtered: BrowseItem[] =
+    activeTab === "predictors"
+      ? filteredPredictors
+      : activeTab === "datasets"
+      ? filteredDatasets
+      : [];
 
   // Filter folders based on search, visibility, type, and sorting
   const filteredFolders = useMemo(() => {
-    let folderArr = folders;
+    const keywords = folderQuery.trim()
+      ? folderQuery.trim().split(/\s+/)
+      : [];
 
-    // Apply search query
-    if (folderQuery.trim()) {
-      const q = folderQuery.trim().toLowerCase();
-      folderArr = folderArr.filter((folder) => {
-        const folderMatch = folder.name.toLowerCase().includes(q) ||
-          (folder.description && folder.description.toLowerCase().includes(q));
-        const contentMatch = folder.items?.some(item =>
-          item.title.toLowerCase().includes(q) ||
-          (item.notes && item.notes.toLowerCase().includes(q))
-        );
-        return folderMatch || contentMatch;
-      });
-    }
+    const filter: FolderFilterState = {
+      keywords,
+      keywordTarget: "both",
+      // Browse doesn't care about owner/viewer split; we show all public folders
+      ownership: "all",
+      visibility: folderVisibility,
+      folderType: folderTypeFilter,
+    };
 
-    // Apply visibility filter
-    if (folderVisibility === "public") folderArr = folderArr.filter((folder) => !folder.is_private);
-    if (folderVisibility === "private") folderArr = folderArr.filter((folder) => folder.is_private);
-
-    // Apply type filter
-    folderArr = filterFoldersByType(folderArr, folderTypeFilter);
-
-    // Apply sorting
-    folderArr = sortFolders(folderArr, folderSortOption);
-
-    return folderArr;
-  }, [folders, folderQuery, folderVisibility, folderTypeFilter, folderSortOption]);
+    const base = filterFolders(folders, filter);
+    return sortFolders(base, folderSortOption);
+  }, [
+    folders,
+    folderQuery,
+    folderVisibility,
+    folderTypeFilter,
+    folderSortOption,
+  ]);
 
   const pinnedSet =
-    activeTab === "predictors" ? pinnedPredictorIds :
-    activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
-  const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
+    activeTab === "predictors"
+      ? pinnedPredictorIds
+      : activeTab === "datasets"
+      ? pinnedDatasetIds
+      : pinnedFolderIds;
 
-  // ----------------------------
+  const pinned =
+    activeTab === "folders"
+      ? []
+      : list.filter((it) => pinnedSet.has(it.id));
+
   // Toggle pin (predictors & datasets)
-  // ----------------------------
-
   async function togglePin(id: string) {
     if (!user) return;
 
@@ -320,7 +527,8 @@ export default function Browse() {
       const isPinned = pinnedPredictorIds.has(id);
       setPinnedPredictorIds((prev) => {
         const next = new Set(prev);
-        if (isPinned) next.delete(id); else next.add(id);
+        if (isPinned) next.delete(id);
+        else next.add(id);
         return next;
       });
       try {
@@ -331,7 +539,8 @@ export default function Browse() {
         // rollback
         setPinnedPredictorIds((prev) => {
           const next = new Set(prev);
-          if (isPinned) next.add(id); else next.delete(id);
+          if (isPinned) next.add(id);
+          else next.delete(id);
           return next;
         });
       }
@@ -339,7 +548,8 @@ export default function Browse() {
       const isPinned = pinnedDatasetIds.has(id);
       setPinnedDatasetIds((prev) => {
         const next = new Set(prev);
-        if (isPinned) next.delete(id); else next.add(id);
+        if (isPinned) next.delete(id);
+        else next.add(id);
         return next;
       });
       try {
@@ -349,7 +559,8 @@ export default function Browse() {
         console.error("Failed to toggle dataset pin:", err);
         setPinnedDatasetIds((prev) => {
           const next = new Set(prev);
-          if (isPinned) next.add(id); else next.delete(id);
+          if (isPinned) next.add(id);
+          else next.delete(id);
           return next;
         });
       }
@@ -372,7 +583,7 @@ export default function Browse() {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
@@ -380,7 +591,7 @@ export default function Browse() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
-      alert(`Download failed: ${error.message || 'Unknown error'}`);
+      alert(`Download failed: ${error.message || "Unknown error"}`);
     }
   }
 
@@ -389,27 +600,27 @@ export default function Browse() {
     const isExpanded = expandedFolders.has(folderId);
 
     if (isExpanded) {
-      setExpandedFolders(prev => {
+      setExpandedFolders((prev) => {
         const next = new Set(prev);
         next.delete(folderId);
         return next;
       });
     } else {
-      const folder = folders.find(f => f.folder_id === folderId);
+      const folder = folders.find((f) => f.folder_id === folderId);
       if (folder && (!folder.items || folder.items.length === 0)) {
         try {
           const contents = await getPublicFolderContents(folderId);
-          setFolders(prev => prev.map(f =>
-            f.folder_id === folderId
-              ? { ...f, items: contents }
-              : f
-          ));
+          setFolders((prev) =>
+            prev.map((f) =>
+              f.folder_id === folderId ? { ...f, items: contents } : f
+            )
+          );
         } catch (error) {
-          console.error('Failed to load folder contents:', error);
+          console.error("Failed to load folder contents:", error);
         }
       }
 
-      setExpandedFolders(prev => {
+      setExpandedFolders((prev) => {
         const next = new Set(prev);
         next.add(folderId);
         return next;
@@ -421,29 +632,42 @@ export default function Browse() {
 
   // Recent folder selection handler
   function handleRecentFolderSelect(folderId: string) {
-    setExpandedFolders(prev => new Set(prev).add(folderId));
+    setExpandedFolders((prev) => new Set(prev).add(folderId));
     setTimeout(() => {
-      const element = document.getElementById(`browse-folder-${folderId}`);
-      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const element = document.getElementById(
+        `browse-folder-${folderId}`
+      );
+      if (element)
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
   }
 
-  function handleItemView(itemId: string, itemType: 'predictor' | 'dataset') {
-    if (itemType === 'predictor') {
-      window.open(`/predictors/${itemId}/view`, '_blank');
+  function handleItemView(
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) {
+    if (itemType === "predictor") {
+      window.open(`/predictors/${itemId}/view`, "_blank");
     } else {
-      window.open(`/datasets/${itemId}/view`, '_blank');
+      window.open(`/datasets/${itemId}/view`, "_blank");
     }
   }
 
-  const tabLabel = activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders";
+  const tabLabel =
+    activeTab === "predictors"
+      ? "Predictors"
+      : activeTab === "datasets"
+      ? "Datasets"
+      : "Folders";
 
   return (
     <DragDropProvider>
       {/* Sticky sub-header under global nav (unified with create/upload pages) */}
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-2.5">
-          <div className="text-sm font-semibold tracking-wide">Browse {tabLabel}</div>
+          <div className="text-sm font-semibold tracking-wide">
+            Browse {tabLabel}
+          </div>
         </div>
         <div className="h-1 w-full bg-neutral-600" />
       </div>
@@ -456,19 +680,31 @@ export default function Browse() {
             <div className="flex w-full items-center gap-2">
               <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white">
                 <button
-                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  className={`px-3 text-sm ${
+                    activeTab === "predictors"
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                  }`}
                   onClick={() => selectTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  className={`px-3 text-sm ${
+                    activeTab === "datasets"
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                  }`}
                   onClick={() => selectTab("datasets")}
                 >
                   Datasets
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "folders" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  className={`px-3 text-sm ${
+                    activeTab === "folders"
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-50"
+                  }`}
                   onClick={() => selectTab("folders")}
                 >
                   Folders
@@ -477,9 +713,27 @@ export default function Browse() {
 
               <div className="flex-1 md:max-w-md">
                 <SearchBar
-                  value={activeTab === "predictors" ? predictorQuery : activeTab === "datasets" ? datasetQuery : folderQuery}
-                  onChange={activeTab === "predictors" ? setPredictorQuery : activeTab === "datasets" ? setDatasetQuery : setFolderQuery}
-                  placeholder={activeTab === "folders" ? "Search folders…" : activeTab === "predictors" ? "Search predictors…" : "Search datasets…"}
+                  value={
+                    activeTab === "predictors"
+                      ? predictorQuery
+                      : activeTab === "datasets"
+                      ? datasetQuery
+                      : folderQuery
+                  }
+                  onChange={
+                    activeTab === "predictors"
+                      ? setPredictorQuery
+                      : activeTab === "datasets"
+                      ? setDatasetQuery
+                      : setFolderQuery
+                  }
+                  placeholder={
+                    activeTab === "folders"
+                      ? "Search folders…"
+                      : activeTab === "predictors"
+                      ? "Search predictors…"
+                      : "Search datasets…"
+                  }
                   onClear={() => {
                     if (activeTab === "predictors") setPredictorQuery("");
                     else if (activeTab === "datasets") setDatasetQuery("");
@@ -489,23 +743,63 @@ export default function Browse() {
               </div>
             </div>
 
-            {/* Right cluster: filters */}
+            {/* Right cluster: filters (single unified menu per tab) */}
             <div className="flex items-center gap-2 shrink-0">
               {activeTab === "folders" ? (
-                <>
-                  <PublicFilter value={folderVisibility} onChange={setFolderVisibility} />
-                  <FolderTypeFilter value={folderTypeFilter} onChange={setFolderTypeFilter} />
-                  <FolderSortMenu value={folderSortOption} onChange={setFolderSortOption} />
-                </>
+                <FolderAdvancedFilterMenu
+                  visibility={folderVisibility}
+                  onVisibilityChange={setFolderVisibility}
+                  folderType={folderTypeFilter}
+                  onFolderTypeChange={setFolderTypeFilter}
+                  sortOption={folderSortOption}
+                  onSortOptionChange={setFolderSortOption}
+                />
               ) : (
-                <PublicFilter
-                  value={activeTab === "predictors" ? predictorVisibility : datasetVisibility}
-                  onChange={activeTab === "predictors" ? setPredictorVisibility : setDatasetVisibility}
+                <AdvancedFilterMenu
+                  visibility={
+                    activeTab === "predictors"
+                      ? predictorVisibility
+                      : datasetVisibility
+                  }
+                  onVisibilityChange={
+                    activeTab === "predictors"
+                      ? setPredictorVisibility
+                      : setDatasetVisibility
+                  }
+                  keywordTarget={
+                    activeTab === "predictors"
+                      ? predictorKeywordTarget
+                      : datasetKeywordTarget
+                  }
+                  onKeywordTargetChange={
+                    activeTab === "predictors"
+                      ? setPredictorKeywordTarget
+                      : setDatasetKeywordTarget
+                  }
+                  updatedWithin={
+                    activeTab === "predictors"
+                      ? predictorUpdatedWithin
+                      : datasetUpdatedWithin
+                  }
+                  onUpdatedWithinChange={
+                    activeTab === "predictors"
+                      ? setPredictorUpdatedWithin
+                      : setDatasetUpdatedWithin
+                  }
+                  ownerNameQuery={ownerNameQuery}
+                  onOwnerNameQueryChange={setOwnerNameQuery}
+                  hasFileOnly={
+                    activeTab === "datasets" ? datasetHasFileOnly : undefined
+                  }
+                  onHasFileOnlyChange={
+                    activeTab === "datasets"
+                      ? setDatasetHasFileOnly
+                      : undefined
+                  }
                 />
               )}
             </div>
           </div>
-          {/* (Removed center title line; title is now in the sticky header) */}
         </div>
       </div>
 
@@ -535,9 +829,12 @@ export default function Browse() {
                 ) : (
                   pinned.map((p) => {
                     const isPinned =
-                      (activeTab === "predictors" && pinnedPredictorIds.has(p.id)) ||
-                      (activeTab === "datasets" && pinnedDatasetIds.has(p.id)) ||
-                      (activeTab === "folders" && pinnedFolderIds.has(p.id));
+                      (activeTab === "predictors" &&
+                        pinnedPredictorIds.has(p.id)) ||
+                      (activeTab === "datasets" &&
+                        pinnedDatasetIds.has(p.id)) ||
+                      (activeTab === "folders" &&
+                        pinnedFolderIds.has(p.id));
                     return (
                       <div
                         key={p.id}
@@ -547,7 +844,11 @@ export default function Browse() {
                         <button
                           className="ml-2 rounded-md px-2 py-0.5 text-xs hover:bg-neutral-50"
                           title={isPinned ? "Unpin" : "Pin"}
-                          onClick={() => (activeTab === "folders" ? toggleFolderPin(p.id) : togglePin(p.id))}
+                          onClick={() =>
+                            activeTab === "folders"
+                              ? toggleFolderPin(p.id)
+                              : togglePin(p.id)
+                          }
                         >
                           {isPinned ? "★" : "☆"}
                         </button>
@@ -567,7 +868,9 @@ export default function Browse() {
             <div className="py-6">
               <div className="flex items-center gap-3">
                 <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
-                <div className="text-sm text-neutral-700">Loading {tabLabel}…</div>
+                <div className="text-sm text-neutral-700">
+                  Loading {tabLabel}…
+                </div>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -596,24 +899,38 @@ export default function Browse() {
                 <div className="space-y-6 -mt-2">
                   {/* Recent Folders Quick Access */}
                   <div className="mt-0">
-                    <RecentFolders onFolderSelect={handleRecentFolderSelect} />
+                    <RecentFolders
+                      onFolderSelect={handleRecentFolderSelect}
+                    />
                   </div>
 
                   {/* Folders Content */}
                   {filteredFolders.length === 0 ? (
                     <div className="py-12 text-center">
-                      <div className="text-lg text-neutral-500">No public folders available</div>
-                      <div className="mt-2 text-sm text-neutral-400">Public folders will appear here when available</div>
+                      <div className="text-lg text-neutral-500">
+                        No public folders available
+                      </div>
+                      <div className="mt-2 text-sm text-neutral-400">
+                        Public folders will appear here when available
+                      </div>
                     </div>
                   ) : (
                     <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                       {filteredFolders.map((folder) => {
-                        const isPinned = pinnedFolderIds.has(folder.folder_id);
+                        const isPinned = pinnedFolderIds.has(
+                          folder.folder_id
+                        );
                         return (
-                          <div key={folder.folder_id} id={`browse-folder-${folder.folder_id}`} className="relative">
+                          <div
+                            key={folder.folder_id}
+                            id={`browse-folder-${folder.folder_id}`}
+                            className="relative"
+                          >
                             <FolderCard
                               folder={folder}
-                              expanded={expandedFolders.has(folder.folder_id)}
+                              expanded={expandedFolders.has(
+                                folder.folder_id
+                              )}
                               onToggleExpand={handleToggleFolderExpand}
                               onItemView={handleItemView}
                               canEdit={false}
@@ -621,7 +938,9 @@ export default function Browse() {
                             {/* Pin button overlay */}
                             <button
                               className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs ${
-                                isPinned ? "bg-neutral-100" : "bg-white hover:bg-neutral-50"
+                                isPinned
+                                  ? "bg-neutral-100"
+                                  : "bg-white hover:bg-neutral-50"
                               }`}
                               title={isPinned ? "Unpin" : "Pin"}
                               onClick={(e) => {
@@ -642,38 +961,66 @@ export default function Browse() {
                 <>
                   {filtered.length === 0 && !error ? (
                     <div className="py-12 text-center">
-                      <div className="text-lg text-neutral-500">No public {activeTab} available</div>
-                      <div className="mt-2 text-sm text-neutral-400">Public {activeTab} will appear here when available</div>
+                      <div className="text-lg text-neutral-500">
+                        No public {activeTab} available
+                      </div>
+                      <div className="mt-2 text-sm text-neutral-400">
+                        Public {activeTab} will appear here when available
+                      </div>
                     </div>
                   ) : (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {filtered.map((it) => {
                         const isPinned = pinnedSet.has(it.id);
+                        const asDataset = it as BrowseDataset;
                         return (
                           <CardShell
                             key={it.id}
                             actionVisibility="selected"
-                            selected={activeTab === "predictors" ? selectedPredictorId === it.id : selectedDatasetId === it.id}
+                            selected={
+                              activeTab === "predictors"
+                                ? selectedPredictorId === it.id
+                                : selectedDatasetId === it.id
+                            }
                             onSelect={() => toggleSelect(it.id)}
                             title={
                               <div>
                                 <div className="-mb-1">
-                                  <UsernameTag name={it.ownerName} />
+                                  <UsernameTag
+                                    name={it.ownerName || "Owner"}
+                                  />
                                 </div>
-                                <div className="mt-1 text-sm font-medium">{it.title}</div>
+                                <div className="mt-1 text-sm font-medium">
+                                  {it.title}
+                                </div>
                               </div>
                             }
                             description={<span>{it.notes}</span>}
-                            footerLeft={<span className="text-neutral-500">{it.updatedAt}</span>}
+                            footerLeft={
+                              <span className="text-neutral-500">
+                                {it.updatedAt}
+                              </span>
+                            }
                             footerRight={
                               <div className="flex items-center gap-2">
-                                {activeTab === "datasets" && it.hasFile && it.originalFilename && (
-                                  <span className="text-[11px] text-neutral-600" title={`File: ${it.originalFilename}`}>▦</span>
-                                )}
+                                {activeTab === "datasets" &&
+                                  asDataset.hasFile &&
+                                  asDataset.originalFilename && (
+                                    <span
+                                      className="text-[11px] text-neutral-600"
+                                      title={`File: ${asDataset.originalFilename}`}
+                                    >
+                                      ▦
+                                    </span>
+                                  )}
                                 {it.isPublic ? (
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Public</span>
+                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
+                                    Public
+                                  </span>
                                 ) : (
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Private</span>
+                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
+                                    Private
+                                  </span>
                                 )}
                               </div>
                             }
@@ -686,13 +1033,15 @@ export default function Browse() {
                                 if (activeTab === "datasets") {
                                   navigate(`/datasets/${it.id}/view`);
                                 } else {
-                                  navigate(`/predictors/${it.id}`, { state: { from: "browse" } });
+                                  navigate(`/predictors/${it.id}`, {
+                                    state: { from: "browse" },
+                                  });
                                 }
                               }}
                             >
                               View
                             </button>
-                            {activeTab === "datasets" && it.hasFile && (
+                            {activeTab === "datasets" && asDataset.hasFile && (
                               <button
                                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                                 title="Download file"
@@ -705,7 +1054,11 @@ export default function Browse() {
                               </button>
                             )}
                             <button
-                              className={`rounded-md border px-2 py-1 text-xs ${isPinned ? "bg-neutral-100" : "bg-white hover:bg-neutral-50"}`}
+                              className={`rounded-md border px-2 py-1 text-xs ${
+                                isPinned
+                                  ? "bg-neutral-100"
+                                  : "bg-white hover:bg-neutral-50"
+                              }`}
                               title={isPinned ? "Unpin" : "Pin"}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -726,5 +1079,213 @@ export default function Browse() {
         </div>
       </section>
     </DragDropProvider>
+  );
+}
+
+/**
+ * Advanced filter menu for predictors/datasets.
+ * Consolidates:
+ * - Visibility (public/private/all)
+ * - Search in (title/notes/both)
+ * - Updated within (time window)
+ * - Owner username
+ * - Has file (datasets only)
+ */
+type AdvancedFilterMenuProps = {
+  visibility: Visibility;
+  onVisibilityChange: (value: Visibility) => void;
+
+  keywordTarget: KeywordTarget;
+  onKeywordTargetChange: (value: KeywordTarget) => void;
+
+  updatedWithin: TimeWindow;
+  onUpdatedWithinChange: (value: TimeWindow) => void;
+
+  ownerNameQuery: string;
+  onOwnerNameQueryChange: (value: string) => void;
+
+  hasFileOnly?: boolean;
+  onHasFileOnlyChange?: (value: boolean) => void;
+};
+
+function AdvancedFilterMenu({
+  visibility,
+  onVisibilityChange,
+  keywordTarget,
+  onKeywordTargetChange,
+  updatedWithin,
+  onUpdatedWithinChange,
+  ownerNameQuery,
+  onOwnerNameQueryChange,
+  hasFileOnly,
+  onHasFileOnlyChange,
+}: AdvancedFilterMenuProps) {
+  return (
+    <details className="group relative">
+      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50">
+        Filters
+        <span className="text-[10px] text-neutral-500 group-open:rotate-180 transition-transform">
+          ▾
+        </span>
+      </summary>
+      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+        {/* Visibility */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Visibility
+          </div>
+          <PublicFilter value={visibility} onChange={onVisibilityChange} />
+        </div>
+
+        {/* Search in */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Search in
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["title", "Title"],
+                ["notes", "Notes"],
+                ["both", "Title + notes"],
+              ] as [KeywordTarget, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onKeywordTargetChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  keywordTarget === value
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Updated within */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Updated within
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["any", "Any time"],
+                ["7d", "7 days"],
+                ["30d", "30 days"],
+                ["365d", "1 year"],
+              ] as [TimeWindow, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdatedWithinChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  updatedWithin === value
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Owner username */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Owner username
+          </div>
+          <input
+            type="text"
+            value={ownerNameQuery}
+            onChange={(e) => onOwnerNameQueryChange(e.target.value)}
+            placeholder="survival_predictor100"
+            className="w-full rounded-md border px-2 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+          />
+        </div>
+
+        {/* Has file (datasets only) */}
+        {typeof hasFileOnly === "boolean" && onHasFileOnlyChange && (
+          <label className="flex items-center gap-2 text-xs text-neutral-700">
+            <input
+              type="checkbox"
+              checked={hasFileOnly}
+              onChange={(e) => onHasFileOnlyChange(e.target.checked)}
+              className="h-3 w-3 rounded border-neutral-400 text-neutral-900"
+            />
+            <span>Downloadable dataset</span>
+          </label>
+        )}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Folder-specific filter menu.
+ * Consolidates:
+ * - Visibility (public/private/all)
+ * - Folder type
+ * - Sort option
+ */
+type FolderAdvancedFilterMenuProps = {
+  visibility: Visibility;
+  onVisibilityChange: (value: Visibility) => void;
+
+  folderType: FolderType;
+  onFolderTypeChange: (value: FolderType) => void;
+
+  sortOption: FolderSortOption;
+  onSortOptionChange: (value: FolderSortOption) => void;
+};
+
+function FolderAdvancedFilterMenu({
+  visibility,
+  onVisibilityChange,
+  folderType,
+  onFolderTypeChange,
+  sortOption,
+  onSortOptionChange,
+}: FolderAdvancedFilterMenuProps) {
+  return (
+    <details className="group relative">
+      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50">
+        Filters
+        <span className="text-[10px] text-neutral-500 group-open:rotate-180 transition-transform">
+          ▾
+        </span>
+      </summary>
+      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+        {/* Visibility */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Visibility
+          </div>
+          <PublicFilter value={visibility} onChange={onVisibilityChange} />
+        </div>
+
+        {/* Folder type */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Folder type
+          </div>
+          <FolderTypeFilter value={folderType} onChange={onFolderTypeChange} />
+        </div>
+
+        {/* Sort */}
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold text-neutral-700">Sort by</span>
+          </div>
+          <FolderSortMenu value={sortOption} onChange={onSortOptionChange} />
+        </div>
+      </div>
+    </details>
   );
 }

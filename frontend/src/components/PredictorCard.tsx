@@ -21,6 +21,7 @@ export interface PredictorItem {
   title: string;
   status?: "DRAFT" | "PUBLISHED"; 
   updatedAt?: string;
+  updatedAtRaw?: string;
   owner?: boolean;
   notes?: string;
   isPublic?: boolean;

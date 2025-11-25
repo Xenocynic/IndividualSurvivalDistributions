@@ -24,6 +24,7 @@ export interface DatasetItem {
   ownerId?: number | null;
   ownerName?: string | null;
   updatedAt?: string;
+  updatedAtRaw?: string;
   notes?: string;
   rows?: number;
   sizeMB?: number;

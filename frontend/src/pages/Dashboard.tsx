@@ -4,7 +4,7 @@
  *
  * Purpose:
  * - Renders a two-tab workspace: "Predictors" and "Datasets".
- * - Shares a single search box and an ownership filter (All / Owner / Viewer) across both tabs.
+ * - Shares a single search box and filters across tabs.
  * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
  * - Grid shows cards; clicking a card toggles its "selected" state:
  *   - If you OWN the item, you see Edit / Delete when selected.
@@ -13,15 +13,6 @@
  *   - The new item is inserted at the top,
  *   - The page switches to the corresponding tab (for datasets),
  *   - The new card is selected.
- *
- * Implementation notes:
- * - Local state holds the data and UI state (activeTab, query, ownership, selection, etc.).
- * - useMemo filters each list by query + ownership.
- * - Clicking the page background clears any selection.
- * - A small modal handles delete confirmation.
- *
- * TO DO:
- * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
 import { useMemo, useState, useEffect } from "react";
@@ -35,6 +26,7 @@ import {
   FolderSidebar,
   RecentFolders,
   DroppableFolder,
+  FolderSortMenu,
 } from "../components/folder";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
 import { DeletePredictor } from "../components/DeletePredictor";
@@ -63,42 +55,59 @@ import {
   type CreateFolderRequest,
   handleFolderApiError,
 } from "../lib/folders";
+import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
 import {
-  sortFolders,
-  filterFoldersByType,
-  DEFAULT_FOLDER_SORT,
-} from "../lib/folderUtils";
+  filterPredictors,
+  sortPredictors,
+  filterDatasets,
+  sortDatasets,
+  filterFolders,
+} from "../lib/filtering";
+import type {
+  PredictorFilterState,
+  DatasetFilterState,
+  FolderFilterState,
+  SortOption,
+} from "../types/flitering";
 import type { FolderSortOption, FolderType } from "../components/folder";
 
 type Tab = "predictors" | "datasets" | "folders";
+type KeywordTarget = "title" | "notes" | "both";
+type TimeWindow = "any" | "7d" | "30d" | "365d";
+
+const DEFAULT_PREDICTOR_SORT: SortOption = {
+  field: "updatedAt",
+  direction: "desc",
+};
+
+const DEFAULT_DATASET_SORT: SortOption = {
+  field: "updatedAt",
+  direction: "desc",
+};
+
+// helper: updatedWithin matcher
+function matchesUpdatedWithin(
+  updatedAt: string | null | undefined,
+  window: TimeWindow
+): boolean {
+  if (!updatedAt || window === "any") return true;
+
+  const parsed = Date.parse(updatedAt);
+  // if we can't parse the date, don't exclude it
+  if (Number.isNaN(parsed)) return true;
+
+  const now = Date.now();
+  const days =
+    window === "7d" ? 7 : window === "30d" ? 30 : window === "365d" ? 365 : 0;
+  if (days <= 0) return true;
+
+  const cutoff = now - days * 24 * 60 * 60 * 1000;
+  return parsed >= cutoff;
+}
 
 // mock data - remove or comment out once we get frontend / backend connected
-// const MOCK_PREDICTORS: PredictorItem[] = [
-//   { id: "1", title: "Predictor A", status: "DRAFT", updatedAt: "2 days ago", owner: true,
-//     notes:  "This is a description of Predictor A. It is quite frankly the worst predictor ever."
-//     },
-//   { id: "2", title: "Predictor B", status: "DRAFT", updatedAt: "5 days ago", owner: false,
-//     notes: "This is a description of Predictor B. It is quite frankly the BEST predictor ever!"
-//     },
-//   { id: "3", title: "Super Magical Disease Detector", status: "DRAFT", updatedAt: "1 week ago", owner: false,
-//         notes: "This is a description of the most super duper magical predictor ever!!! It works like... a charm!!!!!"
-//     },
-//   { id: "4", title: "Liver Cancer Remission", status: "PUBLISHED", updatedAt: "Mar 10, 2009", owner: true,
-//     notes: "This is a description of the most serious predictor on the list."
-//     },
-// ];
-
-// const MOCK_DATASETS: PredictorItem[] = [
-//   { id: "d1", title: "Hospital Readmissions 2024", updatedAt: "3 days ago", owner: true,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d2", title: "Cancer Registry Cohort", updatedAt: "Aug 20, 2023", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-//   { id: "d3", title: "CERVICAL CANCER CSV Upload", updatedAt: "Jul 02, 2010", owner: false,
-//     notes: "This is a description of this very serious sounding dataset. Here's some more details about it that the uploader decided were important."
-//     },
-// ];
+// const MOCK_PREDICTORS: PredictorItem[] = [ ... ];
+// const MOCK_DATASETS: PredictorItem[] = [ ... ];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -107,7 +116,7 @@ export default function Dashboard() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // dderive activeTab from URL (?tab=predictors|datasets|folders)
+  // derive activeTab from URL (?tab=predictors|datasets|folders)
   const activeTab: Tab = (() => {
     const q = searchParams.get("tab");
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
@@ -115,11 +124,14 @@ export default function Dashboard() {
 
   // when a tab button is clicked, update the URL
   const selectTab = (t: Tab) => {
-    setSearchParams(prev => {
-      const sp = new URLSearchParams(prev);
-      sp.set("tab", t);
-      return sp;
-    }, { replace: true }); // avoid history spam
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("tab", t);
+        return sp;
+      },
+      { replace: true }
+    ); // avoid history spam
     clearSelection();
   };
 
@@ -146,6 +158,22 @@ export default function Dashboard() {
   const [predictorQuery, setPredictorQuery] = useState("");
   const [datasetQuery, setDatasetQuery] = useState("");
   const [folderQuery, setFolderQuery] = useState("");
+
+  // separate keyword target states for each tab
+  const [predictorKeywordTarget, setPredictorKeywordTarget] =
+    useState<KeywordTarget>("title");
+  const [datasetKeywordTarget, setDatasetKeywordTarget] =
+    useState<KeywordTarget>("title");
+  const [folderKeywordTarget, setFolderKeywordTarget] =
+    useState<KeywordTarget>("both");
+
+  // UPDATED WITHIN states per tab
+  const [predictorUpdatedWithin, setPredictorUpdatedWithin] =
+    useState<TimeWindow>("any");
+  const [datasetUpdatedWithin, setDatasetUpdatedWithin] =
+    useState<TimeWindow>("any");
+  const [folderUpdatedWithin, setFolderUpdatedWithin] =
+    useState<TimeWindow>("any");
 
   // separate ownership filters for each tab
   const [predictorOwnership, setPredictorOwnership] =
@@ -240,7 +268,7 @@ export default function Dashboard() {
 
       try {
         // Always fetch folders alongside the active tab data
-        const promises = [];
+        const promises: Promise<void>[] = [];
 
         if (activeTab === "predictors") {
           promises.push(
@@ -282,7 +310,7 @@ export default function Dashboard() {
         // For folders tab, we only need to fetch folders (handled below)
 
         // Always fetch folders
-        promises.push(fetchFolders());
+        promises.push(fetchFolders().then(() => {}));
 
         await Promise.all(promises);
       } catch (err: any) {
@@ -293,7 +321,7 @@ export default function Dashboard() {
             err?.details?.message ?? err?.statusText ?? "Failed to load"
           );
         }
-        console.error("Fetch error", error);
+        console.error("Fetch error", err);
       } finally {
         // clear the timeout no matter what
         didFinish = true;
@@ -311,7 +339,7 @@ export default function Dashboard() {
       clearTimeout(t);
       if (loadingTimer) clearTimeout(loadingTimer);
     };
-  }, [user, activeTab]);
+  }, [user, activeTab, predictors.length, datasets.length, folders.length]);
 
   // Simple loading state management
   useEffect(() => {
@@ -338,76 +366,115 @@ export default function Dashboard() {
     loadedTabs,
   ]);
 
-  // filter functionality for predictors and datasets - uses tab-specific states
+  // filter functionality for predictors and datasets
   const filteredPredictors = useMemo(() => {
-    const q = predictorQuery.trim().toLowerCase();
-    let list = predictors.filter((it) =>
-      q ? it.title.toLowerCase().includes(q) : true
-    );
-    if (predictorOwnership === "owner") list = list.filter((it) => it.owner);
-    if (predictorOwnership === "viewer") list = list.filter((it) => !it.owner);
-    return list;
-  }, [predictors, predictorQuery, predictorOwnership]);
+    const keywords = predictorQuery.trim()
+      ? predictorQuery.trim().split(/\s+/)
+      : [];
+
+    const filter: PredictorFilterState = {
+      keywords,
+      keywordTarget: predictorKeywordTarget,
+      ownership: predictorOwnership,
+      visibility: "all",
+    };
+
+    let base = filterPredictors(predictors, filter);
+
+    if (predictorUpdatedWithin !== "any") {
+      base = base.filter((item) =>
+        matchesUpdatedWithin(
+          (item as any).updatedAtRaw ??
+            (item as any).updatedAtSort ??
+            (item as any).updatedAt,
+          predictorUpdatedWithin
+        )
+      );
+    }
+
+    return sortPredictors(base, DEFAULT_PREDICTOR_SORT);
+  }, [
+    predictors,
+    predictorQuery,
+    predictorOwnership,
+    predictorKeywordTarget,
+    predictorUpdatedWithin,
+  ]);
 
   const filteredDatasets = useMemo(() => {
-    const q = datasetQuery.trim().toLowerCase();
-    let list = datasets.filter((it) => {
-      const title = it?.title ?? "";
-      return q ? title.toLowerCase().includes(q) : true;
-    });
-    if (datasetOwnership === "owner") list = list.filter((it) => it.owner);
-    if (datasetOwnership === "viewer") list = list.filter((it) => !it.owner);
-    return list;
-  }, [datasets, datasetQuery, datasetOwnership]);
+    const keywords = datasetQuery.trim()
+      ? datasetQuery.trim().split(/\s+/)
+      : [];
 
-  // filter folders based on search, ownership, type, and sorting
+    const filter: DatasetFilterState = {
+      keywords,
+      keywordTarget: datasetKeywordTarget,
+      ownership: datasetOwnership,
+      visibility: "all",
+    };
+
+    let base = filterDatasets(datasets, filter);
+
+    if (datasetUpdatedWithin !== "any") {
+      base = base.filter((item) =>
+        matchesUpdatedWithin(
+          (item as any).updatedAtRaw ??
+            (item as any).updatedAtSort ??
+            (item as any).updatedAt,
+          datasetUpdatedWithin
+        )
+      );
+    }
+
+    return sortDatasets(base, DEFAULT_DATASET_SORT);
+  }, [
+    datasets,
+    datasetQuery,
+    datasetOwnership,
+    datasetKeywordTarget,
+    datasetUpdatedWithin,
+  ]);
+
+  // filter folders based on search, ownership, type, updatedWithin, and sorting
   const filteredFolders = useMemo(() => {
     const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
 
-    // Start with all folders
-    let list = folders;
+    const keywords = folderQuery.trim()
+      ? folderQuery.trim().split(/\s+/)
+      : [];
 
-    // Apply ownership filter
-    list = list.filter((folder) => {
-      const isOwner = currentUserId ? folder.owner.id === currentUserId : false;
-      if (folderOwnership === "owner") return isOwner;
-      if (folderOwnership === "viewer") return !isOwner;
-      return true;
-    });
+    const filter: FolderFilterState = {
+      keywords,
+      keywordTarget: folderKeywordTarget,
+      ownership: folderOwnership,
+      visibility: "all",
+      folderType: folderTypeFilter,
+    };
 
-    // Apply search query (searches both folders and items)
-    if (folderQuery.trim()) {
-      const q = folderQuery.trim().toLowerCase();
-      list = list.filter((folder) => {
-        // Search in folder name and description
-        const folderMatch =
-          folder.name.toLowerCase().includes(q) ||
-          (folder.description && folder.description.toLowerCase().includes(q));
+    let list = filterFolders(folders, filter, currentUserId);
 
-        // Search in folder contents
-        const contentMatch = folder.items?.some(
-          (item) =>
-            item.title.toLowerCase().includes(q) ||
-            (item.notes && item.notes.toLowerCase().includes(q))
-        );
-
-        return folderMatch || contentMatch;
-      });
+    if (folderUpdatedWithin !== "any") {
+      list = list.filter((folder) =>
+        matchesUpdatedWithin(
+          (folder as any).updatedAtRaw ??
+            (folder as any).updatedAtSort ??
+            (folder as any).updated_at ??
+            (folder as any).updatedAt,
+          folderUpdatedWithin
+        )
+      );
     }
 
-    // Apply type filter
-    list = filterFoldersByType(list, folderTypeFilter);
-
-    // Apply sorting
-    list = sortFolders(list, folderSortOption);
-
-    return list;
+    // Keep existing folder sort behavior (FolderSortOption)
+    return sortFolders(list, folderSortOption);
   }, [
     folders,
     folderQuery,
     folderOwnership,
     folderTypeFilter,
     folderSortOption,
+    folderKeywordTarget,
+    folderUpdatedWithin,
     user,
   ]);
 
@@ -589,16 +656,18 @@ export default function Dashboard() {
     }
   }
 
-  // Handle double-click navigation - commented ot because its not meant tp do anything now
-  //function handleCardDoubleClick(id: string) {
-  //}
-
   // download dataset file
-  async function downloadItem(id: string, allowAdminAccess: boolean, isOwner: boolean) {
+  async function downloadItem(
+    id: string,
+    allowAdminAccess: boolean,
+    isOwner: boolean
+  ) {
     try {
       // if admin access blocked, show alert and return
-      if (!isOwner && !allowAdminAccess){
-        alert("Download blocked: External access to this dataset has been disabled.");
+      if (!isOwner && !allowAdminAccess) {
+        alert(
+          "Download blocked: External access to this dataset has been disabled."
+        );
         return;
       }
       const datasetId = parseInt(id);
@@ -633,7 +702,7 @@ export default function Dashboard() {
         // Remove from local state after successful API call
         setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
 
-        if (selectedPredictorId == predictorId) {
+        if (selectedPredictorId === predictorId) {
           setSelectedPredictorId(null);
         }
       } else {
@@ -670,13 +739,16 @@ export default function Dashboard() {
     <DragDropProvider>
       {/* Main Content */}
       <section
-        className='space-y-6'
+        className="space-y-6"
         onClick={clearSelection}
-        role='presentation'
+        role="presentation"
       >
         {/* welcome header */}
-        <div className='py-6 text-center' onClick={(e) => e.stopPropagation()}>
-          <h1 className='text-3xl font-extrabold tracking-tight md:text-4xl'>
+        <div
+          className="py-6 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
             Welcome,{" "}
             {user
               ? user.first_name?.trim()
@@ -686,24 +758,24 @@ export default function Dashboard() {
             !
           </h1>
           {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
-          <div className='mx-auto mt-4 max-w-2xl space-y-2'>
-            <h2 className='text-2xl tracking-tight md:text-2xl'>
+          <div className="mx-auto mt-4 max-w-2xl space-y-2">
+            <h2 className="text-2xl tracking-tight md:text-2xl">
               Find your datasets and predictors below.
             </h2>
           </div>
         </div>
         {/* sticky toolbar under navbar - stays on top when you scroll */}
         <div
-          className='sticky top-14 md:top-16 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60'
+          className="sticky top-14 z-40 bg-white/80 backdrop-blur md:top-16 supports-[backdrop-filter]:bg-white/60"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className='py-3'>
+          <div className="py-3">
             <Toolbar
               activeTab={activeTab}
               onTabChange={(t) => {
-                selectTab(t);                
+                selectTab(t);
                 if (t === "folders") {
-                  void fetchFolders();        
+                  void fetchFolders();
                 }
               }}
               query={
@@ -723,65 +795,93 @@ export default function Dashboard() {
               onCreatePredictor={createPredictor}
               onCreateDataset={addDataset}
               onCreateFolder={handleCreateFolder}
-              ownership={
-                activeTab === "predictors"
-                  ? predictorOwnership
-                  : activeTab === "datasets"
-                  ? datasetOwnership
-                  : folderOwnership
-              }
-              onOwnershipChange={
-                activeTab === "predictors"
-                  ? setPredictorOwnership
-                  : activeTab === "datasets"
-                  ? setDatasetOwnership
-                  : setFolderOwnership
-              }
-              folderTypeFilter={
-                activeTab === "folders" ? folderTypeFilter : undefined
-              }
-              onFolderTypeFilterChange={
-                activeTab === "folders" ? setFolderTypeFilter : undefined
-              }
-              folderSortOption={
-                activeTab === "folders" ? folderSortOption : undefined
-              }
-              onFolderSortChange={
-                activeTab === "folders" ? setFolderSortOption : undefined
+              filterControl={
+                activeTab === "folders" ? (
+                  <FolderAdvancedFilterMenu
+                    keywordTarget={folderKeywordTarget}
+                    onKeywordTargetChange={setFolderKeywordTarget}
+                    updatedWithin={folderUpdatedWithin}
+                    onUpdatedWithinChange={setFolderUpdatedWithin}
+                    folderType={folderTypeFilter}
+                    onFolderTypeChange={setFolderTypeFilter}
+                    sortOption={folderSortOption}
+                    onSortOptionChange={setFolderSortOption}
+                    ownership={folderOwnership}
+                    onOwnershipChange={setFolderOwnership}
+                  />
+                ) : (
+                  <AdvancedFilterMenu
+                    keywordTarget={
+                      activeTab === "predictors"
+                        ? predictorKeywordTarget
+                        : datasetKeywordTarget
+                    }
+                    onKeywordTargetChange={
+                      activeTab === "predictors"
+                        ? setPredictorKeywordTarget
+                        : setDatasetKeywordTarget
+                    }
+                    updatedWithin={
+                      activeTab === "predictors"
+                        ? predictorUpdatedWithin
+                        : datasetUpdatedWithin
+                    }
+                    onUpdatedWithinChange={
+                      activeTab === "predictors"
+                        ? setPredictorUpdatedWithin
+                        : setDatasetUpdatedWithin
+                    }
+                    ownership={
+                      activeTab === "predictors"
+                        ? predictorOwnership
+                        : datasetOwnership
+                    }
+                    onOwnershipChange={
+                      activeTab === "predictors"
+                        ? setPredictorOwnership
+                        : setDatasetOwnership
+                    }
+                  />
+                )
               }
             />
           </div>
-          <div className='border-t border-black/10' />
+
+          <div className="border-t border-black/10" />
         </div>
+
 
         {/* loading indicator or skeleton - only show if loading AND no data */}
         {isLoading &&
         ((activeTab === "predictors" && predictors.length === 0) ||
           (activeTab === "datasets" && datasets.length === 0) ||
           (activeTab === "folders" && folders.length === 0)) ? (
-          <div className='mx-auto max-w-6xl px-4 py-6'>
+          <div className="mx-auto max-w-6xl px-4 py-6">
             {/* simple spinner + hint */}
-            <div className='flex items-center gap-3'>
-              <div className='animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-700' />
-              <div className='text-sm text-gray-700'>
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-gray-700" />
+              <div className="text-sm text-gray-700">
                 Loading {activeTab}...
               </div>
             </div>
 
             {/* optional skeleton grid — placeholders matching your card layout */}
-            <div className='mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className='p-4 border rounded-lg animate-pulse'>
-                  <div className='h-5 bg-gray-200 rounded w-3/4 mb-3' />
-                  <div className='h-3 bg-gray-200 rounded w-1/2 mb-2' />
-                  <div className='h-20 bg-gray-200 rounded' />
+                <div
+                  key={i}
+                  className="animate-pulse rounded-lg border p-4"
+                >
+                  <div className="mb-3 h-5 w-3/4 rounded bg-gray-200" />
+                  <div className="mb-2 h-3 w-1/2 rounded bg-gray-200" />
+                  <div className="h-20 rounded bg-gray-200" />
                 </div>
               ))}
             </div>
           </div>
         ) : null}
         {/* Main Content Area */}
-        <div className='flex gap-6'>
+        <div className="flex gap-6">
           {/* Folder Sidebar - always render but hide when not needed */}
           <FolderSidebar
             onItemMoved={async (_itemId, _folderId) => {
@@ -789,17 +889,20 @@ export default function Dashboard() {
               try {
                 await fetchFolders();
               } catch (error) {
-                console.error('Failed to refresh folder data:', error);
+                console.error("Failed to refresh folder data:", error);
               }
             }}
             className={activeTab === "folders" ? "hidden" : ""}
           />
 
           {/* Main Content */}
-          <div className='flex-1 transition-all duration-300'>
+          <div className="flex-1 transition-all duration-300">
             {activeTab === "folders" ? (
               /* Folders Tab Content */
-              <div className='space-y-6' onClick={(e) => e.stopPropagation()}>
+              <div
+                className="space-y-6"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {/* Recent Folders Quick Access */}
                 <div>
                   <RecentFolders
@@ -809,7 +912,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Folders Grid */}
-                <div className='grid gap-4 sm:grid-cols-1 lg:grid-cols-2'>
+                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                   {filteredFolders.map((folder) => {
                     const currentUserId =
                       (user as any)?.id ?? (user as any)?.pk ?? undefined;
@@ -819,7 +922,7 @@ export default function Dashboard() {
                         id={`folder-${folder.folder_id}`}
                         className={
                           currentFolderView === folder.folder_id
-                            ? "ring-2 ring-blue-500 rounded-xl"
+                            ? "rounded-xl ring-2 ring-blue-500"
                             : ""
                         }
                       >
@@ -888,11 +991,11 @@ export default function Dashboard() {
 
                 {/* Empty state for folders - only show if not loading */}
                 {filteredFolders.length === 0 && !isLoading && (
-                  <div className='text-center py-12'>
-                    <div className='text-gray-500 text-lg'>
+                  <div className="py-12 text-center">
+                    <div className="text-lg text-gray-500">
                       No folders found
                     </div>
-                    <div className='text-gray-400 text-sm mt-2'>
+                    <div className="mt-2 text-sm text-gray-400">
                       Create a folder to organize your predictors and datasets
                     </div>
                   </div>
@@ -904,10 +1007,10 @@ export default function Dashboard() {
                 folder={null}
                 onDrop={handleDrop}
                 isLoading={isItemLoading}
-                className='min-h-[200px] p-4 rounded-xl transition-all duration-200'
+                className="min-h-[200px] rounded-xl p-4 transition-all duration-200"
               >
                 <div
-                  className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'
+                  className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Individual Items - show items not in folders */}
@@ -947,10 +1050,15 @@ export default function Dashboard() {
                             }
                             onView={viewItem}
                             onDownload={() => {
-                              const isOwner = isUserOwner(it.owner, currentUserId);
+                              const isOwner = isUserOwner(
+                                it.owner,
+                                currentUserId
+                              );
                               downloadItem(
                                 it.id,
-                                'allow_admin_access' in it ? it.allow_admin_access ?? false : false,
+                                "allow_admin_access" in it
+                                  ? it.allow_admin_access ?? false
+                                  : false,
                                 isOwner
                               );
                             }}
@@ -962,13 +1070,13 @@ export default function Dashboard() {
                   {/* Empty state hint for drag and drop - only show if not loading */}
                   {list.filter((item) => !item.folderId).length === 0 &&
                     !isLoading && (
-                      <div className='col-span-full flex items-center justify-center py-12 text-center'>
-                        <div className='max-w-sm'>
-                          <div className='text-gray-400 text-lg mb-2'>📁</div>
-                          <p className='text-gray-500 text-sm'>
+                      <div className="col-span-full flex items-center justify-center py-12 text-center">
+                        <div className="max-w-sm">
+                          <div className="mb-2 text-lg text-gray-400">📁</div>
+                          <p className="text-sm text-gray-500">
                             No {activeTab} in your main collection
                           </p>
-                          <p className='text-gray-400 text-xs mt-1'>
+                          <p className="mt-1 text-xs text-gray-400">
                             Drag items from folders here to move them back to
                             your main collection
                           </p>
@@ -1003,5 +1111,304 @@ export default function Dashboard() {
         </div>
       </section>
     </DragDropProvider>
+  );
+}
+
+/**
+ * Advanced filter menu for predictors/datasets.
+ * Consolidates:
+ * - Ownership (all / owner / viewer)
+ * - Search in (title/notes/both)
+ * - Updated within (any / 7 days / 30 days / 1 year)
+ */
+type AdvancedFilterMenuProps = {
+  keywordTarget: KeywordTarget;
+  onKeywordTargetChange: (value: KeywordTarget) => void;
+
+  updatedWithin: TimeWindow;
+  onUpdatedWithinChange: (value: TimeWindow) => void;
+
+  ownership: Ownership;
+  onOwnershipChange: (value: Ownership) => void;
+};
+
+function AdvancedFilterMenu({
+  keywordTarget,
+  onKeywordTargetChange,
+  updatedWithin,
+  onUpdatedWithinChange,
+  ownership,
+  onOwnershipChange,
+}: AdvancedFilterMenuProps) {
+  return (
+    <details className="group relative">
+      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+        Filters
+        <span className="text-[10px] text-gray-500 group-open:rotate-180 transition-transform">
+          ▾
+        </span>
+      </summary>
+      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+        {/* Ownership */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">Ownership</div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["all", "All items"],
+                ["owner", "Owned by me"],
+                ["viewer", "Shared with me"],
+              ] as [Ownership, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onOwnershipChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  ownership === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search in */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">Search in</div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["title", "Title"],
+                ["notes", "Notes"],
+                ["both", "Title + notes"],
+              ] as [KeywordTarget, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onKeywordTargetChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  keywordTarget === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Updated within */}
+        <div>
+          <div className="mb-1 font-semibold text-gray-700">
+            Updated within
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["any", "Any time"],
+                ["7d", "7 days"],
+                ["30d", "30 days"],
+                ["365d", "1 year"],
+              ] as [TimeWindow, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdatedWithinChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  updatedWithin === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Folder-specific filter menu.
+ * Consolidates:
+ * - Ownership
+ * - Search in (title/notes/both)
+ * - Updated within
+ * - Folder type
+ * - Sort option
+ */
+type FolderAdvancedFilterMenuProps = {
+  keywordTarget: KeywordTarget;
+  onKeywordTargetChange: (value: KeywordTarget) => void;
+
+  updatedWithin: TimeWindow;
+  onUpdatedWithinChange: (value: TimeWindow) => void;
+
+  folderType: FolderType;
+  onFolderTypeChange: (value: FolderType) => void;
+
+  sortOption: FolderSortOption;
+  onSortOptionChange: (value: FolderSortOption) => void;
+
+  ownership: Ownership;
+  onOwnershipChange: (value: Ownership) => void;
+};
+
+function FolderAdvancedFilterMenu({
+  keywordTarget,
+  onKeywordTargetChange,
+  updatedWithin,
+  onUpdatedWithinChange,
+  folderType,
+  onFolderTypeChange,
+  sortOption,
+  onSortOptionChange,
+  ownership,
+  onOwnershipChange,
+}: FolderAdvancedFilterMenuProps) {
+  return (
+    <details className="group relative">
+      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+        Filters
+        <span className="text-[10px] text-gray-500 group-open:rotate-180 transition-transform">
+          ▾
+        </span>
+      </summary>
+      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+        {/* Ownership */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">Ownership</div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["all", "All folders"],
+                ["owner", "Owned by me"],
+                ["viewer", "Shared with me"],
+              ] as [Ownership, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onOwnershipChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  ownership === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search in */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">Search in</div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["title", "Title"],
+                ["notes", "Notes"],
+                ["both", "Title + notes"],
+              ] as [KeywordTarget, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onKeywordTargetChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  keywordTarget === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Updated within */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">
+            Updated within
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["any", "Any time"],
+                ["7d", "7 days"],
+                ["30d", "30 days"],
+                ["365d", "1 year"],
+              ] as [TimeWindow, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdatedWithinChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  updatedWithin === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Folder type */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-gray-700">
+            Folder type
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(
+              [
+                ["all", "All"],
+                ["predictors", "Predictors"],
+                ["datasets", "Datasets"],
+                ["mixed", "Mixed"],
+              ] as [FolderType, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onFolderTypeChange(value)}
+                className={`rounded-md border px-2.5 py-1 text-xs ${
+                  folderType === value
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sort by (delegates to existing FolderSortMenu) */}
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold text-gray-700">Sort by</span>
+          </div>
+          <FolderSortMenu
+            value={sortOption}
+            onChange={onSortOptionChange}
+          />
+        </div>
+      </div>
+    </details>
   );
 }
