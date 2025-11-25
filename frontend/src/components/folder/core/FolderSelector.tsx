@@ -120,15 +120,15 @@ export default function FolderSelector({
             <>
               {folders.map((folder) => (
                 <option key={folder.folder_id} value={folder.folder_id}>
-                  📁 {folder.name} ({folder.item_count} items)
-                  {folder.is_private ? " 🔒" : ""}
+                  🗀 {folder.name} ({folder.item_count} items)
+                  {folder.is_private ? "Private" : ""}
                 </option>
               ))}
               <option disabled>──────────</option>
             </>
           )}
 
-          <option value='CREATE_NEW'>➕ Create New Folder</option>
+          <option value='CREATE_NEW'>＋ Create New Folder</option>
         </select>
 
         {/* Error display */}
