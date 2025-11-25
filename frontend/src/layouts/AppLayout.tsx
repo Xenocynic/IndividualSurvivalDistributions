@@ -14,7 +14,7 @@ export default function AppLayout(): JSX.Element {
   return (
     <div
       className={`min-h-dvh flex flex-col ${
-        useGray ? "bg-gray-100" : "bg-white"
+        useGray ? "bg-gray-100" : "bg-gray-100"
       } text-gray-900`}
     >
       <Navbar />

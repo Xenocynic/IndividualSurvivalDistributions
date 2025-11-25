@@ -812,7 +812,8 @@ export default function Browse() {
       </div>
 
       {/* Content row: pinned left, grid right */}
-      <section className="mx-auto flex max-w-6xl gap-4 bg-neutral-100 px-3 py-4">
+      <div className="w-full bg-neutral-100">
+      <section className="mx-auto flex max-w-6xl gap-4 px-3 py-4">
         {/* Left: Pinned panel */}
         <aside className="w-64 shrink-0">
           <div className="rounded-md border bg-white overflow-hidden shadow-sm">
@@ -874,7 +875,7 @@ export default function Browse() {
             )}
           </div>
         </aside>
-
+        
         {/* Right: content */}
         <div className="min-w-0 flex-1 space-y-4">
           {/* Loading indicator */}
@@ -1120,6 +1121,7 @@ export default function Browse() {
           )}
         </div>
       </section>
+      </div>
     </DragDropProvider>
   );
 }

@@ -135,7 +135,7 @@ function ToolbarTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 text-sm ${
+      className={`px-3 text-xs ${
         isActive
           ? "bg-neutral-900 text-white"
           : "text-neutral-700 hover:bg-neutral-50"
