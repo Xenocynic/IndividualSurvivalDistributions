@@ -660,9 +660,14 @@ export default function Browse() {
       ? "Datasets"
       : "Folders";
 
+  const itemCountLabel =
+    activeTab === "folders"
+      ? `${filteredFolders.length} public folders`
+      : `${filtered.length} public ${activeTab}`;
+
   return (
     <DragDropProvider>
-      {/* Sticky sub-header under global nav (unified with create/upload pages) */}
+      {/* Sticky sub-header under global nav (leave this exactly as-is) */}
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-2.5">
           <div className="text-sm font-semibold tracking-wide">
@@ -672,15 +677,18 @@ export default function Browse() {
         <div className="h-1 w-full bg-neutral-600" />
       </div>
 
-      {/* Controls bar */}
-      <div className="w-full border-b bg-neutral-100">
+      {/* Controls bar (now sticky + translucent) */}
+      <div className="sticky top-[calc(var(--app-nav-h,3rem)+3rem)] z-20 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75">
         <div className="mx-auto max-w-6xl px-3 py-2">
+          <div className="flex items-center justify-between text-[12px] text-neutral-500 mb-1">
+            <span className="hidden sm:inline">{itemCountLabel}</span>
+          </div>
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             {/* Left cluster: tab switch + search */}
             <div className="flex w-full items-center gap-2">
-              <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white">
+              <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white shadow-sm">
                 <button
-                  className={`px-3 text-sm ${
+                  className={`px-3 text-xs font-medium ${
                     activeTab === "predictors"
                       ? "bg-neutral-900 text-white"
                       : "text-neutral-700 hover:bg-neutral-50"
@@ -690,7 +698,7 @@ export default function Browse() {
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${
+                  className={`px-3 text-xs font-medium ${
                     activeTab === "datasets"
                       ? "bg-neutral-900 text-white"
                       : "text-neutral-700 hover:bg-neutral-50"
@@ -700,7 +708,7 @@ export default function Browse() {
                   Datasets
                 </button>
                 <button
-                  className={`px-3 text-sm ${
+                  className={`px-3 text-xs font-medium ${
                     activeTab === "folders"
                       ? "bg-neutral-900 text-white"
                       : "text-neutral-700 hover:bg-neutral-50"
@@ -804,17 +812,17 @@ export default function Browse() {
       </div>
 
       {/* Content row: pinned left, grid right */}
-      <section className="mx-auto max-w-6xl px-3 py-4 flex gap-4">
+      <section className="mx-auto flex max-w-6xl gap-4 px-3 py-4 bg-neutral-50">
         {/* Left: Pinned panel */}
         <aside className="w-64 shrink-0">
-          <div className="rounded-md border bg-neutral-50">
-            <div className="flex items-center justify-between border-b bg-neutral-100 px-3 py-2">
+          <div className="rounded-md border bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b bg-neutral-50 px-3 py-2">
               <div className="text-xs font-semibold text-neutral-800">
                 Pinned {tabLabel}
               </div>
               <button
                 onClick={() => setPinnedOpen((v) => !v)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                className="rounded-md border px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
                 aria-expanded={pinnedOpen}
               >
                 {pinnedOpen ? "▾" : "▸"}
@@ -823,7 +831,7 @@ export default function Browse() {
             {pinnedOpen && (
               <div className="space-y-2 p-2">
                 {pinned.length === 0 ? (
-                  <div className="rounded-md bg-neutral-100 px-3 py-2 text-left text-xs text-neutral-600">
+                  <div className="rounded-md bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-600">
                     Nothing pinned yet
                   </div>
                 ) : (
@@ -840,9 +848,15 @@ export default function Browse() {
                         key={p.id}
                         className="flex items-center justify-between rounded-md border bg-white px-3 py-2 text-xs"
                       >
-                        <span className="truncate">{p.title}</span>
+                        <span className="truncate text-neutral-800">
+                          {p.title}
+                        </span>
                         <button
-                          className="ml-2 rounded-md px-2 py-0.5 text-xs hover:bg-neutral-50"
+                          className={`ml-2 rounded-md border px-2 py-0.5 text-xs ${
+                            isPinned
+                              ? "bg-amber-50 border-amber-300 text-amber-800"
+                              : "hover:bg-neutral-50"
+                          }`}
                           title={isPinned ? "Unpin" : "Pin"}
                           onClick={() =>
                             activeTab === "folders"
@@ -874,7 +888,10 @@ export default function Browse() {
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rounded-md border p-4">
+                  <div
+                    key={i}
+                    className="rounded-md border bg-white p-4 shadow-sm"
+                  >
                     <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-neutral-100" />
                     <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-neutral-100" />
                     <div className="h-20 animate-pulse rounded bg-neutral-100" />
@@ -937,7 +954,7 @@ export default function Browse() {
                             />
                             {/* Pin button overlay */}
                             <button
-                              className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs ${
+                              className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs shadow-sm ${
                                 isPinned
                                   ? "bg-neutral-100"
                                   : "bg-white hover:bg-neutral-50"
@@ -973,6 +990,9 @@ export default function Browse() {
                       {filtered.map((it) => {
                         const isPinned = pinnedSet.has(it.id);
                         const asDataset = it as BrowseDataset;
+                        const visibilityLabel = it.isPublic
+                          ? "Public"
+                          : "Private";
                         return (
                           <CardShell
                             key={it.id}
@@ -984,89 +1004,100 @@ export default function Browse() {
                             }
                             onSelect={() => toggleSelect(it.id)}
                             title={
-                              <div>
-                                <div className="-mb-1">
+                              <div className="space-y-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="truncate text-sm font-semibold text-neutral-900">
+                                    {it.title}
+                                  </div>
+                                  <span
+                                    className={`shrink-0 rounded-md border px-2 py-[2px] text-[10px] font-medium ${
+                                      it.isPublic
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                        : "border-neutral-200 bg-neutral-50 text-neutral-700"
+                                    }`}
+                                  >
+                                    {visibilityLabel}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-neutral-500">
                                   <UsernameTag
                                     name={it.ownerName || "Owner"}
                                   />
                                 </div>
-                                <div className="mt-1 text-sm font-medium">
-                                  {it.title}
-                                </div>
                               </div>
                             }
-                            description={<span>{it.notes}</span>}
+                            description={
+                              <p className="mt-1 text-xs text-neutral-600 line-clamp-2">
+                                {it.notes || "No description provided."}
+                              </p>
+                            }
                             footerLeft={
-                              <span className="text-neutral-500">
+                              <span className="text-[11px] text-neutral-500">
                                 {it.updatedAt}
                               </span>
                             }
                             footerRight={
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 text-[11px] text-neutral-500">
                                 {activeTab === "datasets" &&
                                   asDataset.hasFile &&
                                   asDataset.originalFilename && (
                                     <span
-                                      className="text-[11px] text-neutral-600"
+                                      className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-[1px]"
                                       title={`File: ${asDataset.originalFilename}`}
                                     >
-                                      ▦
+                                      ▦{" "}
+                                      <span className="ml-1 truncate max-w-[6rem]">
+                                        {asDataset.originalFilename}
+                                      </span>
                                     </span>
                                   )}
-                                {it.isPublic ? (
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
-                                    Public
-                                  </span>
-                                ) : (
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
-                                    Private
-                                  </span>
-                                )}
                               </div>
                             }
                           >
-                            {/* Hover actions (top-right) */}
-                            <button
-                              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (activeTab === "datasets") {
-                                  navigate(`/datasets/${it.id}/view`);
-                                } else {
-                                  navigate(`/predictors/${it.id}`, {
-                                    state: { from: "browse" },
-                                  });
-                                }
-                              }}
-                            >
-                              View
-                            </button>
-                            {activeTab === "datasets" && asDataset.hasFile && (
+                            <div className="flex flex-wrap items-center gap-2">
                               <button
-                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                                title="Download file"
+                                className="rounded-md border px-2.5 py-1 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  downloadDataset(it.id);
+                                  if (activeTab === "datasets") {
+                                    navigate(`/datasets/${it.id}/view`);
+                                  } else {
+                                    navigate(`/predictors/${it.id}`, {
+                                      state: { from: "browse" },
+                                    });
+                                  }
                                 }}
                               >
-                                ⇩
+                                View
                               </button>
-                            )}
-                            <button
-                              className={`rounded-md border px-2 py-1 text-xs ${
-                                isPinned
-                                  ? "bg-neutral-100"
-                                  : "bg-white hover:bg-neutral-50"
-                              }`}
-                              title={isPinned ? "Unpin" : "Pin"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                togglePin(it.id);
-                              }}
-                            >
-                              {isPinned ? "★" : "☆"}
-                            </button>
+                              {activeTab === "datasets" &&
+                                asDataset.hasFile && (
+                                  <button
+                                    className="rounded-md border px-2.5 py-1 text-xs font-medium text-neutral-800 hover:bg-neutral-50"
+                                    title="Download file"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadDataset(it.id);
+                                    }}
+                                  >
+                                    ⇩ Download
+                                  </button>
+                                )}
+                              <button
+                                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                                  isPinned
+                                    ? "border-amber-300 bg-amber-50 text-amber-800"
+                                    : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
+                                }`}
+                                title={isPinned ? "Unpin" : "Pin"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  togglePin(it.id);
+                                }}
+                              >
+                                {isPinned ? "★ Pinned" : "☆ Pin"}
+                              </button>
+                            </div>
                           </CardShell>
                         );
                       })}
