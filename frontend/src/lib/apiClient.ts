@@ -97,7 +97,7 @@ async function publicRaw<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  get: <T>(p: string, p0: { signal: AbortSignal; }) => raw<T>(p),
+  get: <T>(p: string) => raw<T>(p),
   post: <T>(p: string, body?: unknown) =>
     raw<T>(p, {
       method: "POST",

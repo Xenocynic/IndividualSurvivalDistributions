@@ -7,15 +7,12 @@
  * - Shares a single search box and an ownership filter (All / Owner / Viewer) across both tabs.
  * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
  * - Grid shows cards; clicking a card toggles its "selected" state:
- *   - If you OWN the item, you see Edit / Delete when selected.
- *   - If you are a VIEWER, you see a View button when selected.
  * - "Create" menu can add a Predictor or Dataset; after creating:
- *   - The new item is inserted at the top,
- *   - The page switches to the corresponding tab (for datasets),
- *   - The new card is selected.
  *
- * Implementation notes:
- * - Local state holds the data and UI state (activeTab, query, ownership, selection, etc.).
+ * Implementation notes (UPDATED):
+ * - TanStack Query (useQuery) manages data fetching and caching.
+ * - TanStack Query (useMutation) handles server-side updates.
+ * - Local state holds UI state (activeTab, query, ownership, selection, etc.).
  * - useMemo filters each list by query + ownership.
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
@@ -24,8 +21,9 @@
  * - Navigate to actual edit / view routes instead of alert() stubs.
  */
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
 import DatasetCard, { type DatasetItem } from "../components/DatasetCard";
@@ -59,7 +57,6 @@ import {
   deleteFolder,
   removeItemFromFolder,
   mapApiFolderToUi,
-  type Folder,
   type CreateFolderRequest,
   handleFolderApiError,
 } from "../lib/folders";
@@ -74,6 +71,7 @@ type Tab = "predictors" | "datasets" | "folders";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const currentUserId = useMemo(
     () => (user as any)?.id ?? (user as any)?.pk,
     [user]
@@ -98,16 +96,117 @@ export default function Dashboard() {
     clearSelection();
   };
 
-  const [predictors, setPredictors] = useState<PredictorItem[]>([]);
-  const [datasets, setDatasets] = useState<DatasetItem[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  // --- TANSTACK QUERY INTEGRATION ---
 
-  // error and loading
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 1. Fetch Predictors
+  const { 
+    data: predictors = [], 
+    isLoading: isPredictorsLoading, 
+  } = useQuery({
+    queryKey: ['predictors'],
+    queryFn: async () => {
+      const data = await api.get<PredictorItem[]>(`/api/predictors/`);
+      return Array.isArray(data) ? data : [];
+    },
+    // Use select to transform data. This runs only when data changes.
+    select: (data) => data.map((it) => mapApiPredictorToUi(it, currentUserId)),
+    // Optimization: Only fetch predictors if we are on that tab (optional, but saves bandwidth)
+    enabled: activeTab === 'predictors',
+    staleTime: 1000 * 60 * 5, // Data is fresh for 5 minutes
+  });
 
-  // Track which tabs have been loaded
-  const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(new Set());
+  // 2. Fetch Datasets
+  const { 
+    data: datasets = [], 
+    isLoading: isDatasetsLoading 
+  } = useQuery({
+    queryKey: ['datasets'],
+    queryFn: async () => {
+      const data = await api.get<DatasetItem[]>(`/api/datasets/`);
+      return Array.isArray(data) ? data : [];
+    },
+    select: (data) => data.map((it) => mapApiDatasetToUi(it, currentUserId)),
+    enabled: activeTab === 'datasets',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // 3. Fetch Folders
+  // Note: We always fetch folders because the Sidebar might need them, or for drag/drop targets
+  const { 
+    data: folders = [], 
+    isLoading: isFoldersLoading,
+  } = useQuery({
+    queryKey: ['folders'],
+    queryFn: listMyFolders,
+    select: (data) => Array.isArray(data) ? data.map(mapApiFolderToUi) : [],
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  // Determine global loading state based on active tab
+  const isLoading = 
+    (activeTab === "predictors" && isPredictorsLoading) ||
+    (activeTab === "datasets" && isDatasetsLoading) ||
+    (activeTab === "folders" && isFoldersLoading);
+
+  // --- MUTATIONS ---
+
+  // Delete Predictor Mutation
+  const deletePredictorMutation = useMutation({
+    mutationFn: deletePredictor,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['predictors'] });
+      // Also invalidate folders as they might contain this predictor
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    }
+  });
+
+  // Delete Dataset Mutation
+  const deleteDatasetMutation = useMutation({
+    mutationFn: deleteDataset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    }
+  });
+
+  // Create Folder Mutation
+  const createFolderMutation = useMutation({
+    mutationFn: createFolder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    },
+    onError: (error: any) => {
+      const folderError = handleFolderApiError(error);
+      setFolderError(folderError.message);
+    }
+  });
+
+  // Delete Folder Mutation
+  const deleteFolderMutation = useMutation({
+    mutationFn: deleteFolder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    }
+  });
+
+  // Remove Item From Folder Mutation
+  const removeFromFolderMutation = useMutation({
+    mutationFn: ({ folderId, itemType, itemId }: { folderId: string, itemType: "predictor" | "dataset", itemId: string }) => 
+      removeItemFromFolder(folderId, itemType, itemId),
+    onSuccess: (_, variables) => {
+      // Refresh folders to update counts and item lists
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      // Refresh the specific list (predictors or datasets) to update the "folderId" property on items
+      // so they reappear in the main list if that logic is based on folderId presence
+      if (variables.itemType === 'predictor') {
+        queryClient.invalidateQueries({ queryKey: ['predictors'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      }
+    }
+  });
+
+  // --- LOCAL STATE ---
 
   // Combined selection state
   const [selection, setSelection] = useState({
@@ -137,7 +236,6 @@ export default function Dashboard() {
   );
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   // folder-specific filters (search will use main query state)
   const [folderSortOption, setFolderSortOption] =
@@ -148,134 +246,19 @@ export default function Dashboard() {
   );
 
   // drag and drop
+  // Note: We use mutation state instead of manual loading sets, 
+  // but keeping a local set for granular UI feedback if needed is fine.
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
 
   const { moveItem, isItemLoading } = useDragDrop(
-    // Don't update local state for copy behavior - items should stay in main view
     () => {
-      // Empty callback - the sidebar handles its own updates
+      // Callback after successful drop/move
+      // We simply tell Query to refresh the relevant data
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      queryClient.invalidateQueries({ queryKey: ['predictors'] });
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
     }
   );
-
-  // Separate function to fetch folders
-  const fetchFolders = async () => {
-    try {
-      const folderData = await listMyFolders();
-      const mapped = Array.isArray(folderData)
-        ? folderData.map((it) => mapApiFolderToUi(it))
-        : [];
-      setFolders(mapped);
-    } catch (err: any) {
-      console.error("Failed to fetch folders:", err);
-      // Don't set error for folders as it's not critical
-    }
-  };
-
-  useEffect(() => {
-    // Early return if tab already loaded
-    if (loadedTabs.has(activeTab)) {
-      setIsLoading(false);
-      return;
-    }
-
-    let mounted = true;
-    const controller = new AbortController();
-    
-    setError(null);
-    
-    const loadingTimer = setTimeout(() => {
-      if (mounted) setIsLoading(true);
-    }, 300);
-
-    const fetchData = async () => {
-      try {
-        const promises = [];
-
-        if (activeTab === "predictors") {
-          promises.push(
-            api.get<PredictorItem[]>(`/api/predictors/`, { 
-              signal: controller.signal 
-            }).then((predictorData) => {
-              if (!mounted) return;
-              const mapped = Array.isArray(predictorData)
-                ? predictorData.map((it) => mapApiPredictorToUi(it, currentUserId))
-                : [];
-              setPredictors(mapped);
-            })
-          );
-        } else if (activeTab === "datasets") {
-          promises.push(
-            api.get<DatasetItem[]>(`/api/datasets/`, { 
-              signal: controller.signal 
-            }).then((data) => {
-              if (!mounted) return;
-              const mapped = Array.isArray(data)
-                ? data.map((it) => mapApiDatasetToUi(it, currentUserId))
-                : [];
-              setDatasets(mapped);
-            })
-          );
-        }
-
-        // Always fetch folders
-        promises.push(fetchFolders());
-
-        await Promise.all(promises);
-        
-        if (mounted) {
-          setLoadedTabs(prev => new Set(prev).add(activeTab));
-        }
-      } catch (err: any) {
-        // Ignore abort errors
-        if (err.name === 'AbortError') return;
-        
-        if (mounted) {
-          if (err?.status === 0) {
-            setError("Network error");
-          } else {
-            setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
-          }
-          console.error("Fetch error", err);
-        }
-      } finally {
-        clearTimeout(loadingTimer);
-        if (mounted) setIsLoading(false);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      mounted = false;
-      controller.abort();
-      clearTimeout(loadingTimer);
-    };
-  }, [activeTab, loadedTabs, currentUserId]);
-
-  // Simple loading state management
-  useEffect(() => {
-    const hasData =
-      (activeTab === "predictors" && predictors.length > 0) ||
-      (activeTab === "datasets" && datasets.length > 0) ||
-      (activeTab === "folders" && folders.length > 0);
-
-    const tabWasLoaded = loadedTabs.has(activeTab);
-
-    if (hasData && !tabWasLoaded) {
-      // Mark this tab as loaded
-      setLoadedTabs((prev) => new Set(prev).add(activeTab));
-      setIsLoading(false);
-    } else if (hasData && tabWasLoaded) {
-      // Tab has data and was already loaded, no loading needed
-      setIsLoading(false);
-    }
-  }, [
-    activeTab,
-    predictors.length,
-    datasets.length,
-    folders.length,
-    loadedTabs,
-  ]);
 
   // filter functionality for predictors and datasets
   const filteredPredictors = useMemo(() => {
@@ -392,21 +375,13 @@ export default function Dashboard() {
   }, []);
 
   async function handleFolderCreation(data: CreateFolderRequest) {
-    setIsCreatingFolder(true);
+    // Rely on Mutation loading state
     setFolderError(null);
-
     try {
-      const newFolder = await createFolder(data);
-      setFolders((prev) => [mapApiFolderToUi(newFolder), ...prev]);
+      await createFolderMutation.mutateAsync(data);
       setShowFolderModal(false);
-
-      // Refresh data to update item assignments
-      await fetchFolders();
-    } catch (error: any) {
-      const folderError = handleFolderApiError(error);
-      setFolderError(folderError.message);
-    } finally {
-      setIsCreatingFolder(false);
+    } catch (error) {
+       // handled in onError of mutation
     }
   }
 
@@ -449,8 +424,7 @@ export default function Dashboard() {
     }
 
     try {
-      await deleteFolder(folderId);
-      setFolders((prev) => prev.filter((f) => f.folder_id !== folderId));
+      await deleteFolderMutation.mutateAsync(folderId);
       setExpandedFolders((prev) => {
         const newSet = new Set(prev);
         newSet.delete(folderId);
@@ -458,7 +432,7 @@ export default function Dashboard() {
       });
     } catch (error: any) {
       console.error("Failed to delete folder:", error);
-      setError("Failed to delete folder");
+      // Optional: set a global error state here if desired
     }
   }
 
@@ -467,50 +441,21 @@ export default function Dashboard() {
     itemType: "predictor" | "dataset",
     folderId: string
   ) => {
-    // Set loading states
     setLoadingFolders((prev) => new Set(prev).add(folderId));
 
     try {
-      await removeItemFromFolder(folderId, itemType, itemId);
-
-      // Update local state immediately
-      if (itemType === "predictor") {
-        setPredictors((prev) =>
-          prev.map((p) => (p.id === itemId ? { ...p, folderId: undefined } : p))
-        );
-      } else {
-        setDatasets((prev) =>
-          prev.map((d) => (d.id === itemId ? { ...d, folderId: undefined } : d))
-        );
-      }
-
-      // Update folder contents immediately by removing the item
-      setFolders((prev) =>
-        prev.map((folder) => {
-          if (folder.folder_id === folderId && folder.items) {
-            return {
-              ...folder,
-              items: folder.items.filter(
-                (folderItem) => folderItem.id !== itemId
-              ),
-              item_count: Math.max(0, folder.item_count - 1),
-            };
-          }
-          return folder;
-        })
-      );
+      await removeFromFolderMutation.mutateAsync({ folderId, itemType, itemId });
+      // No manual local state updates needed; Query cache invalidation handles it
     } catch (error: any) {
       console.error("Failed to remove item from folder:", error);
-      setError("Failed to remove item from folder");
     } finally {
-      // Clear loading state
       setLoadingFolders((prev) => {
         const newSet = new Set(prev);
         newSet.delete(folderId);
         return newSet;
       });
     }
-  }, []);
+  }, [removeFromFolderMutation]);
 
   const handleDrop = useCallback((item: DragItem, folderId?: string) => {
     moveItem(item, folderId);
@@ -567,23 +512,14 @@ export default function Dashboard() {
 
     try {
       if (activeTab === "predictors") {
-        // Delete predictor via API
-        const predictorId = pendingDelete.id;
-        await deletePredictor(predictorId);
+        await deletePredictorMutation.mutateAsync(pendingDelete.id);
 
-        // Remove from local state after successful API call
-        setPredictors((arr) => arr.filter((x) => x.id !== pendingDelete.id));
-
-        if (selection.predictorId === predictorId) {
+        if (selection.predictorId === pendingDelete.id) {
           setSelection(prev => ({ ...prev, predictorId: null }));
         }
       } else {
-        // Delete dataset via API
-        const datasetId = parseInt(pendingDelete.id);
-        await deleteDataset(datasetId);
+        await deleteDatasetMutation.mutateAsync(parseInt(pendingDelete.id));
 
-        // Remove from local state after successful API call
-        setDatasets((arr) => arr.filter((x) => x.id !== pendingDelete.id));
         if (selection.datasetId === pendingDelete.id) {
           setSelection(prev => ({ ...prev, datasetId: null }));
         }
@@ -591,9 +527,8 @@ export default function Dashboard() {
 
       setPendingDelete(null);
     } catch (error: any) {
-      // Show error message
       const errorMessage =
-        error?.details?.error || error?.message || "Failed to delete dataset";
+        error?.details?.error || error?.message || "Failed to delete item";
       alert(`Delete failed: ${errorMessage}`);
     } finally {
       setIsDeleting(false);
@@ -619,13 +554,13 @@ export default function Dashboard() {
               : "User"}
             !
           </h1>
-          {/* REPLACE WITH ACTUAL TEXT EVENTUALLY */}
           <div className='mx-auto mt-4 max-w-2xl space-y-2'>
             <h2 className='text-2xl tracking-tight md:text-2xl'>
               Find your datasets and predictors below.
             </h2>
           </div>
         </div>
+        
         {/* sticky toolbar under navbar - stays on top when you scroll */}
         <div
           className='sticky top-14 md:top-16 z-40 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60'
@@ -635,10 +570,8 @@ export default function Dashboard() {
             <Toolbar
               activeTab={activeTab}
               onTabChange={(t) => {
-                selectTab(t);                
-                if (t === "folders" && !loadedTabs.has("folders")) {
-                  void fetchFolders();        
-                }
+                selectTab(t);
+                // No need to manually fetchFolders(), Query handles cache/refetch
               }}
               query={
                 activeTab === "predictors"
@@ -718,17 +651,14 @@ export default function Dashboard() {
             </div>
           </div>
         ) : null}
+        
         {/* Main Content Area */}
         <div className='flex gap-6'>
           {/* Folder Sidebar - always render but hide when not needed */}
           <FolderSidebar
             onItemMoved={async (_itemId, _folderId) => {
-              // Refresh folder data for the folder tab (but don't reload the whole tab)
-              try {
-                await fetchFolders();
-              } catch (error) {
-                console.error('Failed to refresh folder data:', error);
-              }
+              // Simply invalidate folders to refresh the sidebar
+              queryClient.invalidateQueries({ queryKey: ['folders'] });
             }}
             className={activeTab === "folders" ? "hidden" : ""}
           />
@@ -764,16 +694,13 @@ export default function Dashboard() {
                           expanded={expandedFolders.has(folder.folder_id)}
                           onToggleExpand={handleToggleFolderExpansion}
                           onEdit={(folderId) => {
-                            // Folder editing is now handled by the FolderCard component's internal modal
-                            console.log("Folder edit initiated for:", folderId);
+                             // Folder edit handled internally
+                             console.log("Folder edit initiated for:", folderId);
                           }}
                           onDelete={handleFolderDelete}
                           onShare={(folderId) => {
-                            // Folder sharing is now handled by the FolderCard component's internal modal
-                            console.log(
-                              "Folder sharing initiated for:",
-                              folderId
-                            );
+                            // Folder share handled internally
+                            console.log("Folder sharing initiated for:", folderId);
                           }}
                           onItemSelect={(itemId, itemType) => {
                             // Handle item selection within folders
@@ -795,7 +722,9 @@ export default function Dashboard() {
                               itemType === "predictor"
                                 ? predictors.find((p) => p.id === itemId)
                                 : datasets.find((d) => d.id === itemId);
-                            if (item) setPendingDelete(item);
+                            // We might need to find items deep within folders if they aren't in the main lists
+                            const foundItem = item || folder.items?.find(i => i.id === itemId) as any;
+                            if (foundItem) setPendingDelete(foundItem);
                           }}
                           onItemView={(itemId, _itemType) => viewItem(itemId)}
                           onRemoveFromFolder={(itemId, itemType) =>
@@ -813,7 +742,7 @@ export default function Dashboard() {
                           }
                           currentUserId={currentUserId}
                           canEdit={true}
-                          isLoading={loadingFolders.has(folder.folder_id)}
+                          isLoading={loadingFolders.has(folder.folder_id) || removeFromFolderMutation.isPending}
                         />
                       </div>
                     );
@@ -936,7 +865,7 @@ export default function Dashboard() {
               onCreateFolder={handleFolderCreation}
               availablePredictors={predictors.filter((p) => !p.folderId)}
               availableDatasets={datasets.filter((d) => !d.folderId)}
-              isLoading={isCreatingFolder}
+              isLoading={createFolderMutation.isPending}
               error={folderError}
             />
           </div>
