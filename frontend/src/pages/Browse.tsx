@@ -812,17 +812,17 @@ export default function Browse() {
       </div>
 
       {/* Content row: pinned left, grid right */}
-      <section className="mx-auto flex max-w-6xl gap-4 bg-neutral-50 px-3 py-4">
+      <section className="mx-auto flex max-w-6xl gap-4 bg-neutral-100 px-3 py-4">
         {/* Left: Pinned panel */}
         <aside className="w-64 shrink-0">
-          <div className="rounded-md border bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b bg-neutral-50 px-3 py-2">
-              <div className="text-xs font-semibold text-neutral-800">
+          <div className="rounded-md border bg-white overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between border-b bg-neutral-600 px-3 py-2">
+              <div className="text-xs font-semibold text-white">
                 Pinned {tabLabel}
               </div>
               <button
                 onClick={() => setPinnedOpen((v) => !v)}
-                className="rounded-md border px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                className="rounded-md border px-2 py-1 text-xs text-white hover:bg-neutral-500"
                 aria-expanded={pinnedOpen}
               >
                 {pinnedOpen ? "▾" : "▸"}
