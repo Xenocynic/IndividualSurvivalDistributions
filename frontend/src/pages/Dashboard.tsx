@@ -70,6 +70,9 @@ import type {
   SortOption,
 } from "../types/flitering";
 import type { FolderSortOption, FolderType } from "../components/folder";
+import {
+  FolderOpen,
+} from "lucide-react";
 
 type Tab = "predictors" | "datasets" | "folders";
 type KeywordTarget = "title" | "notes" | "both";
@@ -1072,7 +1075,7 @@ export default function Dashboard() {
                     !isLoading && (
                       <div className="col-span-full flex items-center justify-center py-12 text-center">
                         <div className="max-w-sm">
-                          <div className="mb-2 text-lg text-gray-400">📁</div>
+                          <div className="mb-2 text-lg text-gray-400"><FolderOpen className="h-4 w-4 text-gray-700" /></div>
                           <p className="text-sm text-gray-500">
                             No {activeTab} in your main collection
                           </p>
