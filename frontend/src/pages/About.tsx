@@ -135,38 +135,66 @@ export default function About() {
       {/* Links paragraph + CTA button + final paragraph with link */}
       <section className="space-y-6">
         <p className="leading-7">
-          This website provides access to the ISD codebase. You can either
-          {" "}
-          <a href={LINKS.analyzeSite} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">analyze your data set on this site</a>,
-          {" "}or
-          {" "}
-          <a href={LINKS.downloadCli} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">download the source for the command-line ISD tool</a>.
-          {" "}To better understand ISD, see the slides and presentation
-          {" "}
-          <a href={LINKS.slides} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">here</a>;
-          {" "}and how to use this website, see the
-          {" "}
-          <a href={LINKS.tutorial} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">Tutorial</a>.
+          This website provides access to the ISD codebase. You can either{" "}
+          <a href={LINKS.analyzeSite} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            analyze your data set on this site
+          </a>
+          , or{" "}
+          <a href={LINKS.downloadCli} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            download the source for the command-line ISD tool
+          </a>
+          . To better understand ISD, see the slides and presentation{" "}
+          <a href={LINKS.slides} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            here
+          </a>
+          ; and how to use this website, see the{" "}
+          <a href={LINKS.tutorial} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            Tutorial
+          </a>
+          .
         </p>
         <p className="leading-7">
-          You can also look at our publicly accessible predictors
-          {" "}
-          <a href={LINKS.predictors} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">here</a>.
+          You can also look at our publicly accessible predictors{" "}
+          <a href={LINKS.predictors} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            here
+          </a>
+          .
         </p>
+
+        {/* CTA — radius changed from rounded-md → rounded-xl */}
         <div className="flex justify-center">
           <a
             href={LINKS.demo}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-neutral-700 px-6 py-2 text-base font-semibold text-white shadow-sm hover:bg-neutral-800"
+            className="group relative inline-flex h-12 items-center justify-center overflow-hidden rounded-xl bg-neutral-950 px-6 font-medium text-neutral-200 shadow-sm transition-colors hover:bg-neutral-900"
           >
-            View The Demo
+            <span>View The Demo</span>
+            <div className="ml-1 w-0 translate-x-[100%] pl-0 opacity-0 transition-all duration-200 group-hover:w-5 group-hover:translate-x-0 group-hover:pl-1 group-hover:opacity-100">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M8.14645 3.14645C8.34171 2.95118 8.65829 2.95118 8.85355 3.14645L12.8536 7.14645C13.0488 7.34171 13.0488 7.65829 12.8536 7.85355L8.85355 11.8536C8.65829 12.0488 8.34171 12.0488 8.14645 11.8536C7.95118 11.6583 7.95118 11.3417 8.14645 11.1464L11.2929 8H2.5C2.22386 8 2 7.77614 2 7.5C2 7.22386 2.22386 7 2.5 7H11.2929L8.14645 3.85355C7.95118 3.65829 7.95118 3.34171 8.14645 3.14645Z"
+                  fill="currentColor"
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
           </a>
         </div>
+
         <p className="leading-7">
-          For more information about Survival Prediction in general, and about ISDs in particular, check out
-          {" "}
-          <a href={LINKS.summary2025} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">Survival Prediction Summary (2025)</a>
+          For more information about Survival Prediction in general, and about ISDs in particular, check out{" "}
+          <a href={LINKS.summary2025} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+            Survival Prediction Summary (2025)
+          </a>
           {" "}– which also includes tutorials, slides, and recent results.
         </p>
       </section>
@@ -177,7 +205,10 @@ export default function About() {
           <div className="max-h-[90vh] max-w-[90vw] rounded-2xl bg-white p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <img src={preview} alt="Preview" className="max-h-[80vh] max-w-[85vw] object-contain" />
           </div>
-          <button className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm shadow hover:bg-white" onClick={() => setPreview(null)}>
+          <button
+            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm shadow hover:bg-white"
+            onClick={() => setPreview(null)}
+          >
             Close
           </button>
         </div>

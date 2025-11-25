@@ -25,5 +25,8 @@
     "chromedriver": "^141.0.2",
     "mocha": "^11.7.4",
     "selenium-webdriver": "^4.36.0"
+  },
+  "dependencies": {
+    "framer-motion": "^12.23.24"
   }
 }

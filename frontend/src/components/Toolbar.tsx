@@ -60,21 +60,33 @@ export default function Toolbar({
         <div className="inline-flex h-10 overflow-hidden rounded-md border border-black/10 bg-white">
           <button
             type="button"
-            className={`px-3 text-sm ${activeTab === "predictors" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+              activeTab === "predictors"
+                ? "bg-black text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
             onClick={() => onTabChange("predictors")}
           >
             Predictors
           </button>
           <button
             type="button"
-            className={`px-3 text-sm ${activeTab === "datasets" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+              activeTab === "datasets"
+                ? "bg-black text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
             onClick={() => onTabChange("datasets")}
           >
             Datasets
           </button>
           <button
             type="button"
-            className={`px-3 text-sm ${activeTab === "folders" ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100"}`}
+            className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+              activeTab === "folders"
+                ? "bg-black text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
             onClick={() => onTabChange("folders")}
           >
             Folders
