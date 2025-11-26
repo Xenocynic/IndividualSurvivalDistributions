@@ -602,7 +602,7 @@ function BrowseContent() {
                                   <span className="text-[11px] text-neutral-600" title={`File: ${it.originalFilename}`}>▦</span>
                                 )}
                                 {it.isPublic ? (
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Public</span>
+                                  <span className="rounded bg-green-500/35 px-2 py-0.5 text-[11px] text-neutral-800">Public</span>
                                 ) : (
                                   <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">Private</span>
                                 )}
