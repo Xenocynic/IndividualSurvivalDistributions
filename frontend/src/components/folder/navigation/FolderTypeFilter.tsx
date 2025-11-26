@@ -51,7 +51,7 @@ export default function FolderTypeFilter({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-black/10 bg-white px-3 text-sm hover:bg-gray-50"
+        className="relative inline-flex h-10 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-md bg-black px-4 text-sm text-white shadow-lg shadow-neutral-500/20 duration-300 [transition-timing-function:cubic-bezier(0.175,0.885,0.32,1.275)] active:translate-y-1 active:scale-x-110 active:scale-y-90 hover:bg-black/90"
       >
         <Filter className="h-4 w-4 text-gray-500" />
         <span className="hidden sm:inline">{currentOption.label}</span>

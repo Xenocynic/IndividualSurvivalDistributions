@@ -454,27 +454,41 @@ export default function Browse() {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             {/* Left cluster: tab switch + search */}
             <div className="flex w-full items-center gap-2">
-              <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white">
+              <div className="inline-flex h-10 overflow-hidden rounded-md border border-black/10 bg-white">
                 <button
-                  className={`px-3 text-sm ${activeTab === "predictors" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  type="button"
+                  className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+                    activeTab === "predictors"
+                      ? "bg-black text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
                   onClick={() => selectTab("predictors")}
                 >
                   Predictors
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "datasets" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  type="button"
+                  className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+                    activeTab === "datasets"
+                      ? "bg-black text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
                   onClick={() => selectTab("datasets")}
                 >
                   Datasets
                 </button>
                 <button
-                  className={`px-3 text-sm ${activeTab === "folders" ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-50"}`}
+                  type="button"
+                  className={`cursor-pointer rounded-md px-3 py-1 text-sm shadow-lg shadow-neutral-500/20 transition active:scale-[.95] ${
+                    activeTab === "folders"
+                      ? "bg-black text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
                   onClick={() => selectTab("folders")}
                 >
                   Folders
                 </button>
               </div>
-
               <div className="flex-1 md:max-w-md">
                 <SearchBar
                   value={activeTab === "predictors" ? predictorQuery : activeTab === "datasets" ? datasetQuery : folderQuery}
@@ -493,9 +507,9 @@ export default function Browse() {
             <div className="flex items-center gap-2 shrink-0">
               {activeTab === "folders" ? (
                 <>
-                  <PublicFilter value={folderVisibility} onChange={setFolderVisibility} />
                   <FolderTypeFilter value={folderTypeFilter} onChange={setFolderTypeFilter} />
                   <FolderSortMenu value={folderSortOption} onChange={setFolderSortOption} />
+                  <PublicFilter value={folderVisibility} onChange={setFolderVisibility} />
                 </>
               ) : (
                 <PublicFilter

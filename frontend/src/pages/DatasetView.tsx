@@ -185,11 +185,25 @@ export default function DatasetView() {
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-2.5">
           <button
-            onClick={handleBack}
-            className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
-          >
-            Back
-          </button>
+  type="button"
+  onClick={handleBack}
+  className="group flex h-10 w-24 items-center justify-center rounded-[3px] bg-white text-sm font-medium text-black tracking-[0.05em] transition-all duration-200 border-0 hover:-translate-y-0.5"
+>
+  <svg
+    height="16"
+    width="16"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 1024 1024"
+    className="ml-1 mr-1 h-4 w-4 transition-all duration-300 group-hover:-translate-x-1 group-hover:scale-110"
+  >
+    <path
+      fill="currentColor"
+      d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"
+    />
+  </svg>
+  <span>Go Back</span>
+</button>
+
           <div className="text-sm font-semibold tracking-wide">View Dataset</div>
           <div className="w-[76px]" />
         </div>
@@ -266,13 +280,44 @@ export default function DatasetView() {
                     </div>
                   </div>
                 </div>
-
                 <button
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="w-full rounded-md bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800 disabled:opacity-50"
-                >
-                  {downloading ? "Downloading…" : "Download File"}
+                  className="group relative inline-flex w-full items-center justify-center overflow-hidden rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-md transition-colors duration-300 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed">
+                  {/* Tooltip */}
+                  <span
+                    className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-white px-2 py-1 text-xs font-medium text-black opacity-0 shadow-md transition-all duration-500 group-hover:-top-12 group-hover:opacity-100"
+                  >
+                    Size: 20Mb
+                  </span>
+
+                  {/* Sliding text + icon */}
+                  <span className="relative flex h-5 items-center overflow-hidden">
+                    {/* Text layer */}
+                    <span className="flex items-center transition-transform duration-500 group-hover:-translate-y-full">
+                      {downloading ? "Downloading…" : "Download File"}
+                    </span>
+
+                    {/* Icon layer */}
+                    <span className="absolute inset-0 flex translate-y-full items-center justify-center transition-transform duration-500 group-hover:translate-y-0">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                        role="img"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                      >
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 15V3m0 12l-4-4m4 4 4-4M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"
+                        />
+                      </svg>
+                    </span>
+                  </span>
                 </button>
               </div>
             ) : (

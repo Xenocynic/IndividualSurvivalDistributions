@@ -108,33 +108,48 @@ export default function Toolbar({
           />
         </div>
       </div>
-
       {/* Right: Filter + Create (always visible) */}
+      {/* Right: folder controls + create */}
       <div className="flex items-center gap-2 shrink-0">
         {activeTab === "folders" ? (
           <>
-            <FilterMenu value={ownership} onChange={onOwnershipChange} />
+            {/* 1. Folder type */}
             {folderTypeFilter && onFolderTypeFilterChange && (
               <FolderTypeFilter
                 value={folderTypeFilter}
                 onChange={onFolderTypeFilterChange}
               />
             )}
+
+            {/* 2. Sort */}
             {folderSortOption && onFolderSortChange && (
               <FolderSortMenu
                 value={folderSortOption}
                 onChange={onFolderSortChange}
               />
             )}
+
+            {/* 3. Ownership filter */}
+            <FilterMenu value={ownership} onChange={onOwnershipChange} />
+
+            {/* 4. Create */}
+            <CreateMenu
+              onCreatePredictor={onCreatePredictor}
+              onCreateDataset={onCreateDataset}
+              onCreateFolder={onCreateFolder}
+            />
           </>
         ) : (
-          <FilterMenu value={ownership} onChange={onOwnershipChange} />
+          <>
+            {/* Non-folder tabs: Filter then Create */}
+            <FilterMenu value={ownership} onChange={onOwnershipChange} />
+            <CreateMenu
+              onCreatePredictor={onCreatePredictor}
+              onCreateDataset={onCreateDataset}
+              onCreateFolder={onCreateFolder}
+            />
+          </>
         )}
-        <CreateMenu
-          onCreatePredictor={onCreatePredictor}
-          onCreateDataset={onCreateDataset}
-          onCreateFolder={onCreateFolder}
-        />
       </div>
     </div>
   );

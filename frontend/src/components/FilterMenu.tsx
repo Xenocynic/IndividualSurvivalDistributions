@@ -35,7 +35,7 @@ export default function FilterMenu({ value, onChange }: FilterMenuProps) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-black/10 bg-white px-3 text-sm hover:bg-gray-50"
+          className="relative overflow-hidden rounded-md bg-neutral-950 px-5 py-2.5 text-sm text-white duration-300 [transition-timing-function:cubic-bezier(0.175,0.885,0.32,1.275)] active:translate-y-1 active:scale-x-110 active:scale-y-90"
       >
         Filter
       </button>

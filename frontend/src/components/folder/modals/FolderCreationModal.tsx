@@ -370,14 +370,14 @@ export default function FolderCreationModal({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 cursor-pointer shadow-lg shadow-neutral-500/20 transition active:scale-[.95]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!folderName.trim() || Boolean(nameError) || isLoading}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative overflow-hidden rounded-md bg-blue-600 px-5 py-2.5 text-sm text-white duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed [transition-timing-function:cubic-bezier(0.175,0.885,0.32,1.275)] active:translate-y-1 active:scale-x-110 active:scale-y-90"
             >
               {isLoading ? "Creating..." : "Create Folder"}
             </button>

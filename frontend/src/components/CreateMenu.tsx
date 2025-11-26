@@ -47,8 +47,7 @@ export default function CreateMenu({
         onClick={() => setOpen(v => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 shrink-0 items-center gap-2 justify-center rounded-md bg-black px-4 text-sm font-medium text-white whitespace-nowrap leading-none hover:bg-black/90"
-      >
+        className="relative inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-md bg-black px-4 text-sm font-medium text-white whitespace-nowrap leading-none shadow-lg shadow-neutral-500/20 duration-300 [transition-timing-function:cubic-bezier(0.175,0.885,0.32,1.275)] active:translate-y-1 active:scale-x-110 active:scale-y-90 hover:bg-black/90">
         <span className="-mt-px">+</span>
         <span>Create</span>
       </button>

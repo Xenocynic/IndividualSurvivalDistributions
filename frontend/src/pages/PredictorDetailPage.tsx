@@ -202,18 +202,31 @@ export default function PredictorDetailPage() {
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <button
+            type="button"
             onClick={handleBack}
-            className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
             aria-label="Back"
-          >
-            Back
+            className={`group flex h-10 w-24 items-center justify-center rounded-[3px] bg-white text-sm font-medium text-black tracking-[0.05em] transition-all duration-200 border-0 hover:-translate-y-0.5`}>
+            <svg
+              height="16"
+              width="16"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 1024 1024"
+              className="ml-1 mr-1 h-4 w-4 transition-all duration-300 group-hover:-translate-x-1 group-hover:scale-110"
+            >
+              <path
+                fill="currentColor"
+                d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"
+              />
+            </svg>
+            <span>Back</span>
           </button>
 
           <h1 className="text-lg font-semibold tracking-wide text-center">{predictor.name}</h1>
 
           {/* status badge placeholder */}
-          <div className="hidden rounded-full bg-neutral-600 px-3 py-1 text-xs sm:block">
-            Status: <span className="font-medium">Trained</span>
+          <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-800">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="font-medium">Trained</span>
           </div>
         </div>
         <div className="h-[4px] w-full bg-neutral-600" />

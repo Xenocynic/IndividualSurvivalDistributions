@@ -129,7 +129,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
+              className="cursor-pointer rounded-md bg-neutral-950 px-3 py-1 text-sm text-white shadow-lg shadow-neutral-500/20 transition active:scale-[.95] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -164,7 +164,7 @@ export default function Settings() {
             <button
               type="submit"
               disabled={pwSaving}
-              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
+              className="cursor-pointer rounded-md bg-neutral-950 px-3 py-1 text-sm text-white shadow-lg shadow-neutral-500/20 transition active:scale-[.95] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {pwSaving ? "Updating…" : "Update password"}
             </button>
@@ -176,7 +176,7 @@ export default function Settings() {
       <section className="space-y-2">
         <button
           onClick={() => logout()}
-          className="rounded-md px-4 py-2 bg-black text-white border border-black/10 shadow-sm"
+              className="cursor-pointer rounded-md bg-neutral-950 px-3 py-1 text-sm text-white shadow-lg shadow-neutral-500/20 transition active:scale-[.95] disabled:opacity-60 disabled:cursor-not-allowed"
         >
           Log out
         </button>
