@@ -13,6 +13,8 @@
  * - Normalizes header action buttons to bordered pills.
  */
 
+// FolderCard.tsx
+
 import { useState } from "react";
 import DroppableFolder from "./DroppableFolder";
 import FolderItemList from "./FolderItemList";
@@ -24,6 +26,7 @@ import {
   FolderOpen,
   Users,
 } from "lucide-react";
+import type { DragItem } from "../../../types/dragDrop"; 
 
 export interface FolderCardProps {
   folder: any;
@@ -54,6 +57,7 @@ export interface FolderCardProps {
   onEdit?: (folderId: string) => void;
   onDelete?: (folderId: string) => void;
   onShare?: (folderId: string) => void;
+  onDrop?: (item: DragItem, targetFolderId?: string) => void;
 
   selectedItems?: Set<string>;
   currentUserId?: string | number | undefined;
@@ -74,6 +78,7 @@ export default function FolderCard({
   onEdit,
   onDelete,
   onShare,
+  onDrop,              
   selectedItems,
   currentUserId,
   canEdit,
@@ -97,8 +102,8 @@ export default function FolderCard({
   return (
     <DroppableFolder
       folder={folder}
-      // DroppableFolder expects isLoading: (itemId: string) => boolean
       isLoading={(_itemId: string) => Boolean(isLoading)}
+      onDrop={onDrop} 
       className="rounded-xl border border-black/10 bg-white shadow-sm transition-all duration-200"
     >
       <div

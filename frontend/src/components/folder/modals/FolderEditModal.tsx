@@ -215,7 +215,7 @@ export default function FolderEditModal({
               <button
                 type="submit"
                 disabled={isLoading || !name.trim()}
-                className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center rounded-md bg-neutral-600 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoading ? (
                   <>

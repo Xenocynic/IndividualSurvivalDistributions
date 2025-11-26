@@ -102,22 +102,22 @@ export default function FolderSidebar({
   return (
     <>
       <aside
-        className={`w-64 shrink-0 rounded-md border border-black/10 bg-gray-50 ${className ?? ""}`}
+        className={`w-64 shrink-0 rounded-md border border-black/10 bg-gray-50 overflow-hidden ${className ?? ""}`}
       >
-        <div className="flex items-center justify-between border-b border-black/10 bg-gray-100 px-3 py-2">
-          <div className="text-sm font-semibold text-gray-700">
+        <div className="flex items-center justify-between border-b border-black/10 bg-neutral-600 px-3 py-2">
+          <div className="text-sm font-semibold text-white">
             Folders
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-1 text-xs text-white hover:bg-neutral-400"
               onClick={() => setShowCreateModal(true)}
               title="Create folder"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button
-              className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-1 text-xs text-white hover:bg-neutral-400"
               onClick={() => setSidebarOpen((v) => !v)}
               aria-expanded={sidebarOpen}
               title={sidebarOpen ? "Collapse" : "Expand"}

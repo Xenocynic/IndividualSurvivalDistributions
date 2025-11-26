@@ -36,6 +36,8 @@ import {
   DroppableFolder,
   FolderSortMenu,
 } from "../components/folder";
+import FolderEditModal from "../components/folder/modals/FolderEditModal";
+import FolderSharingModal from "../components/folder/modals/FolderSharingModal";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
 import { DeletePredictor } from "../components/DeletePredictor";
 import DragDropProvider from "../components/DragDropProvider";
@@ -302,6 +304,12 @@ export default function Dashboard() {
   );
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
+
+  // folder edit / share modals
+  const [editingFolder, setEditingFolder] = useState<any | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [sharingFolder, setSharingFolder] = useState<any | null>(null);
+  const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
 
   // folder-specific filters
   const [folderSortOption, setFolderSortOption] =
@@ -823,15 +831,26 @@ export default function Dashboard() {
                           expanded={expandedFolders.has(folder.folder_id)}
                           onToggleExpand={handleToggleFolderExpansion}
                           onEdit={(folderId) => {
-                            console.log("Folder edit initiated for:", folderId);
+                            const f = folders.find(
+                              (x) => x.folder_id === folderId
+                            );
+                            if (f) {
+                              setEditingFolder(f);
+                              setIsEditModalOpen(true);
+                            }
                           }}
                           onDelete={handleFolderDelete}
                           onShare={(folderId) => {
-                            console.log(
-                              "Folder sharing initiated for:",
-                              folderId
+                            const f = folders.find(
+                              (x) => x.folder_id === folderId
                             );
+                            if (f) {
+                              setSharingFolder(f);
+                              setIsSharingModalOpen(true);
+                            }
                           }}
+                          // NEW: enable drag-and-drop directly on folder cards
+                          onDrop={handleDrop}
                           onItemSelect={(itemId, itemType) => {
                             if (itemType === "predictor") {
                               setSelection((prev) => ({
@@ -924,8 +943,8 @@ export default function Dashboard() {
                             onEdit={editItem}
                             onDelete={(id) =>
                               setPendingDelete(
-                                (predictors.find((x) => x.id === id) ??
-                                  null) as any
+                                (predictors.find((x) => x.id === id) ?? null) as
+                                  any
                               )
                             }
                             onView={viewItem}
@@ -944,8 +963,8 @@ export default function Dashboard() {
                             onEdit={editItem}
                             onDelete={(id) =>
                               setPendingDelete(
-                                (datasets.find((x) => x.id === id) ??
-                                  null) as any
+                                (datasets.find((x) => x.id === id) ?? null) as
+                                  any
                               )
                             }
                             onView={viewItem}
@@ -1011,6 +1030,34 @@ export default function Dashboard() {
               isLoading={createFolderMutation.isPending}
               error={folderError}
             />
+
+            {editingFolder && (
+              <FolderEditModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                  setIsEditModalOpen(false);
+                  setEditingFolder(null);
+                }}
+                folder={editingFolder}
+                onFolderUpdated={() => {
+                  queryClient.invalidateQueries({ queryKey: ["folders"] });
+                }}
+              />
+            )}
+
+            {sharingFolder && (
+              <FolderSharingModal
+                isOpen={isSharingModalOpen}
+                onClose={() => {
+                  setIsSharingModalOpen(false);
+                  setSharingFolder(null);
+                }}
+                folder={sharingFolder}
+                onPermissionsUpdated={() => {
+                  queryClient.invalidateQueries({ queryKey: ["folders"] });
+                }}
+              />
+            )}
           </div>
         </div>
       </section>
