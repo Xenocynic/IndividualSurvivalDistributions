@@ -94,7 +94,7 @@ export default function CardShell({
       className={`group relative cursor-pointer rounded-md border border-neutral-200 bg-white p-4 shadow-card transition
         ${selected ? "ring-2 ring-neutral-900" : "hover:ring-1 hover:ring-neutral-400"}`}
     >
-      <div className="flex min-h-[168px] flex-col gap-3">
+      <div className="flex min-h-[168px] flex-col gap-1">
         {/* Header row (username on left, actions on right). 
             Takes NO space when hidden (hover/selected modes). */}
         {showHeaderRow ? (
@@ -102,7 +102,7 @@ export default function CardShell({
             <div className="min-h-[1rem]">{eyebrowLeft}</div>
             {children ? (
               <div
-                className={`${actionsRowClass} gap-2`}
+                className={`${actionsRowClass} gap-1`}
                 onClick={(e) => {
                   onActionAreaClick?.(e);
                   e.stopPropagation();

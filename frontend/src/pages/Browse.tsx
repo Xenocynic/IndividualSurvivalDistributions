@@ -629,9 +629,9 @@ export default function Browse() {
   return (
     <DragDropProvider>
       {/* Sticky sub-header under global nav (leave this exactly as-is) */}
-      <div className="sticky top-[var(--app-nav-h,3.5rem)] z-30 w-full border-b bg-neutral-700 text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-2.5">
-          <div className="text-sm font-semibold tracking-wide">
+      <div className="sticky top-[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-4">
+          <div className="text-md font-semibold tracking-wide">
             Browse {tabLabel}
           </div>
         </div>
@@ -647,12 +647,12 @@ export default function Browse() {
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             {/* Left cluster: tab switch + search */}
             <div className="flex w-full items-center gap-2">
-              <div className="inline-flex h-9 overflow-hidden rounded-md border bg-white shadow-sm">
+              <div className="inline-flex h-9.5 overflow-hidden rounded-md border bg-white shadow-sm">
                 <button
                   className={`px-3 text-xs font-medium ${
                     activeTab === "predictors"
                       ? "bg-neutral-900 text-white"
-                      : "text-neutral-700 hover:bg-neutral-50"
+                      : "text-neutral-700 hover:bg-neutral-100"
                   }`}
                   onClick={() => selectTab("predictors")}
                 >
@@ -662,7 +662,7 @@ export default function Browse() {
                   className={`px-3 text-xs font-medium ${
                     activeTab === "datasets"
                       ? "bg-neutral-900 text-white"
-                      : "text-neutral-700 hover:bg-neutral-50"
+                      : "text-neutral-700 hover:bg-neutral-100"
                   }`}
                   onClick={() => selectTab("datasets")}
                 >
@@ -672,7 +672,7 @@ export default function Browse() {
                   className={`px-3 text-xs font-medium ${
                     activeTab === "folders"
                       ? "bg-neutral-900 text-white"
-                      : "text-neutral-700 hover:bg-neutral-50"
+                      : "text-neutral-700 hover:bg-neutral-100"
                   }`}
                   onClick={() => selectTab("folders")}
                 >
@@ -816,7 +816,7 @@ export default function Browse() {
                           <button
                             className={`ml-2 rounded-md border px-2 py-0.5 text-xs ${
                               isPinned
-                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:animate-pulse"
                                 : "hover:bg-neutral-50"
                             }`}
                             title={isPinned ? "Unpin" : "Pin"}
@@ -986,7 +986,7 @@ export default function Browse() {
                               }
                               onSelect={() => toggleSelect(it.id)}
                               title={
-                                <div className="space-y-1">
+                                <div className="space-y-2">
                                   <div className="flex items-center gap-1 text-[11px] text-neutral-500">
                                     <UsernameTag
                                       name={it.ownerName || "Owner"}
@@ -998,7 +998,7 @@ export default function Browse() {
                                 </div>
                               }
                               description={
-                                <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-700">
+                                <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
                                   {it.notes || "No description provided."}
                                 </div>
                               }
@@ -1029,7 +1029,7 @@ export default function Browse() {
                               }
                             >
                               <button
-                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                className="rounded-md border px-2.5 py-1 text-xs hover:bg-neutral-50"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (activeTab === "datasets") {
@@ -1041,25 +1041,25 @@ export default function Browse() {
                                   }
                                 }}
                               >
-                                View
+                                ☰
                               </button>
                               {isDatasetTab && asDataset.hasFile && (
                                 <button
-                                  className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                  className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50"
                                   title="Download file"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     downloadDataset(it.id);
                                   }}
                                 >
-                                  Download
+                                  ⎙
                                 </button>
                               )}
                               <button
-                                className={`rounded-md border px-2 py-1 text-xs ${
+                                className={`rounded-md border px-2.5 py-1 text-xs ${
                                   isPinned
-                                    ? "bg-neutral-100"
-                                    : "bg-white hover:bg-neutral-50"
+                                    ? "bg-neutral-200 hover:bg-neutral-300"
+                                    : "bg-white hover:bg-neutral-100"
                                 }`}
                                 title={isPinned ? "Unpin" : "Pin"}
                                 onClick={(e) => {
@@ -1125,9 +1125,9 @@ function AdvancedFilterMenu({
 }: AdvancedFilterMenuProps) {
   return (
     <details className="group relative">
-      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50">
+      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
         Filters
-        <span className="transition-transform text-[10px] text-neutral-500 group-open:rotate-180">
+        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
           ▾
         </span>
       </summary>

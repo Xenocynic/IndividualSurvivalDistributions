@@ -37,7 +37,7 @@ const Toolbar: FC<ToolbarProps> = ({
 }) => {
   return (
     <div className="mx-auto max-w-6xl px-2">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-md">
         {/* Left: tabs + search */}
         <div className="flex w-full items-center gap-2">
           {/* Tabs */}
