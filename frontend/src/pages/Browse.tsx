@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
 import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
 import UsernameTag from "../components/UsernameTag";
 import DragDropProvider from "../components/DragDropProvider";
+
 import {
   FolderCard,
   FolderSortMenu,
@@ -13,6 +17,7 @@ import {
   type FolderType,
 } from "../components/folder";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
+
 import {
   listPublicPredictors,
   listPinnedPredictors,
@@ -33,9 +38,9 @@ import {
   downloadDatasetFile,
 } from "../lib/datasets";
 import { toPredictorItem, toDatasetItem } from "../lib/mappers";
+
 import { useAuth } from "../auth/AuthContext";
 import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
-import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   filterPredictors,
@@ -55,8 +60,7 @@ import type { DatasetItem } from "../components/DatasetCard";
 type Tab = "predictors" | "datasets" | "folders";
 
 /**
- * Browse-specific extensions to the base card item types
- * used on the Dashboard.
+ * Item is the local UI shape used by Browse cards.
  */
 type BrowseBase = {
   ownerName?: string | null | undefined;
@@ -107,6 +111,9 @@ function matchesUpdatedWithin(
 
 export default function Browse() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
+  const navigate = useNavigate();
 
   // tab navigation handling (same thing as Dashboard mostly)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -116,18 +123,21 @@ export default function Browse() {
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
   })();
 
-  const selectTab = (t: Tab) => {
-    setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
-        sp.set("tab", t);
-        return sp;
-      },
-      { replace: true }
-    );
-    setSelectedPredictorId(null);
-    setSelectedDatasetId(null);
-  };
+  const selectTab = useCallback(
+    (t: Tab) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", t);
+          return sp;
+        },
+        { replace: true }
+      );
+      setSelectedPredictorId(null);
+      setSelectedDatasetId(null);
+    },
+    [setSearchParams]
+  );
 
   // Separate search states for each tab
   const [predictorQuery, setPredictorQuery] = useState("");
@@ -139,7 +149,9 @@ export default function Browse() {
     useState<Visibility>("all");
   const [datasetVisibility, setDatasetVisibility] =
     useState<Visibility>("all");
-  const [folderVisibility, setFolderVisibility] = useState<Visibility>("all");
+  const [folderVisibility, setFolderVisibility] =
+    useState<Visibility>("all");
+
   const [pinnedOpen, setPinnedOpen] = useState(true);
 
   // --- Advanced filter state (Browse only) ---
@@ -162,37 +174,10 @@ export default function Browse() {
   // datasets: only show those with a downloadable file
   const [datasetHasFileOnly, setDatasetHasFileOnly] = useState(false);
 
-  // API-loaded data (mapped through the mappers)
-  const [predictors, setPredictors] = useState<BrowsePredictor[]>([]);
-  const [datasets, setDatasets] = useState<BrowseDataset[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-
-  // Loading state
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Pinned IDs separated per tab (pinning is ONLY on Browse)
-  const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(
-    new Set()
-  );
-  const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(
-    new Set()
-  );
-  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(
-    new Set()
-  );
-
-  // Folder expansion state
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
-
   // Folder-specific filters (search uses main query state)
   const [folderSortOption, setFolderSortOption] =
     useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
-
-  const navigate = useNavigate();
 
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(
     null
@@ -201,171 +186,128 @@ export default function Browse() {
     null
   );
 
-  function toggleSelect(id: string) {
-    if (activeTab === "predictors") {
-      setSelectedPredictorId((curr) => (curr === id ? null : id));
-      setSelectedDatasetId(null);
-    } else {
-      setSelectedDatasetId((curr) => (curr === id ? null : id));
-      setSelectedPredictorId(null);
-    }
-  }
+  // Folder expansion state
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
 
-  // Fetch pinned predictors from your backend API
-  async function fetchPinnedPredictors() {
-    if (!user) return;
+  // Local state for folder pins (no backend yet)
+  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(
+    new Set()
+  );
 
-    try {
+  // --- TANSTACK QUERY: FETCH MAIN LISTS ---
+
+  // Fetch Public Predictors
+  const {
+    data: predictors = [],
+    isLoading: isPredictorsLoading,
+    error: predictorsError,
+  } = useQuery<BrowsePredictor[]>({
+    queryKey: ["public-predictors"],
+    queryFn: async () => {
+      const apiPreds = await listPublicPredictors();
+      return apiPreds.map((p: any) => {
+        const ui = toPredictorItem(p);
+        const item: BrowsePredictor = {
+          ...ui,
+          ownerName: p.owner?.username || "Unknown Owner",
+          updatedAtRaw: (p as any).updated_at ?? null,
+        };
+        return item;
+      });
+    },
+    enabled: activeTab === "predictors",
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch Public Datasets
+  const {
+    data: datasets = [],
+    isLoading: isDatasetsLoading,
+    error: datasetsError,
+  } = useQuery<BrowseDataset[]>({
+    queryKey: ["public-datasets"],
+    queryFn: async () => {
+      const apiDsets = await listPublicDatasets();
+      return apiDsets.map((d: any) => {
+        const ui = toDatasetItem(d, currentUserId);
+        const item: BrowseDataset = {
+          ...ui,
+          ownerName: ui.ownerName || d.owner_name || "Owner",
+          updatedAtRaw: (d as any).updated_at ?? null,
+          hasFile: ui.hasFile,
+          originalFilename: ui.originalFilename,
+        };
+        return item;
+      });
+    },
+    enabled: activeTab === "datasets",
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch Public Folders
+  const {
+    data: folders = [],
+    isLoading: isFoldersLoading,
+    error: foldersError,
+  } = useQuery({
+    queryKey: ["public-folders"],
+    queryFn: async () => {
+      const apiFolders = await listPublicFolders();
+      return apiFolders
+        .map(mapApiFolderToUi)
+        .filter((folder) => !folder.is_private && folder.public_item_count > 0);
+    },
+    enabled: activeTab === "folders",
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
+
+  // Fetch Pinned Predictor IDs
+  const { data: pinnedPredictorIds = new Set<string>() } = useQuery({
+    queryKey: ["pinned-predictors"],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
       const pinned = await listPinnedPredictors();
-      const pinnedSet = new Set(
-        pinned.map((p) => String(p.predictor.predictor_id))
-      );
-      setPinnedPredictorIds(pinnedSet);
-    } catch (err) {
-      console.error("Failed to fetch pinned predictors:", err);
-    }
-  }
+      return new Set(pinned.map((p) => String(p.predictor.predictor_id)));
+    },
+    enabled: !!user && activeTab === "predictors",
+  });
 
-  // Fetch pinned datasets
-  async function fetchPinnedDatasets() {
-    if (!user) return;
-
-    try {
+  // Fetch Pinned Dataset IDs
+  const { data: pinnedDatasetIds = new Set<string>() } = useQuery({
+    queryKey: ["pinned-datasets"],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
       const pinned = await listPinnedDatasets();
-      const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
-      setPinnedDatasetIds(pinnedSet);
-    } catch (err) {
-      console.error("Failed to fetch pinned datasets:", err);
-    }
-  }
+      return new Set(pinned.map((d) => String(d.dataset_id)));
+    },
+    enabled: !!user && activeTab === "datasets",
+  });
 
-  // Load pinned items from backend on mount / tab change
-  useEffect(() => {
-    if (activeTab === "predictors") fetchPinnedPredictors();
-    else if (activeTab === "datasets") fetchPinnedDatasets();
-  }, [user, activeTab]);
+  // --- MUTATIONS FOR PINNING ---
 
-  // Fetch & map once on mount or when tab changes
-  useEffect(() => {
-    let mounted = true;
-    const controller = new AbortController();
-    let didFinish = false;
-    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+  const pinPredictorMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) =>
+      isPinned ? unpinPredictor(id) : pinPredictor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pinned-predictors"] });
+    },
+    onError: (err) => console.error("Failed to toggle predictor pin", err),
+  });
 
-    const SHOW_LOADING_DELAY = 300;
+  const pinDatasetMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) =>
+      isPinned ? unpinDataset(id) : pinDataset(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pinned-datasets"] });
+    },
+    onError: (err) => console.error("Failed to toggle dataset pin", err),
+  });
 
-    // Track whether we've already fetched data for this tab
-    const isInitialPredictorFetch =
-      predictors.length === 0 && activeTab === "predictors";
-    const isInitialDatasetFetch =
-      datasets.length === 0 && activeTab === "datasets";
-    const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
-
-    setError(null);
-
-    async function fetchData() {
-      if (isInitialFetch) {
-        loadingTimer = setTimeout(() => {
-          if (!didFinish && mounted) setIsLoading(true);
-        }, SHOW_LOADING_DELAY);
-      } else {
-        setIsLoading(false);
-      }
-
-      try {
-        if (activeTab === "predictors") {
-          const apiPreds = await listPublicPredictors();
-          if (!mounted) return;
-
-          const uiPreds: BrowsePredictor[] = apiPreds.map((p: any) => {
-            const ui = toPredictorItem(p);
-            // extend the Dashboard-style UI item with browse-specific fields
-            const item: BrowsePredictor = {
-              ...ui,
-              ownerName: p.owner?.username || "Unknown Owner",
-              updatedAtRaw: (p as any).updated_at ?? null,
-            };
-            return item;
-          });
-
-          setPredictors(uiPreds);
-        } else if (activeTab === "datasets") {
-          const apiDsets = await listPublicDatasets();
-          if (!mounted) return;
-          const currentUserId =
-            (user as any)?.id ?? (user as any)?.pk ?? undefined;
-
-          const uiDsets: BrowseDataset[] = apiDsets.map((d: any) => {
-            const ui = toDatasetItem(d, currentUserId);
-            const item: BrowseDataset = {
-              ...ui,
-              // prefer mapper's ownerName, fall back to API field
-              ownerName: ui.ownerName || d.owner_name || "Owner",
-              updatedAtRaw: d.updated_at ?? null,
-            };
-            return item;
-          });
-
-          setDatasets(uiDsets);
-        }
-      } catch (err: any) {
-        if (err?.status === 0) setError("Network error");
-        else
-          setError(
-            err?.details?.message ?? err?.statusText ?? "Failed to load"
-          );
-        console.error("Fetch error", err);
-      } finally {
-        didFinish = true;
-        if (loadingTimer) clearTimeout(loadingTimer);
-        if (mounted) setIsLoading(false);
-      }
-    }
-
-    const t = window.setTimeout(() => fetchData(), 250);
-
-    return () => {
-      mounted = false;
-      controller.abort();
-      clearTimeout(t);
-      if (loadingTimer) clearTimeout(loadingTimer);
-    };
-  }, [user, activeTab, predictors.length, datasets.length]);
-
-  // Separate effect to fetch folders (always loaded)
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchFolders() {
-      try {
-        const apiFolders = await listPublicFolders();
-        if (!mounted) return;
-        const uiFolders = apiFolders
-          .map(mapApiFolderToUi)
-          .filter(
-            (folder) =>
-              !folder.is_private && folder.public_item_count > 0
-          );
-        setFolders(uiFolders);
-      } catch (err) {
-        console.error("Failed to fetch folders:", err);
-      }
-    }
-
-    fetchFolders();
-
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
-
-  // base list for pinned panel (only predictors/datasets)
-  const list: BrowseItem[] =
-    activeTab === "predictors"
-      ? predictors
-      : activeTab === "datasets"
-      ? datasets
-      : [];
+  // --- FILTERING ---
 
   // filtered items for predictors / datasets
   const filteredPredictors = useMemo<BrowsePredictor[]>(() => {
@@ -482,7 +424,6 @@ export default function Browse() {
       ? filteredDatasets
       : [];
 
-  // Filter folders based on search, visibility, type, and sorting
   const filteredFolders = useMemo(() => {
     const keywords = folderQuery.trim()
       ? folderQuery.trim().split(/\s+/)
@@ -507,6 +448,30 @@ export default function Browse() {
     folderSortOption,
   ]);
 
+  // Global loading/error
+  const isLoading =
+    (activeTab === "predictors" && isPredictorsLoading) ||
+    (activeTab === "datasets" && isDatasetsLoading) ||
+    (activeTab === "folders" && isFoldersLoading);
+
+  const errorObj =
+    (activeTab === "predictors" ? predictorsError : null) ||
+    (activeTab === "datasets" ? datasetsError : null) ||
+    (activeTab === "folders" ? foldersError : null);
+
+  const errorMessage = errorObj
+    ? (errorObj as any).message || "Failed to load data"
+    : null;
+
+  // base list for pinned panel (only predictors/datasets; unfiltered)
+  const baseList: BrowseItem[] =
+    activeTab === "predictors"
+      ? (predictors as BrowseItem[])
+      : activeTab === "datasets"
+      ? (datasets as BrowseItem[])
+      : [];
+
+  // Determine pinned items list for Sidebar
   const pinnedSet =
     activeTab === "predictors"
       ? pinnedPredictorIds
@@ -517,70 +482,61 @@ export default function Browse() {
   const pinned =
     activeTab === "folders"
       ? []
-      : list.filter((it) => pinnedSet.has(it.id));
+      : baseList.filter((it) => pinnedSet.has(it.id));
 
-  // Toggle pin (predictors & datasets)
-  async function togglePin(id: string) {
-    if (!user) return;
+  // --- ACTIONS ---
 
-    if (activeTab === "predictors") {
-      const isPinned = pinnedPredictorIds.has(id);
-      setPinnedPredictorIds((prev) => {
-        const next = new Set(prev);
-        if (isPinned) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-      try {
-        if (isPinned) await unpinPredictor(id);
-        else await pinPredictor(id);
-      } catch (err) {
-        console.error("Failed to toggle pin:", err);
-        // rollback
-        setPinnedPredictorIds((prev) => {
-          const next = new Set(prev);
-          if (isPinned) next.add(id);
-          else next.delete(id);
-          return next;
+  const toggleSelect = useCallback(
+    (id: string) => {
+      if (activeTab === "predictors") {
+        setSelectedPredictorId((curr) => (curr === id ? null : id));
+        setSelectedDatasetId(null);
+      } else if (activeTab === "datasets") {
+        setSelectedDatasetId((curr) => (curr === id ? null : id));
+        setSelectedPredictorId(null);
+      }
+    },
+    [activeTab]
+  );
+
+  const togglePin = useCallback(
+    (id: string) => {
+      if (!user) return;
+      if (activeTab === "predictors") {
+        pinPredictorMutation.mutate({
+          id,
+          isPinned: pinnedPredictorIds.has(id),
+        });
+      } else if (activeTab === "datasets") {
+        pinDatasetMutation.mutate({
+          id,
+          isPinned: pinnedDatasetIds.has(id),
         });
       }
-    } else if (activeTab === "datasets") {
-      const isPinned = pinnedDatasetIds.has(id);
-      setPinnedDatasetIds((prev) => {
-        const next = new Set(prev);
-        if (isPinned) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-      try {
-        if (isPinned) await unpinDataset(id);
-        else await pinDataset(id);
-      } catch (err) {
-        console.error("Failed to toggle dataset pin:", err);
-        setPinnedDatasetIds((prev) => {
-          const next = new Set(prev);
-          if (isPinned) next.add(id);
-          else next.delete(id);
-          return next;
-        });
-      }
-    }
-  }
+    },
+    [
+      user,
+      activeTab,
+      pinnedPredictorIds,
+      pinnedDatasetIds,
+      pinPredictorMutation,
+      pinDatasetMutation,
+    ]
+  );
 
-  // Separate function for folder pinning
-  function toggleFolderPin(folderId: string) {
+  // Local state pin for folders
+  const toggleFolderPin = useCallback((folderId: string) => {
     setPinnedFolderIds((prev) => {
       const next = new Set(prev);
       if (next.has(folderId)) next.delete(folderId);
       else next.add(folderId);
       return next;
     });
-  }
+  }, []);
 
-  // download dataset file
-  async function downloadDataset(id: string) {
+  const downloadDataset = useCallback(async (id: string) => {
     try {
-      const datasetId = parseInt(id);
+      const datasetId = parseInt(id, 10);
       const { blob, filename } = await downloadDatasetFile(datasetId);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -593,65 +549,70 @@ export default function Browse() {
     } catch (error: any) {
       alert(`Download failed: ${error.message || "Unknown error"}`);
     }
-  }
+  }, []);
 
-  // Folder expansion handlers
-  async function handleToggleFolderExpand(folderId: string) {
-    const isExpanded = expandedFolders.has(folderId);
+  // Folder expansion - updates Query Cache manually for efficiency
+  const handleToggleFolderExpand = useCallback(
+    async (folderId: string) => {
+      const isExpanded = expandedFolders.has(folderId);
 
-    if (isExpanded) {
-      setExpandedFolders((prev) => {
-        const next = new Set(prev);
-        next.delete(folderId);
-        return next;
-      });
-    } else {
-      const folder = folders.find((f) => f.folder_id === folderId);
-      if (folder && (!folder.items || folder.items.length === 0)) {
-        try {
-          const contents = await getPublicFolderContents(folderId);
-          setFolders((prev) =>
-            prev.map((f) =>
-              f.folder_id === folderId ? { ...f, items: contents } : f
-            )
-          );
-        } catch (error) {
-          console.error("Failed to load folder contents:", error);
+      if (isExpanded) {
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          next.delete(folderId);
+          return next;
+        });
+      } else {
+        const folder = folders.find((f: any) => f.folder_id === folderId);
+        if (folder && (!folder.items || folder.items.length === 0)) {
+          try {
+            const contents = await getPublicFolderContents(folderId);
+            // Manually update the query cache so the UI reflects the loaded items
+            queryClient.setQueryData(
+              ["public-folders"],
+              (old: Folder[] | undefined) => {
+                if (!old) return old;
+                return old.map((f: any) =>
+                  f.folder_id === folderId ? { ...f, items: contents } : f
+                );
+              }
+            );
+          } catch (error) {
+            console.error("Failed to load folder contents:", error);
+          }
         }
+
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          next.add(folderId);
+          return next;
+        });
+
+        if (folder) addFolderToRecent(folder as any);
       }
+    },
+    [expandedFolders, folders, queryClient]
+  );
 
-      setExpandedFolders((prev) => {
-        const next = new Set(prev);
-        next.add(folderId);
-        return next;
-      });
-
-      if (folder) addFolderToRecent(folder);
-    }
-  }
-
-  // Recent folder selection handler
-  function handleRecentFolderSelect(folderId: string) {
+  const handleRecentFolderSelect = useCallback((folderId: string) => {
     setExpandedFolders((prev) => new Set(prev).add(folderId));
     setTimeout(() => {
-      const element = document.getElementById(
-        `browse-folder-${folderId}`
-      );
+      const element = document.getElementById(`browse-folder-${folderId}`);
       if (element)
         element.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
-  }
+  }, []);
 
-  function handleItemView(
-    itemId: string,
-    itemType: "predictor" | "dataset"
-  ) {
-    if (itemType === "predictor") {
-      window.open(`/predictors/${itemId}/view`, "_blank");
-    } else {
-      window.open(`/datasets/${itemId}/view`, "_blank");
-    }
-  }
+  const handleItemView = useCallback(
+    (itemId: string, itemType: "predictor" | "dataset") => {
+      if (itemType === "predictor") {
+        window.open(`/predictors/${itemId}/view`, "_blank");
+      } else {
+        window.open(`/datasets/${itemId}/view`, "_blank");
+      }
+    },
+    []
+  );
 
   const tabLabel =
     activeTab === "predictors"
@@ -813,314 +774,312 @@ export default function Browse() {
 
       {/* Content row: pinned left, grid right */}
       <div className="w-full bg-neutral-100">
-      <section className="mx-auto flex max-w-6xl gap-4 px-3 py-4">
-        {/* Left: Pinned panel */}
-        <aside className="w-64 shrink-0">
-          <div className="rounded-md border bg-white overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between border-b bg-neutral-600 px-3 py-2">
-              <div className="text-xs font-semibold text-white">
-                Pinned {tabLabel}
-              </div>
-              <button
-                onClick={() => setPinnedOpen((v) => !v)}
-                className="rounded-md border px-2 py-1 text-xs text-white hover:bg-neutral-500"
-                aria-expanded={pinnedOpen}
-              >
-                {pinnedOpen ? "▾" : "▸"}
-              </button>
-            </div>
-            {pinnedOpen && (
-              <div className="space-y-2 p-2">
-                {pinned.length === 0 ? (
-                  <div className="rounded-md bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-600">
-                    Nothing pinned yet
-                  </div>
-                ) : (
-                  pinned.map((p) => {
-                    const isPinned =
-                      (activeTab === "predictors" &&
-                        pinnedPredictorIds.has(p.id)) ||
-                      (activeTab === "datasets" &&
-                        pinnedDatasetIds.has(p.id)) ||
-                      (activeTab === "folders" &&
-                        pinnedFolderIds.has(p.id));
-                    return (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between rounded-md border bg-white px-3 py-2 text-xs"
-                      >
-                        <span className="truncate text-neutral-800">
-                          {p.title}
-                        </span>
-                        <button
-                          className={`ml-2 rounded-md border px-2 py-0.5 text-xs ${
-                            isPinned
-                              ? "border-amber-300 bg-amber-50 text-amber-800"
-                              : "hover:bg-neutral-50"
-                          }`}
-                          title={isPinned ? "Unpin" : "Pin"}
-                          onClick={() =>
-                            activeTab === "folders"
-                              ? toggleFolderPin(p.id)
-                              : togglePin(p.id)
-                          }
-                        >
-                          {isPinned ? "★" : "☆"}
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-        </aside>
-        
-        {/* Right: content */}
-        <div className="min-w-0 flex-1 space-y-4">
-          {/* Loading indicator */}
-          {isLoading ? (
-            <div className="py-6">
-              <div className="flex items-center gap-3">
-                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
-                <div className="text-sm text-neutral-700">
-                  Loading {tabLabel}…
+        <section className="mx-auto flex max-w-6xl gap-4 px-3 py-4">
+          {/* Left: Pinned panel */}
+          <aside className="w-64 shrink-0">
+            <div className="overflow-hidden rounded-md border bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b bg-neutral-600 px-3 py-2">
+                <div className="text-xs font-semibold text-white">
+                  Pinned {tabLabel}
                 </div>
+                <button
+                  onClick={() => setPinnedOpen((v) => !v)}
+                  className="rounded-md border px-2 py-1 text-xs text-white hover:bg-neutral-500"
+                  aria-expanded={pinnedOpen}
+                >
+                  {pinnedOpen ? "▾" : "▸"}
+                </button>
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-md border bg-white p-4 shadow-sm"
-                  >
-                    <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-neutral-100" />
-                    <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-neutral-100" />
-                    <div className="h-20 animate-pulse rounded bg-neutral-100" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Error display */}
-          {error && !isLoading ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
-          {/* Main Content Area */}
-          {!isLoading && (
-            <>
-              {activeTab === "folders" ? (
-                /* Folders Tab Content */
-                <div className="space-y-6 -mt-2">
-                  {/* Recent Folders Quick Access */}
-                  <div className="mt-0">
-                    <RecentFolders
-                      onFolderSelect={handleRecentFolderSelect}
-                    />
-                  </div>
-
-                  {/* Folders Content */}
-                  {filteredFolders.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <div className="text-lg text-neutral-500">
-                        No public folders available
-                      </div>
-                      <div className="mt-2 text-sm text-neutral-400">
-                        Public folders will appear here when available
-                      </div>
+              {pinnedOpen && (
+                <div className="space-y-2 p-2">
+                  {pinned.length === 0 ? (
+                    <div className="rounded-md bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-600">
+                      Nothing pinned yet
                     </div>
                   ) : (
-                    <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                      {filteredFolders.map((folder) => {
-                        const isPinned = pinnedFolderIds.has(
-                          folder.folder_id
-                        );
-                        return (
-                          <div
-                            key={folder.folder_id}
-                            id={`browse-folder-${folder.folder_id}`}
-                            className="relative"
+                    pinned.map((p) => {
+                      const isPinned =
+                        (activeTab === "predictors" &&
+                          pinnedPredictorIds.has(p.id)) ||
+                        (activeTab === "datasets" &&
+                          pinnedDatasetIds.has(p.id)) ||
+                        (activeTab === "folders" &&
+                          pinnedFolderIds.has(p.id));
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between rounded-md border bg-white px-3 py-2 text-xs"
+                        >
+                          <span className="truncate text-neutral-800">
+                            {p.title}
+                          </span>
+                          <button
+                            className={`ml-2 rounded-md border px-2 py-0.5 text-xs ${
+                              isPinned
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "hover:bg-neutral-50"
+                            }`}
+                            title={isPinned ? "Unpin" : "Pin"}
+                            onClick={() =>
+                              activeTab === "folders"
+                                ? toggleFolderPin(p.id)
+                                : togglePin(p.id)
+                            }
                           >
-                            <FolderCard
-                              folder={folder}
-                              expanded={expandedFolders.has(
-                                folder.folder_id
-                              )}
-                              onToggleExpand={handleToggleFolderExpand}
-                              onItemView={handleItemView}
-                              canEdit={false}
-                            />
-                            {/* Pin button overlay */}
-                            <button
-                              className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs shadow-sm ${
-                                isPinned
-                                  ? "bg-neutral-100"
-                                  : "bg-white hover:bg-neutral-50"
-                              }`}
-                              title={isPinned ? "Unpin" : "Pin"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFolderPin(folder.folder_id);
-                              }}
-                            >
-                              {isPinned ? "★" : "☆"}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            {isPinned ? "★" : "☆"}
+                          </button>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              ) : (
-                <>
-                  {/* Predictors and Datasets Tab Content */}
-                  {filtered.length === 0 && !error ? (
-                    <div className="py-12 text-center">
-                      <div className="text-lg text-neutral-500">
-                        No public {activeTab} available
-                      </div>
-                      <div className="mt-2 text-sm text-neutral-400">
-                        Public {activeTab} will appear here when available
-                      </div>
+              )}
+            </div>
+          </aside>
+
+          {/* Right: content */}
+          <div className="min-w-0 flex-1 space-y-4">
+            {/* Loading indicator */}
+            {isLoading ? (
+              <div className="py-6">
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                  <div className="text-sm text-neutral-700">
+                    Loading {tabLabel}…
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-md border bg-white p-4 shadow-sm"
+                    >
+                      <div className="mb-3 h-5 w-3/4 animate-pulse rounded bg-neutral-100" />
+                      <div className="mb-2 h-3 w-1/2 animate-pulse rounded bg-neutral-100" />
+                      <div className="h-20 animate-pulse rounded bg-neutral-100" />
                     </div>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {filtered.map((it) => {
-                        const isPinned = pinnedSet.has(it.id);
-                        const asDataset = it as BrowseDataset;
-                        const asAny = it as any;
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-                        const isPredictorTab = activeTab === "predictors";
-                        const isDatasetTab = activeTab === "datasets";
+            {/* Error display */}
+            {errorMessage && !isLoading ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
 
-                        // Best-effort guesses for dataset info; safe because it's all optional
-                        const datasetName = isPredictorTab
-                          ? asAny.dataset_name ?? asAny.datasetName ?? null
-                          : null;
+            {/* Main Content Area */}
+            {!isLoading && (
+              <>
+                {activeTab === "folders" ? (
+                  /* Folders Tab Content */
+                  <div className="space-y-6 -mt-2">
+                    {/* Recent Folders Quick Access */}
+                    <div className="mt-0">
+                      <RecentFolders onFolderSelect={handleRecentFolderSelect} />
+                    </div>
 
-                        const sampleCount = isDatasetTab
-                          ? asAny.sample_count ??
-                            asAny.sampleCount ??
-                            asAny.rowCount ??
-                            null
-                          : null;
-
-                        const featureCount = isDatasetTab
-                          ? asAny.feature_count ?? asAny.featureCount ?? null
-                          : null;
-
-                        const visibilityLabel = it.isPublic
-                          ? "Public"
-                          : "Private";
-
-                        return (
-                          <CardShell
-                            key={it.id}
-                            actionVisibility="selected"
-                            selected={
-                              activeTab === "predictors"
-                                ? selectedPredictorId === it.id
-                                : selectedDatasetId === it.id
-                            }
-                            onSelect={() => toggleSelect(it.id)}
-                            title={
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1 text-[11px] text-neutral-500">
-                                  <UsernameTag
-                                    name={it.ownerName || "Owner"}
-                                  />
-                                </div>
-                                <div className="truncate text-sm font-semibold text-neutral-900">
-                                  {it.title}
-                                </div>
-                              </div>
-                            }
-                            description={
-                              <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-700">
-                                {it.notes || "No description provided."}
-                              </div>
-                            }
-                            footerLeft={
-                              <div className="flex flex-col text-[11px] text-neutral-500">
-                                <span>Updated {it.updatedAt}</span>
-                              </div>
-                            }
-                            footerRight={
-                              <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-500">
-                                {isDatasetTab &&
-                                  asDataset.hasFile &&
-                                  asDataset.originalFilename && (
-                                    <span
-                                      className="inline-flex max-w-[9rem] items-center justify-end rounded-md border bg-neutral-50 px-2 py-[1px]"
-                                      title={`File: ${asDataset.originalFilename}`}
-                                    >
-                                      ▦
-                                      <span className="ml-1 truncate">
-                                        {asDataset.originalFilename}
-                                      </span>
-                                    </span>
-                                  )}
-                                <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
-                                  {visibilityLabel}
-                                </span>
-                              </div>
-                            }
-                          >
-                            <button
-                              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (activeTab === "datasets") {
-                                  navigate(`/datasets/${it.id}/view`);
-                                } else {
-                                  navigate(`/predictors/${it.id}`, {
-                                    state: { from: "browse" },
-                                  });
-                                }
-                              }}
+                    {/* Folders Content */}
+                    {filteredFolders.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <div className="text-lg text-neutral-500">
+                          No public folders available
+                        </div>
+                        <div className="mt-2 text-sm text-neutral-400">
+                          Public folders will appear here when available
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                        {filteredFolders.map((folder: any) => {
+                          const isPinned = pinnedFolderIds.has(
+                            folder.folder_id
+                          );
+                          return (
+                            <div
+                              key={folder.folder_id}
+                              id={`browse-folder-${folder.folder_id}`}
+                              className="relative"
                             >
-                              View
-                            </button>
-                            {isDatasetTab && asDataset.hasFile && (
+                              <FolderCard
+                                folder={folder}
+                                expanded={expandedFolders.has(
+                                  folder.folder_id
+                                )}
+                                onToggleExpand={handleToggleFolderExpand}
+                                onItemView={handleItemView}
+                                canEdit={false}
+                              />
+                              {/* Pin button overlay */}
                               <button
-                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                                title="Download file"
+                                className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs shadow-sm ${
+                                  isPinned
+                                    ? "bg-neutral-100"
+                                    : "bg-white hover:bg-neutral-50"
+                                }`}
+                                title={isPinned ? "Unpin" : "Pin"}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  downloadDataset(it.id);
+                                  toggleFolderPin(folder.folder_id);
                                 }}
                               >
-                                Download
+                                {isPinned ? "★" : "☆"}
                               </button>
-                            )}
-                            <button
-                              className={`rounded-md border px-2 py-1 text-xs ${
-                                isPinned
-                                  ? "bg-neutral-100"
-                                  : "bg-white hover:bg-neutral-50"
-                              }`}
-                              title={isPinned ? "Unpin" : "Pin"}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                togglePin(it.id);
-                              }}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Predictors and Datasets Tab Content */}
+                    {filtered.length === 0 && !errorMessage ? (
+                      <div className="py-12 text-center">
+                        <div className="text-lg text-neutral-500">
+                          No public {activeTab} available
+                        </div>
+                        <div className="mt-2 text-sm text-neutral-400">
+                          Public {activeTab} will appear here when available
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {filtered.map((it) => {
+                          const isPinned = pinnedSet.has(it.id);
+                          const asDataset = it as BrowseDataset;
+                          const asAny = it as any;
+
+                          const isPredictorTab = activeTab === "predictors";
+                          const isDatasetTab = activeTab === "datasets";
+
+                          // (Currently unused but left for future stats)
+                          const _datasetName = isPredictorTab
+                            ? asAny.dataset_name ?? asAny.datasetName ?? null
+                            : null;
+
+                          const _sampleCount = isDatasetTab
+                            ? asAny.sample_count ??
+                              asAny.sampleCount ??
+                              asAny.rowCount ??
+                              null
+                            : null;
+
+                          const _featureCount = isDatasetTab
+                            ? asAny.feature_count ?? asAny.featureCount ?? null
+                            : null;
+
+                          const visibilityLabel = it.isPublic
+                            ? "Public"
+                            : "Private";
+
+                          return (
+                            <CardShell
+                              key={it.id}
+                              actionVisibility="selected"
+                              selected={
+                                activeTab === "predictors"
+                                  ? selectedPredictorId === it.id
+                                  : selectedDatasetId === it.id
+                              }
+                              onSelect={() => toggleSelect(it.id)}
+                              title={
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1 text-[11px] text-neutral-500">
+                                    <UsernameTag
+                                      name={it.ownerName || "Owner"}
+                                    />
+                                  </div>
+                                  <div className="truncate text-sm font-semibold text-neutral-900">
+                                    {it.title}
+                                  </div>
+                                </div>
+                              }
+                              description={
+                                <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-700">
+                                  {it.notes || "No description provided."}
+                                </div>
+                              }
+                              footerLeft={
+                                <div className="flex flex-col text-[11px] text-neutral-500">
+                                  <span>Updated {it.updatedAt}</span>
+                                </div>
+                              }
+                              footerRight={
+                                <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-500">
+                                  {isDatasetTab &&
+                                    asDataset.hasFile &&
+                                    asDataset.originalFilename && (
+                                      <span
+                                        className="inline-flex max-w-[9rem] items-center justify-end rounded-md border bg-neutral-50 px-2 py-[1px]"
+                                        title={`File: ${asDataset.originalFilename}`}
+                                      >
+                                        ▦
+                                        <span className="ml-1 truncate">
+                                          {asDataset.originalFilename}
+                                        </span>
+                                      </span>
+                                    )}
+                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
+                                    {visibilityLabel}
+                                  </span>
+                                </div>
+                              }
                             >
-                              {isPinned ? "★" : "☆"}
-                            </button>
-                          </CardShell>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+                              <button
+                                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (activeTab === "datasets") {
+                                    navigate(`/datasets/${it.id}/view`);
+                                  } else {
+                                    navigate(`/predictors/${it.id}`, {
+                                      state: { from: "browse" },
+                                    });
+                                  }
+                                }}
+                              >
+                                View
+                              </button>
+                              {isDatasetTab && asDataset.hasFile && (
+                                <button
+                                  className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                                  title="Download file"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadDataset(it.id);
+                                  }}
+                                >
+                                  Download
+                                </button>
+                              )}
+                              <button
+                                className={`rounded-md border px-2 py-1 text-xs ${
+                                  isPinned
+                                    ? "bg-neutral-100"
+                                    : "bg-white hover:bg-neutral-50"
+                                }`}
+                                title={isPinned ? "Unpin" : "Pin"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  togglePin(it.id);
+                                }}
+                              >
+                                {isPinned ? "★" : "☆"}
+                              </button>
+                            </CardShell>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </section>
       </div>
     </DragDropProvider>
   );
