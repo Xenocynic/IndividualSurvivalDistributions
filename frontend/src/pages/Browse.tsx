@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SearchBar from "../components/SearchBar";
 import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
@@ -29,8 +30,6 @@ type Tab = "predictors" | "datasets" | "folders";
 
 /**
  * Item is the local UI shape used by Browse cards.
- * We derive it from API objects via the mapper layer, then normalize
- * here into the fields Browse needs (title / owner / visibility / notes/etc.).
  */
 type Item = {
   id: string;
@@ -43,10 +42,14 @@ type Item = {
   originalFilename?: string;
 };
 
-export default function Browse() {
+// --- CONTENT COMPONENT (Logic & Hooks) ---
+function BrowseContent() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
+  const navigate = useNavigate();
 
-  // tab navigation ahndling (same thing as Dashboard mostly)
+  // tab navigation handling
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab: Tab = (() => {
@@ -54,7 +57,7 @@ export default function Browse() {
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
   })();
 
-  const selectTab = (t: Tab) => {
+  const selectTab = useCallback((t: Tab) => {
     setSearchParams(prev => {
       const sp = new URLSearchParams(prev);
       sp.set("tab", t);
@@ -62,7 +65,7 @@ export default function Browse() {
     }, { replace: true });
     setSelectedPredictorId(null);
     setSelectedDatasetId(null);
-  };
+  }, [setSearchParams]);
 
   // Separate search states for each tab
   const [predictorQuery, setPredictorQuery] = useState("");
@@ -75,188 +78,135 @@ export default function Browse() {
   const [folderVisibility, setFolderVisibility] = useState<Visibility>("all");
   const [pinnedOpen, setPinnedOpen] = useState(true);
 
-  // API-loaded data (mapped through the mappers)
-  const [predictors, setPredictors] = useState<Item[]>([]);
-  const [datasets, setDatasets] = useState<Item[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-
-  // Loading state
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Pinned IDs separated per tab (pinning is ONLY on Browse)
-  const [pinnedPredictorIds, setPinnedPredictorIds] = useState<Set<string>>(new Set());
-  const [pinnedDatasetIds, setPinnedDatasetIds] = useState<Set<string>>(new Set());
-  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(new Set());
-
   // Folder expansion state
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Folder-specific filters (search uses main query state)
+  // Folder-specific filters
   const [folderSortOption, setFolderSortOption] = useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
-  const navigate = useNavigate();
-
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(null);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
-  function toggleSelect(id: string) {
-    if (activeTab === "predictors") {
-      setSelectedPredictorId((curr) => (curr === id ? null : id));
-      setSelectedDatasetId(null);
-    } else {
-      setSelectedDatasetId((curr) => (curr === id ? null : id));
-      setSelectedPredictorId(null);
-    }
-  }
 
-  // Fetch pinned predictors from your backend API
-  async function fetchPinnedPredictors() {
-    if (!user) {
-      return;
-    }
-    try {
-      const pinned = await listPinnedPredictors(); // call your API
-      const pinnedSet = new Set(pinned.map((p) => String(p.predictor.predictor_id)));
-      setPinnedPredictorIds(pinnedSet);
-    } catch (err) {
-      console.error("Failed to fetch pinned predictors:", err);
-    }
-  }
+  // Local state for folder pins (feature not fully on backend yet?)
+  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(new Set());
 
-  // ----------------------------
-  // Fetch pinned datasets
-  // ----------------------------
-  async function fetchPinnedDatasets() {
-    if (!user) {
-      return;
-    }
-    try {
+  // --- TANSTACK QUERY: FETCH MAIN LISTS ---
+
+  // Fetch Public Predictors
+  const { 
+    data: predictors = [], 
+    isLoading: isPredictorsLoading,
+    error: predictorsError
+  } = useQuery({
+    queryKey: ['public-predictors'],
+    queryFn: () => listPublicPredictors(),
+    select: (data) => data.map((p: any) => {
+      const ui = toPredictorItem(p);
+      const item: Item = {
+        id: ui.id,
+        title: ui.title,
+        updatedAt: ui.updatedAt ?? "",
+        isPublic: !!ui.isPublic,
+        ownerName: p.owner?.username || "Unknown Owner",
+        notes: ui.notes,
+      };
+      return item;
+    }),
+    enabled: activeTab === 'predictors',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch Public Datasets
+  const { 
+    data: datasets = [], 
+    isLoading: isDatasetsLoading,
+    error: datasetsError
+  } = useQuery({
+    queryKey: ['public-datasets'],
+    queryFn: () => listPublicDatasets(),
+    select: (data) => data.map((d) => {
+      const ui = toDatasetItem(d, currentUserId);
+      const item: Item = {
+        id: ui.id,
+        title: ui.title,
+        updatedAt: ui.updatedAt ?? "",
+        isPublic: !!(d as any).is_public,
+        ownerName: ui.ownerName || (d as any).owner_name || "Owner",
+        notes: ui.notes,
+        hasFile: ui.hasFile,
+        originalFilename: ui.originalFilename,
+      };
+      return item;
+    }),
+    enabled: activeTab === 'datasets',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch Public Folders
+  const { 
+    data: folders = [], 
+    isLoading: isFoldersLoading,
+    error: foldersError
+  } = useQuery({
+    queryKey: ['public-folders'],
+    queryFn: async () => {
+       const apiFolders = await listPublicFolders();
+       return apiFolders
+         .map(mapApiFolderToUi)
+         .filter(folder => !folder.is_private && folder.public_item_count > 0);
+    },
+    enabled: activeTab === 'folders',
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
+
+  // Fetch Pinned Predictor IDs
+  const { data: pinnedPredictorIds = new Set<string>() } = useQuery({
+    queryKey: ['pinned-predictors'],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
+      const pinned = await listPinnedPredictors();
+      return new Set(pinned.map((p) => String(p.predictor.predictor_id)));
+    },
+    enabled: !!user && activeTab === 'predictors',
+  });
+
+  // Fetch Pinned Dataset IDs
+  const { data: pinnedDatasetIds = new Set<string>() } = useQuery({
+    queryKey: ['pinned-datasets'],
+    queryFn: async () => {
+      if (!user) return new Set<string>();
       const pinned = await listPinnedDatasets();
-      const pinnedSet = new Set(pinned.map((d) => String(d.dataset_id)));
-      setPinnedDatasetIds(pinnedSet);
-    } catch (err) {
-      console.error("Failed to fetch pinned datasets:", err);
-    }
-  }
+      return new Set(pinned.map((d) => String(d.dataset_id)));
+    },
+    enabled: !!user && activeTab === 'datasets',
+  });
 
-  // Load pinned predictors from backend on mount
-  // Call on mount or whenever the active tab is "predictors"
-  useEffect(() => {
-    if (activeTab === "predictors") fetchPinnedPredictors();
-    else if (activeTab === "datasets") fetchPinnedDatasets();
-  }, [user, activeTab]);
+  // --- MUTATIONS FOR PINNING ---
 
-  // ----------------------------
-  // Fetch data for active tab
-  // ----------------------------
+  const pinPredictorMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string, isPinned: boolean }) => {
+      return isPinned ? unpinPredictor(id) : pinPredictor(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pinned-predictors'] });
+    },
+    onError: (err) => console.error("Failed to toggle pin", err)
+  });
 
-  // Fetch & map once on mount or when tab changes
-  useEffect(() => {
-    let mounted = true;
-    const controller = new AbortController();
-    let didFinish = false;
-    let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+  const pinDatasetMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string, isPinned: boolean }) => {
+      return isPinned ? unpinDataset(id) : pinDataset(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pinned-datasets'] });
+    },
+    onError: (err) => console.error("Failed to toggle pin", err)
+  });
 
-    const SHOW_LOADING_DELAY = 300;
-
-    // Track whether we've already fetched data for this tab
-    const isInitialPredictorFetch = predictors.length === 0 && activeTab === "predictors";
-    const isInitialDatasetFetch = datasets.length === 0 && activeTab === "datasets";
-    const isInitialFetch = isInitialPredictorFetch || isInitialDatasetFetch;
-
-    setError(null);
-
-    async function fetchData() {
-      if (isInitialFetch) {
-        loadingTimer = setTimeout(() => {
-          if (!didFinish && mounted) setIsLoading(true);
-        }, SHOW_LOADING_DELAY);
-      } else {
-        setIsLoading(false);
-      }
-
-      try {
-        if (activeTab === "predictors") {
-          const apiPreds = await listPublicPredictors();
-          if (!mounted) return;
-          const uiPreds = apiPreds.map((p: any) => {
-            const ui = toPredictorItem(p);
-            const item: Item = {
-              id: ui.id,
-              title: ui.title,
-              updatedAt: ui.updatedAt ?? "",
-              isPublic: !!ui.isPublic,
-              ownerName: p.owner?.username || "Unknown Owner",
-              notes: ui.notes,
-            };
-            return item;
-          });
-          setPredictors(uiPreds);
-        } else if (activeTab === "datasets") {
-          const apiDsets = await listPublicDatasets();
-          if (!mounted) return;
-          const currentUserId = (user as any)?.id ?? (user as any)?.pk ?? undefined;
-          const uiDsets = apiDsets.map((d) => {
-            const ui = toDatasetItem(d, currentUserId);
-            const item: Item = {
-              id: ui.id,
-              title: ui.title,
-              updatedAt: ui.updatedAt ?? "",
-              isPublic: !!(d as any).is_public,
-              ownerName: ui.ownerName || (d as any).owner_name || "Owner",
-              notes: ui.notes,
-              hasFile: ui.hasFile,
-              originalFilename: ui.originalFilename,
-            };
-            return item;
-          });
-          setDatasets(uiDsets);
-        }
-      } catch (err: any) {
-        if (err?.status === 0) setError("Network error");
-        else setError(err?.details?.message ?? err?.statusText ?? "Failed to load");
-        console.error("Fetch error", err);
-      } finally {
-        didFinish = true;
-        if (loadingTimer) clearTimeout(loadingTimer);
-        if (mounted) setIsLoading(false);
-      }
-    }
-
-    const t = window.setTimeout(() => fetchData(), 250);
-
-    return () => {
-      mounted = false;
-      controller.abort();
-      clearTimeout(t);
-      if (loadingTimer) clearTimeout(loadingTimer);
-    };
-  }, [user, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Separate effect to fetch folders (always loaded)
-  useEffect(() => {
-    let mounted = true;
-
-    async function fetchFolders() {
-      try {
-        const apiFolders = await listPublicFolders();
-        if (!mounted) return;
-        const uiFolders = apiFolders
-          .map(mapApiFolderToUi)
-          .filter(folder => !folder.is_private && folder.public_item_count > 0);
-        setFolders(uiFolders);
-      } catch (err) {
-        console.error('Failed to fetch folders:', err);
-      }
-    }
-
-    fetchFolders();
-
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
+  // --- FILTERING ---
 
   const list = activeTab === "predictors" ? predictors : activeTab === "datasets" ? datasets : [];
 
@@ -273,7 +223,6 @@ export default function Browse() {
     return arr;
   }, [list, predictorQuery, datasetQuery, predictorVisibility, datasetVisibility, activeTab]);
 
-  // Filter folders based on search, visibility, type, and sorting
   const filteredFolders = useMemo(() => {
     let folderArr = folders;
 
@@ -304,70 +253,51 @@ export default function Browse() {
     return folderArr;
   }, [folders, folderQuery, folderVisibility, folderTypeFilter, folderSortOption]);
 
-  const pinnedSet =
-    activeTab === "predictors" ? pinnedPredictorIds :
-    activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
-  const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
+  // Global loading/error
+  const isLoading = 
+    (activeTab === 'predictors' && isPredictorsLoading) ||
+    (activeTab === 'datasets' && isDatasetsLoading) ||
+    (activeTab === 'folders' && isFoldersLoading);
+    
+  const errorObj = 
+    (activeTab === 'predictors' ? predictorsError : null) || 
+    (activeTab === 'datasets' ? datasetsError : null) || 
+    (activeTab === 'folders' ? foldersError : null);
+    
+  const errorMessage = errorObj ? (errorObj as any).message || "Failed to load data" : null;
 
-  // ----------------------------
-  // Toggle pin (predictors & datasets)
-  // ----------------------------
+  // --- ACTIONS ---
 
-  async function togglePin(id: string) {
-    if (!user) return;
-
+  const toggleSelect = useCallback((id: string) => {
     if (activeTab === "predictors") {
-      const isPinned = pinnedPredictorIds.has(id);
-      setPinnedPredictorIds((prev) => {
-        const next = new Set(prev);
-        if (isPinned) next.delete(id); else next.add(id);
-        return next;
-      });
-      try {
-        if (isPinned) await unpinPredictor(id);
-        else await pinPredictor(id);
-      } catch (err) {
-        console.error("Failed to toggle pin:", err);
-        // rollback
-        setPinnedPredictorIds((prev) => {
-          const next = new Set(prev);
-          if (isPinned) next.add(id); else next.delete(id);
-          return next;
-        });
-      }
-    } else if (activeTab === "datasets") {
-      const isPinned = pinnedDatasetIds.has(id);
-      setPinnedDatasetIds((prev) => {
-        const next = new Set(prev);
-        if (isPinned) next.delete(id); else next.add(id);
-        return next;
-      });
-      try {
-        if (isPinned) await unpinDataset(id);
-        else await pinDataset(id);
-      } catch (err) {
-        console.error("Failed to toggle dataset pin:", err);
-        setPinnedDatasetIds((prev) => {
-          const next = new Set(prev);
-          if (isPinned) next.add(id); else next.delete(id);
-          return next;
-        });
-      }
+      setSelectedPredictorId((curr) => (curr === id ? null : id));
+      setSelectedDatasetId(null);
+    } else {
+      setSelectedDatasetId((curr) => (curr === id ? null : id));
+      setSelectedPredictorId(null);
     }
-  }
+  }, [activeTab]);
 
-  // Separate function for folder pinning
-  function toggleFolderPin(folderId: string) {
+  const togglePin = useCallback((id: string) => {
+    if (!user) return;
+    if (activeTab === "predictors") {
+      pinPredictorMutation.mutate({ id, isPinned: pinnedPredictorIds.has(id) });
+    } else if (activeTab === "datasets") {
+      pinDatasetMutation.mutate({ id, isPinned: pinnedDatasetIds.has(id) });
+    }
+  }, [user, activeTab, pinnedPredictorIds, pinnedDatasetIds, pinPredictorMutation, pinDatasetMutation]);
+
+  // Local state pin for folders
+  const toggleFolderPin = useCallback((folderId: string) => {
     setPinnedFolderIds((prev) => {
       const next = new Set(prev);
       if (next.has(folderId)) next.delete(folderId);
       else next.add(folderId);
       return next;
     });
-  }
+  }, []);
 
-  // download dataset file
-  async function downloadDataset(id: string) {
+  const downloadDataset = useCallback(async (id: string) => {
     try {
       const datasetId = parseInt(id);
       const { blob, filename } = await downloadDatasetFile(datasetId);
@@ -382,10 +312,10 @@ export default function Browse() {
     } catch (error: any) {
       alert(`Download failed: ${error.message || 'Unknown error'}`);
     }
-  }
+  }, []);
 
-  // Folder expansion handlers
-  async function handleToggleFolderExpand(folderId: string) {
+  // Folder expansion - updates Query Cache manually for efficiency
+  const handleToggleFolderExpand = useCallback(async (folderId: string) => {
     const isExpanded = expandedFolders.has(folderId);
 
     if (isExpanded) {
@@ -399,11 +329,11 @@ export default function Browse() {
       if (folder && (!folder.items || folder.items.length === 0)) {
         try {
           const contents = await getPublicFolderContents(folderId);
-          setFolders(prev => prev.map(f =>
-            f.folder_id === folderId
-              ? { ...f, items: contents }
-              : f
-          ));
+          // Manually update the query cache so the UI reflects the loaded items
+          queryClient.setQueryData(['public-folders'], (old: Folder[] | undefined) => {
+            if (!old) return old;
+            return old.map(f => f.folder_id === folderId ? { ...f, items: contents } : f);
+          });
         } catch (error) {
           console.error('Failed to load folder contents:', error);
         }
@@ -417,30 +347,35 @@ export default function Browse() {
 
       if (folder) addFolderToRecent(folder);
     }
-  }
+  }, [expandedFolders, folders, queryClient]);
 
-  // Recent folder selection handler
-  function handleRecentFolderSelect(folderId: string) {
+  const handleRecentFolderSelect = useCallback((folderId: string) => {
     setExpandedFolders(prev => new Set(prev).add(folderId));
     setTimeout(() => {
       const element = document.getElementById(`browse-folder-${folderId}`);
       if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
-  }
+  }, []);
 
-  function handleItemView(itemId: string, itemType: 'predictor' | 'dataset') {
+  const handleItemView = useCallback((itemId: string, itemType: 'predictor' | 'dataset') => {
     if (itemType === 'predictor') {
       window.open(`/predictors/${itemId}/view`, '_blank');
     } else {
       window.open(`/datasets/${itemId}/view`, '_blank');
     }
-  }
+  }, []);
 
   const tabLabel = activeTab === "predictors" ? "Predictors" : activeTab === "datasets" ? "Datasets" : "Folders";
 
+  // Determine pinned items list for Sidebar
+  const pinnedSet =
+    activeTab === "predictors" ? pinnedPredictorIds :
+    activeTab === "datasets" ? pinnedDatasetIds : pinnedFolderIds;
+  const pinned = activeTab === "folders" ? [] : list.filter((it) => pinnedSet.has(it.id));
+
   return (
-    <DragDropProvider>
-      {/* Sticky sub-header under global nav (unified with create/upload pages) */}
+    <>
+      {/* Sticky sub-header under global nav */}
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-2.5">
           <div className="text-sm font-semibold tracking-wide">Browse {tabLabel}</div>
@@ -505,7 +440,6 @@ export default function Browse() {
               )}
             </div>
           </div>
-          {/* (Removed center title line; title is now in the sticky header) */}
         </div>
       </div>
 
@@ -534,10 +468,7 @@ export default function Browse() {
                   </div>
                 ) : (
                   pinned.map((p) => {
-                    const isPinned =
-                      (activeTab === "predictors" && pinnedPredictorIds.has(p.id)) ||
-                      (activeTab === "datasets" && pinnedDatasetIds.has(p.id)) ||
-                      (activeTab === "folders" && pinnedFolderIds.has(p.id));
+                    const isPinned = pinnedSet.has(p.id);
                     return (
                       <div
                         key={p.id}
@@ -582,9 +513,9 @@ export default function Browse() {
           ) : null}
 
           {/* Error display */}
-          {error && !isLoading ? (
+          {errorMessage && !isLoading ? (
             <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+              {errorMessage}
             </div>
           ) : null}
 
@@ -640,7 +571,7 @@ export default function Browse() {
               ) : (
                 /* Predictors and Datasets Tab Content */
                 <>
-                  {filtered.length === 0 && !error ? (
+                  {filtered.length === 0 && !errorMessage ? (
                     <div className="py-12 text-center">
                       <div className="text-lg text-neutral-500">No public {activeTab} available</div>
                       <div className="mt-2 text-sm text-neutral-400">Public {activeTab} will appear here when available</div>
@@ -725,6 +656,15 @@ export default function Browse() {
           )}
         </div>
       </section>
+    </>
+  );
+}
+
+// --- Main Wrapper (Context Provider) ---
+export default function Browse() {
+  return (
+    <DragDropProvider>
+      <BrowseContent />
     </DragDropProvider>
   );
 }
