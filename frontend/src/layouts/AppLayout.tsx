@@ -18,7 +18,7 @@ export default function AppLayout(): JSX.Element {
       } text-gray-900`}
     >
       <Navbar />
-      <main className='container mx-auto w-full max-w-6xl px-4 md:px-6 py-8'>
+      <main className='mx-auto w-full'>
         <Outlet />
       </main>
     </div>
