@@ -62,7 +62,18 @@ export default function PredictorCard({
     <CardShell
       title={item.title}
       description={item.notes}
-      footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
+      footerLeft={
+        item.updatedAt ? (
+          <span className="text-neutral-500">
+            Updated{" "}
+            {new Date(item.updatedAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ) : null
+      }
       footerRight={
         item.status ? (
           <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-neutral-700">

@@ -103,10 +103,15 @@ function BrowseContent() {
     queryFn: () => listPublicPredictors(),
     select: (data) => data.map((p: any) => {
       const ui = toPredictorItem(p);
+      const rawDate = p.updated_at
       const item: Item = {
         id: ui.id,
         title: ui.title,
-        updatedAt: ui.updatedAt ?? "",
+        updatedAt: rawDate ? new Date(rawDate).toLocaleDateString("en-US", {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'   
+        }) : "No date",
         isPublic: !!ui.isPublic,
         ownerName: p.owner?.username || "Unknown Owner",
         notes: ui.notes,
@@ -595,7 +600,7 @@ function BrowseContent() {
                               </div>
                             }
                             description={<span>{it.notes}</span>}
-                            footerLeft={<span className="text-neutral-500">{it.updatedAt}</span>}
+                            footerLeft={<span className="text-neutral-500">Updated {it.updatedAt}</span>}
                             footerRight={
                               <div className="flex items-center gap-2">
                                 {activeTab === "datasets" && it.hasFile && it.originalFilename && (

@@ -69,7 +69,18 @@ export default function DatasetCard({
       actionVisibility="selected"
       title={item.title}
       description={item.notes}
-      footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
+      footerLeft={
+        item.updatedAt ? (
+          <span className="text-neutral-500">
+            Updated{" "}
+            {new Date(item.updatedAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ) : null
+      }
       footerRight={
         <div className="flex items-center gap-2 text-xs text-neutral-600">
           {item.rows !== undefined && <span>{item.rows.toLocaleString()} rows</span>}
