@@ -79,6 +79,7 @@ export default function Navbar() {
             <NavItem to="/about">About</NavItem>
             <NavItem to="/instructions">Instructions</NavItem>
             <NavItem to="/browse">Browse</NavItem>
+            <NavItem to="/use-predictor">Use Predictor</NavItem> {/* NEW: */}
           </nav>
         </div>
 

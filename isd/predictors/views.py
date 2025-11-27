@@ -4,7 +4,6 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
-
 from .models import Predictor, PredictorPermission, PinnedPredictor
 from .serializers import PredictorSerializer, PredictorPermissionSerializer, PinnedPredictorSerializer
 from .ml_client import MLAPIClient
@@ -14,37 +13,11 @@ import requests
 import json
 from django.conf import settings
 from django.utils import timezone
-
-# ----------------------------
-# Custom Permissions
-# ----------------------------
-class IsPredictorOwner(permissions.BasePermission):
-    """Only predictor owners / superusers can update/delete"""
-    def has_object_permission(self, request, view, obj):
-        if obj.owner == request.user or request.user.is_superuser:
-            return True
-        # Users assigned as 'owner' in permissions
-        return PredictorPermission.objects.filter(
-            predictor=obj, user=request.user, role='owner'
-        ).exists()
+from dataset.models import Dataset
+from dataset.views import CanAccessDataset
+from .permissions import CanAccessPredictor, IsPredictorOwner
 
 
-class CanAccessPredictor(permissions.BasePermission):
-    """Allow view if owner / superuser, has permission, or predictor is public"""
-    def has_object_permission(self, request, view, obj):
-        # Superusers have access to all predictors
-        if request.user.is_superuser:
-            return True
-        
-        # Owner always has access
-        if obj.owner == request.user:
-            return True
-        # Users can access public predictors
-        if not obj.is_private:
-            return True
-        if PredictorPermission.objects.filter(predictor=obj, user=request.user).exists():
-            return True
-        return False
 
 
 # ----------------------------
@@ -500,6 +473,43 @@ class PredictorViewSet(viewsets.ModelViewSet):
                 {"error": "Failed to load full predictions", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
+    @action(detail=True, methods=['get'], url_path='metadata')
+    def metadata(self, request, pk=None):
+        """Return metadata for the predictor."""
+        try:
+            predictor = self.get_object()
+
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            # Construct the path to the model config json file
+            model_config_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                'model_config.json'
+            )
+            
+            if not os.path.exists(model_config_path):
+                return Response(
+                    {"error": f"Model config file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the JSON file
+            with open(model_config_path, 'r') as f:
+                model_config_data = json.load(f)
+            
+            return Response(model_config_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load metadata", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # PredictorPermission ViewSet
@@ -714,6 +724,136 @@ def predictor_full_predictions(request, predictor_id):
         )
 
 
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_predict_unlabeled_data(request, predictor_id):
+    """
+    Predict outcomes for an unlabeled dataset using a trained predictor.
+    Validates that the dataset has the exact same features as the predictor.
+    Sends full batch of feature rows to the ML API /predict endpoint.
+    """
+    try:
+        # ------------------------------------
+        # 1. Fetch predictor & dataset objects
+        # ------------------------------------
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+        
+        payload = request.data
+        dataset_id = payload.get("dataset_id")
+
+        if dataset_id is None:
+            return Response({"error": "dataset_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        dataset = Dataset.objects.get(dataset_id=dataset_id)
+
+        # Check permissions for dataset and predictor
+        if not CanAccessDataset().has_object_permission(request, None, dataset):
+            return Response({"error": "Permission denied for dataset"}, status=status.HTTP_403_FORBIDDEN)
+        
+        if not CanAccessPredictor().has_object_permission(request, None, predictor):
+            return Response({"error": "Permission denied for predictor"}, status=status.HTTP_403_FORBIDDEN)
+
+
+        # ----------------------------------------
+        # 2. Determine expected predictor features
+        # ----------------------------------------
+
+        predictor_features = predictor.ml_selected_features
+        
+        # Case: predictor was trained with "all" features
+        if predictor_features == "all" or predictor_features is None:
+            if not predictor.dataset or not predictor.dataset.file_path:
+                 return Response({"error": "Predictor training dataset not found."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            train_file_path = os.path.join(settings.MEDIA_ROOT, predictor.dataset.file_path)
+            if not os.path.exists(train_file_path):
+                 return Response({"error": "Predictor training dataset file missing."}, status=status.HTTP_400_BAD_REQUEST)
+                 
+            try:
+                with open(train_file_path, 'rb') as f:
+                    train_df = pd.read_csv(f, nrows=0)
+                predictor_features = train_df.columns.tolist()[2:] # drop time and event columns
+            except Exception as e:
+                return Response({"error": f"Failed to read predictor training dataset: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # ---------------------------------------------------
+        # 3. Load target dataset header and validate features
+        # ---------------------------------------------------
+        
+        if not dataset.file_path:
+             return Response({"error": "Target dataset has no file."}, status=status.HTTP_400_BAD_REQUEST)
+             
+        target_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+        if not os.path.exists(target_file_path):
+             return Response({"error": "Target dataset file missing."}, status=status.HTTP_400_BAD_REQUEST)
+             
+        try:
+            with open(target_file_path, 'rb') as f:
+                target_header_df = pd.read_csv(f, nrows=0)
+            target_features = target_header_df.columns.tolist()
+        except Exception as e:
+            return Response({"error": f"Failed to read target dataset header: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Compare features
+        if set(predictor_features) != set(target_features):
+             missing = list(set(predictor_features) - set(target_features))
+             extra = list(set(target_features) - set(predictor_features))
+             return Response({
+                 "error": "Feature mismatch", 
+                 "details": f"Missing: {missing}, Extra: {extra}"
+             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # -----------------------------------
+        # 4. Load full dataset for prediction
+        # -----------------------------------
+        with open(target_file_path, 'rb') as f:
+            full_df = pd.read_csv(f)
+
+        # Drop time/event columns if they exist
+        for col in ['time', 'event']:
+            if col in full_df.columns:
+                full_df = full_df.drop(columns=[col])
+
+        # Convert dataset rows → list of dict records
+        records = full_df.to_dict(orient="records")
+        
+
+        # -----------------------------------
+        # 5. Build final payload for ML API
+        # -----------------------------------
+        ml_payload = {
+            'model_id': predictor.model_id,
+            'features': records, # For batch prediction
+        }
+
+        # Optional: custom time points
+        if "time_points" in request.data:
+            ml_payload["time_points"] = request.data["time_points"]
+
+        # -----------------------------------
+        # 6. Call ML API
+        # -----------------------------------
+        ml_api_url = os.environ.get("ML_API_URL", "http://localhost:5000")
+        predict_url = f"{ml_api_url}/predict"
+
+        ml_response = requests.post(predict_url, json=ml_payload, timeout=600)
+
+        if ml_response.ok:
+            return Response(ml_response.json(), status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"error": "ML API prediction failed", 
+                "details": ml_response.text},
+                status=ml_response.status_code
+            )
+
+    except Dataset.DoesNotExist:
+        return Response({"error": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Predictor.DoesNotExist:
+        return Response({"error": "Predictor not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 # ========================================
 # NEW: ML API Integration Views
 # ========================================
@@ -782,49 +922,7 @@ def ml_retrain_model(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def ml_predict(request):
-    """
-    Make predictions using a trained model
-    POST /api/predictors/ml/predict/
-    
-    Request:
-        - model_id: str (required)
-        - features: dict of feature_name -> value (required)
-    
-    Response:
-        - predictions: {
-            median_survival_time: float,
-            quantile_levels: list,
-            quantile_predictions: list
-          }
-    """
-    model_id = request.data.get('model_id')
-    features = request.data.get('features')
-    
-    if not model_id:
-        return Response(
-            {'error': 'model_id is required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    if not features or not isinstance(features, dict):
-        return Response(
-            {'error': 'features must be a dictionary of feature_name -> value'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    client = MLAPIClient()
-    result = client.predict(model_id=model_id, features=features)
-    
-    if result['success']:
-        return Response(result['data'], status=status.HTTP_200_OK)
-    else:
-        return Response(
-            {'error': result['error']},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+
 
 
 @api_view(['GET'])

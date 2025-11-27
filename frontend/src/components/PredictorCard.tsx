@@ -23,10 +23,22 @@ export interface PredictorItem {
   updatedAt?: string;
   owner?: boolean;
   notes?: string;
+  dataset?: {
+    id: string;
+    title: string;
+    original_filename?: string;
+  };
   isPublic?: boolean;
   pinned?: boolean;
   folderId?: string;
   folderName?: string;
+  ml_selected_features?: string[] | string;
+  ml_training_status?: string;
+  ml_trained_at?: string;
+  model_metadata?: {
+    model_type?: string;
+    n_features?: number;
+  };
 }
 
 export default function PredictorCard({

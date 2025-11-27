@@ -195,6 +195,11 @@ export function mapApiPredictorToUi(
     notes: item.description ?? item.notes ?? "",
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
+    ml_selected_features: item.ml_selected_features ?? undefined,
+    ml_training_status: item.ml_training_status ?? undefined,
+    ml_trained_at: formatDate(item.ml_trained_at ?? ""),
+    dataset: item.dataset ?? undefined,
+    model_metadata: item.model_metadata ?? undefined,
   };
 }
 
@@ -262,10 +267,10 @@ export async function trainPredictor(
  */
 export async function predictWithPredictor(
   predictorId: number,
-  features: Record<string, number>
+  datasetId: number,
 ): Promise<PredictionResult> {
-  return api.post(`/api/predictors/${predictorId}/predict/`, {
-    features,
+  return api.post(`/api/predictors/${predictorId}/ml/predict/`, {
+    dataset_id: datasetId,
   });
 }
 
@@ -298,6 +303,12 @@ export async function getPredictorFullPredictions(
   predictorId: number
 ): Promise<CvPredictions> {
   return api.get<CvPredictions>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+export async function getPredictorMetadata(
+  predictorId: number
+): Promise<any> {
+  return api.get<any>(`/api/predictors/${predictorId}/metadata/`);
 }
 
 export interface SurvivalCurve {
