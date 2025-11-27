@@ -25,6 +25,9 @@ import {
   Lock,
   FolderOpen,
   Users,
+  Pencil,
+  Trash2,
+  Share,
 } from "lucide-react";
 import type { DragItem } from "../../../types/dragDrop"; 
 
@@ -177,7 +180,7 @@ export default function FolderCard({
                   onEdit(folder.folder_id);
                 }}
               >
-                Edit
+                <Pencil className="h-5 w-3" />
               </button>
             )}
             {onShare && (
@@ -188,7 +191,7 @@ export default function FolderCard({
                   onShare(folder.folder_id);
                 }}
               >
-                Share
+                <Share className="h-5 w-3" />
               </button>
             )}
             {onDelete && (
@@ -199,7 +202,7 @@ export default function FolderCard({
                   onDelete(folder.folder_id);
                 }}
               >
-                Delete
+                <Trash2 className="h-5 w-3" />
               </button>
             )}
           </div>

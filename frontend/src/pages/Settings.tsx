@@ -178,7 +178,7 @@ export default function Settings() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     autoComplete="given-name"
-                    className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                    className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
                   />
                 </div>
                 <div>
@@ -190,7 +190,7 @@ export default function Settings() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     autoComplete="family-name"
-                    className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                    className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
                   />
                 </div>
               </div>
@@ -204,10 +204,10 @@ export default function Settings() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
-                  className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
                 />
                 <p className="mt-1 text-[11px] text-neutral-500">
-                  This is used for account contact and notifications.
+                  This is used for account contact (for instance, if you forget your password.)
                 </p>
               </div>
 
@@ -244,7 +244,7 @@ export default function Settings() {
                   type="password"
                   value={pwd1}
                   onChange={(e) => setPwd1(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
                 />
                 <p className="mt-1 text-[11px] text-neutral-500">
                   Minimum 8 characters. Avoid reusing passwords from other
@@ -260,7 +260,7 @@ export default function Settings() {
                   type="password"
                   value={pwd2}
                   onChange={(e) => setPwd2(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
                 />
               </div>
 

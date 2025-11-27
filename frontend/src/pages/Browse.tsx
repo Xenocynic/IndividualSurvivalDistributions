@@ -879,7 +879,7 @@ export default function Browse() {
                   /* Folders Tab Content */
                   <div className="space-y-6 -mt-2">
                     {/* Recent Folders Quick Access */}
-                    <div className="mt-0">
+                    <div className="mt-0 pt-2">
                       <RecentFolders onFolderSelect={handleRecentFolderSelect} />
                     </div>
 
