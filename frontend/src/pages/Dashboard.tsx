@@ -685,7 +685,7 @@ export default function Dashboard() {
           className="sticky top-[var(--app-nav-h,3.7rem)] z-40 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="mx-auto max-w-6xl px-3 py-2 pt-4">
+          <div className="mx-auto max-w-6xl px-3 py-4 pt-5">
             <Toolbar
               activeTab={activeTab}
               onTabChange={(t) => {
@@ -948,7 +948,7 @@ export default function Dashboard() {
                 folder={null}
                 onDrop={handleDrop}
                 isLoading={isItemLoading}
-                className="min-h-[200px] rounded-xl border border-black/10 bg-white p-4 shadow-sm transition-all duration-200"
+                className="rounded-xl p-2 transition-all duration-200"
               >
                 <div
                   className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
