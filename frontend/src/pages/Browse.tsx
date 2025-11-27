@@ -57,6 +57,8 @@ import type {
 import type { PredictorItem } from "../components/PredictorCard";
 import type { DatasetItem } from "../components/DatasetCard";
 
+import { Eye, Download } from "lucide-react";
+
 type Tab = "predictors" | "datasets" | "folders";
 
 /**
@@ -975,26 +977,28 @@ export default function Browse() {
                             ? "Public"
                             : "Private";
 
+                          const isSelected =
+                            activeTab === "predictors"
+                              ? selectedPredictorId === it.id
+                              : selectedDatasetId === it.id;
+
                           return (
                             <CardShell
                               key={it.id}
                               actionVisibility="selected"
-                              selected={
-                                activeTab === "predictors"
-                                  ? selectedPredictorId === it.id
-                                  : selectedDatasetId === it.id
-                              }
+                              selected={isSelected}
                               onSelect={() => toggleSelect(it.id)}
+                              eyebrowLeft={
+                                <div className="flex items-center gap-1 text-[11px] text-neutral-500">
+                                  <UsernameTag
+                                    name={it.ownerName || "Owner"}
+                                  />
+                                </div>
+                              }
+                              // Title is now just the title text
                               title={
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-1 text-[11px] text-neutral-500">
-                                    <UsernameTag
-                                      name={it.ownerName || "Owner"}
-                                    />
-                                  </div>
-                                  <div className="truncate text-sm font-semibold text-neutral-900">
-                                    {it.title}
-                                  </div>
+                                <div className="truncate text-sm font-semibold text-neutral-900">
+                                  {it.title}
                                 </div>
                               }
                               description={
@@ -1003,7 +1007,7 @@ export default function Browse() {
                                 </div>
                               }
                               footerLeft={
-                                <div className="flex flex-col text-[11px] text-neutral-500">
+                                <div className="flex min-h-[1.5rem] flex-col justify-end text-[11px] text-neutral-500">
                                   <span>Updated {it.updatedAt}</span>
                                 </div>
                               }
@@ -1028,8 +1032,10 @@ export default function Browse() {
                                 </div>
                               }
                             >
+                              {/* VIEW button  */}
                               <button
-                                className="rounded-md border px-2.5 py-1 text-xs hover:bg-neutral-50"
+                                className={bubbleButtonClass(isSelected)}
+                                style={bubbleDelayStyle(isSelected, 0)}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (activeTab === "datasets") {
@@ -1041,26 +1047,33 @@ export default function Browse() {
                                   }
                                 }}
                               >
-                                ☰
+                                <Eye className="h-5 w-3.5" />
                               </button>
+
+                              {/* DOWNLOAD button  */}
                               {isDatasetTab && asDataset.hasFile && (
                                 <button
-                                  className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50"
+                                  className={bubbleButtonClass(isSelected)}
+                                  style={bubbleDelayStyle(isSelected, 60)}
                                   title="Download file"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     downloadDataset(it.id);
                                   }}
                                 >
-                                  ⎙
+                                  <Download className="h-5 w-3.5" />
                                 </button>
                               )}
+
+                              {/* PIN button  */}
                               <button
-                                className={`rounded-md border px-2.5 py-1 text-xs ${
-                                  isPinned
-                                    ? "bg-neutral-200 hover:bg-neutral-300"
-                                    : "bg-white hover:bg-neutral-100"
-                                }`}
+                                className={
+                                  bubbleButtonClass(isSelected) +
+                                  (isPinned
+                                    ? " bg-neutral-200 hover:bg-neutral-300"
+                                    : "")
+                                }
+                                style={bubbleDelayStyle(isSelected, 120)}
                                 title={isPinned ? "Unpin" : "Pin"}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1291,4 +1304,21 @@ function FolderAdvancedFilterMenu({
       </div>
     </details>
   );
+}
+
+function bubbleButtonClass(selected: boolean) {
+  return [
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
+    "text-[11px] font-medium text-neutral-700 bg-white shadow-sm hover:bg-neutral-200",
+    "transform-gpu origin-left transition-all duration-200 ease-out",
+    selected
+      ? "opacity-100 translate-y-0 scale-100"
+      : "pointer-events-none opacity-0 -translate-y-1 scale-90",
+  ].join(" ");
+}
+
+function bubbleDelayStyle(selected: boolean, delayMs: number) {
+  return selected
+    ? { transitionDelay: `${delayMs}ms` }
+    : { transitionDelay: "0ms" };
 }
