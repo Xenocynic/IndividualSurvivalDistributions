@@ -22,7 +22,7 @@
  *
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Toolbar from "../components/Toolbar";
@@ -656,17 +656,17 @@ export default function Dashboard() {
   return (
     <DragDropProvider>
       <section
-        className="space-y-6"
+        className="w-full space-y-6 bg-neutral-100 pt-4"
         onClick={clearSelection}
         role="presentation"
       >
         {/* welcome header */}
         <div
-          className="py-6 text-center"
+          className="mx-auto max-w-6xl px-3 pt-8 pb-4 text-center"
           onClick={(e) => e.stopPropagation()}
         >
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-            Welcome,{" "}
+          <h1 className="pb-1 pt-2 text-3xl font-extrabold tracking-tight text-neutral-900 md:text-4xl">
+            Welcome{" "}
             {user
               ? user.first_name?.trim()
                 ? user.first_name
@@ -674,19 +674,18 @@ export default function Dashboard() {
               : "User"}
             !
           </h1>
-          <div className="mx-auto mt-4 max-w-2xl space-y-2">
-            <h2 className="text-2xl tracking-tight md:text-2xl">
-              Find your datasets and predictors below.
-            </h2>
-          </div>
+
+          <h2 className="text-sm font-medium tracking-tight text-neutral-600 md:text-base">
+            Find your datasets and predictors below.
+          </h2>
         </div>
 
-        {/* sticky toolbar under navbar */}
+        {/* sticky toolbar under navbar (aligned with Browse width / colors) */}
         <div
-          className="sticky top-14 z-40 bg-white/80 backdrop-blur md:top-16 supports-[backdrop-filter]:bg-white/60"
+          className="sticky top-[var(--app-nav-h,3.7rem)] z-40 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="py-3">
+          <div className="mx-auto max-w-6xl px-3 py-2 pt-4">
             <Toolbar
               activeTab={activeTab}
               onTabChange={(t) => {
@@ -762,8 +761,6 @@ export default function Dashboard() {
               }
             />
           </div>
-
-          <div className="border-t border-black/10" />
         </div>
 
         {/* loading indicator or skeleton - only show if loading AND no data */}
@@ -771,37 +768,64 @@ export default function Dashboard() {
         ((activeTab === "predictors" && predictors.length === 0) ||
           (activeTab === "datasets" && datasets.length === 0) ||
           (activeTab === "folders" && folders.length === 0)) ? (
-          <div className="mx-auto max-w-6xl px-4 py-6">
-            <div className="flex items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-gray-700" />
-              <div className="text-sm text-gray-700">
-                Loading {activeTab}...
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="animate-pulse rounded-lg border p-4">
-                  <div className="mb-3 h-5 w-3/4 rounded bg-gray-200" />
-                  <div className="mb-2 h-3 w-1/2 rounded bg-gray-200" />
-                  <div className="h-20 rounded bg-gray-200" />
+          <div className="mx-auto flex max-w-6xl gap-4 px-3 py-6">
+            {/* Left: folder sidebar skeleton to mirror layout */}
+            <aside className="w-64 shrink-0">
+              <div className="overflow-hidden rounded-md border border-black/10 bg-white p-3 shadow-sm">
+                <div className="h-4 w-24 animate-pulse rounded bg-neutral-100" />
+                <div className="mt-3 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded-md border border-neutral-100 bg-neutral-50 px-3 py-2"
+                    >
+                      <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
+                      <div className="h-3 w-6 animate-pulse rounded bg-neutral-200" />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            </aside>
+
+            {/* Right: main grid skeleton */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                <div className="text-sm text-neutral-700">
+                  Loading {activeTab}...
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="animate-pulse rounded-lg border border-black/10 bg-white p-4"
+                  >
+                    <div className="mb-3 h-5 w-3/4 rounded bg-neutral-200" />
+                    <div className="mb-2 h-3 w-1/2 rounded bg-neutral-200" />
+                    <div className="h-20 rounded bg-neutral-200" />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}
 
         {/* Main Content Area */}
-        <div className="flex gap-6">
-          {/* Folder Sidebar */}
+        <div className="mx-auto flex max-w-6xl gap-4 px-3 pb-6">
           <FolderSidebar
             onItemMoved={async (_itemId, _folderId) => {
               queryClient.invalidateQueries({ queryKey: ["folders"] });
             }}
-            className={activeTab === "folders" ? "hidden" : ""}
+            className={
+              activeTab === "folders"
+                ? "hidden"
+                : "w-64 shrink-0 overflow-hidden rounded-md border border-black bg-white shadow-sm"
+            }
           />
 
           {/* Main Content */}
-          <div className="flex-1 transition-all duration-300">
+          <div className="min-w-0 flex-1 transition-all duration-300">
             {activeTab === "folders" ? (
               <div
                 className="space-y-6"
@@ -822,7 +846,7 @@ export default function Dashboard() {
                         id={`folder-${folder.folder_id}`}
                         className={
                           currentFolderView === folder.folder_id
-                            ? "rounded-xl ring-2 ring-blue-500"
+                            ? "rounded-xl ring-2 ring-neutral-500"
                             : ""
                         }
                       >
@@ -849,7 +873,7 @@ export default function Dashboard() {
                               setIsSharingModalOpen(true);
                             }
                           }}
-                          // NEW: enable drag-and-drop directly on folder cards
+                          // enable drag-and-drop directly on folder cards
                           onDrop={handleDrop}
                           onItemSelect={(itemId, itemType) => {
                             if (itemType === "predictor") {
@@ -911,10 +935,10 @@ export default function Dashboard() {
 
                 {filteredFolders.length === 0 && !isLoading && (
                   <div className="py-12 text-center">
-                    <div className="text-lg text-gray-500">
+                    <div className="text-lg text-neutral-500">
                       No folders found
                     </div>
-                    <div className="mt-2 text-sm text-gray-400">
+                    <div className="mt-2 text-sm text-neutral-400">
                       Create a folder to organize your predictors and datasets
                     </div>
                   </div>
@@ -925,7 +949,7 @@ export default function Dashboard() {
                 folder={null}
                 onDrop={handleDrop}
                 isLoading={isItemLoading}
-                className="min-h-[200px] rounded-xl p-4 transition-all duration-200"
+                className="min-h-[200px] rounded-xl border border-black/10 bg-white p-4 shadow-sm transition-all duration-200"
               >
                 <div
                   className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -943,8 +967,8 @@ export default function Dashboard() {
                             onEdit={editItem}
                             onDelete={(id) =>
                               setPendingDelete(
-                                (predictors.find((x) => x.id === id) ?? null) as
-                                  any
+                                (predictors.find((x) => x.id === id) ??
+                                  null) as any
                               )
                             }
                             onView={viewItem}
@@ -963,8 +987,8 @@ export default function Dashboard() {
                             onEdit={editItem}
                             onDelete={(id) =>
                               setPendingDelete(
-                                (datasets.find((x) => x.id === id) ?? null) as
-                                  any
+                                (datasets.find((x) => x.id === id) ??
+                                  null) as any
                               )
                             }
                             onView={viewItem}
@@ -993,13 +1017,13 @@ export default function Dashboard() {
                     !isLoading && (
                       <div className="col-span-full flex items-center justify-center py-12 text-center">
                         <div className="max-w-sm">
-                          <div className="mb-2 text-lg text-gray-400">
-                            <FolderOpen className="h-4 w-4 text-gray-700" />
+                          <div className="mb-2 text-lg text-neutral-400">
+                            <FolderOpen className="h-4 w-4 text-neutral-500" />
                           </div>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-neutral-500">
                             No {activeTab} in your main collection
                           </p>
-                          <p className="mt-1 text-xs text-gray-400">
+                          <p className="mt-1 text-xs text-neutral-400">
                             Drag items from folders here to move them back to
                             your main collection
                           </p>
@@ -1089,16 +1113,16 @@ function AdvancedFilterMenu({
 }: AdvancedFilterMenuProps) {
   return (
     <details className="group relative">
-      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
         Filters
-        <span className="text-[10px] text-gray-500 group-open:rotate-180 transition-transform">
+        <span className="text-[20px] text-neutral-500 transition-transform group-open:rotate-180">
           ▾
         </span>
       </summary>
-      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
         {/* Ownership */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">Ownership</div>
+          <div className="mb-1 font-semibold text-neutral-700">Ownership</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1113,8 +1137,8 @@ function AdvancedFilterMenu({
                 onClick={() => onOwnershipChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   ownership === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1125,7 +1149,7 @@ function AdvancedFilterMenu({
 
         {/* Search in */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">Search in</div>
+          <div className="mb-1 font-semibold text-neutral-700">Search in</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1140,8 +1164,8 @@ function AdvancedFilterMenu({
                 onClick={() => onKeywordTargetChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   keywordTarget === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1152,7 +1176,7 @@ function AdvancedFilterMenu({
 
         {/* Updated within */}
         <div>
-          <div className="mb-1 font-semibold text-gray-700">
+          <div className="mb-1 font-semibold text-neutral-700">
             Updated within
           </div>
           <div className="flex flex-wrap gap-1">
@@ -1170,8 +1194,8 @@ function AdvancedFilterMenu({
                 onClick={() => onUpdatedWithinChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   updatedWithin === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1218,16 +1242,16 @@ function FolderAdvancedFilterMenu({
 }: FolderAdvancedFilterMenuProps) {
   return (
     <details className="group relative">
-      <summary className="inline-flex h-8 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50">
+      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
         Filters
-        <span className="text-[10px] text-gray-500 group-open:rotate-180 transition-transform">
+        <span className="text-[20px] text-neutral-500 transition-transform group-open:rotate-180">
           ▾
         </span>
       </summary>
-      <div className="absolute right-0 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg z-20">
+      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
         {/* Ownership */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">Ownership</div>
+          <div className="mb-1 font-semibold text-neutral-700">Ownership</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1242,8 +1266,8 @@ function FolderAdvancedFilterMenu({
                 onClick={() => onOwnershipChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   ownership === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1254,7 +1278,7 @@ function FolderAdvancedFilterMenu({
 
         {/* Search in */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">Search in</div>
+          <div className="mb-1 font-semibold text-neutral-700">Search in</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1269,8 +1293,8 @@ function FolderAdvancedFilterMenu({
                 onClick={() => onKeywordTargetChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   keywordTarget === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1281,7 +1305,7 @@ function FolderAdvancedFilterMenu({
 
         {/* Updated within */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">
+          <div className="mb-1 font-semibold text-neutral-700">
             Updated within
           </div>
           <div className="flex flex-wrap gap-1">
@@ -1299,8 +1323,8 @@ function FolderAdvancedFilterMenu({
                 onClick={() => onUpdatedWithinChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   updatedWithin === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1311,7 +1335,7 @@ function FolderAdvancedFilterMenu({
 
         {/* Folder type */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-gray-700">Folder type</div>
+          <div className="mb-1 font-semibold text-neutral-700">Folder type</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1327,8 +1351,8 @@ function FolderAdvancedFilterMenu({
                 onClick={() => onFolderTypeChange(value)}
                 className={`rounded-md border px-2.5 py-1 text-xs ${
                   folderType === value
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-white text-neutral-700 hover:bg-neutral-50"
                 }`}
               >
                 {label}
@@ -1340,7 +1364,7 @@ function FolderAdvancedFilterMenu({
         {/* Sort by */}
         <div>
           <div className="mb-1 flex items-center justify-between">
-            <span className="font-semibold text-gray-700">Sort by</span>
+            <span className="font-semibold text-neutral-700">Sort by</span>
           </div>
           <FolderSortMenu value={sortOption} onChange={onSortOptionChange} />
         </div>

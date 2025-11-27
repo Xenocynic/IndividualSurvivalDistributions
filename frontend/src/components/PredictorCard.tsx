@@ -83,7 +83,7 @@ export default function PredictorCard({
             onClick={() => onView?.(item.id)}
             className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
           >
-            View
+            ☰
           </button>
           {item.owner ? (
             <>
@@ -91,13 +91,13 @@ export default function PredictorCard({
                 onClick={() => onEdit?.(item.id)}
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               >
-                Edit
+                ✎
               </button>
               <button
                 onClick={() => onDelete?.(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-red-50 hover:border-red-200 hover:text-red-600"
               >
-                Delete
+                🗑
               </button>
             </>
           ) : null}

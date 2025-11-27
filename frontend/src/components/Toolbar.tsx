@@ -86,9 +86,9 @@ const Toolbar: FC<ToolbarProps> = ({
 
           {/* Create dropdown (rightmost) */}
           <details className="group relative">
-            <summary className="inline-flex h-9 cursor-pointer select-none items-center gap-1 rounded-md border bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-800">
+            <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-700">
               Create
-              <span className="text-[10px] text-neutral-200 group-open:rotate-180 transition-transform">
+              <span className="text-[20px] text-neutral-200 group-open:rotate-180 transition-transform">
                 ▾
               </span>
             </summary>

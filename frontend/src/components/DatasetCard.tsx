@@ -91,19 +91,13 @@ export default function DatasetCard({
               onClick={() => onView?.(item.id)}
               className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
-              View
+              ☰
             </button>
             <button
               onClick={() => onEdit?.(item.id)}
               className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
             >
-              Edit
-            </button>
-            <button
-              onClick={() => onDelete?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-            >
-              Delete
+              ✎
             </button>
             {item.hasFile && onDownload && (
               <button
@@ -111,9 +105,14 @@ export default function DatasetCard({
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
                 title="Download file"
               >
-                Download
-              </button>
-            )}
+                ⎙
+              </button>)}
+            <button
+              onClick={() => onDelete?.(item.id)}
+              className="rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+            >
+              🗑
+            </button>
           </>
         ) : (
           <>
