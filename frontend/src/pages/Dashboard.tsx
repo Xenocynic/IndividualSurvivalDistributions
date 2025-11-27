@@ -771,7 +771,7 @@ export default function Dashboard() {
           <div className="mx-auto flex max-w-6xl gap-4 px-3 py-6">
             {/* Left: folder sidebar skeleton to mirror layout */}
             <aside className="w-64 shrink-0">
-              <div className="overflow-hidden rounded-md border border-black/10 bg-white p-3 shadow-sm">
+              <div className="overflow-hidden rounded-md border border-black bg-white p-3 shadow-sm">
                 <div className="h-4 w-24 animate-pulse rounded bg-neutral-100" />
                 <div className="mt-3 space-y-2">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -799,7 +799,7 @@ export default function Dashboard() {
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="animate-pulse rounded-lg border border-black/10 bg-white p-4"
+                    className="animate-pulse rounded-lg border border-black bg-white p-4"
                   >
                     <div className="mb-3 h-5 w-3/4 rounded bg-neutral-200" />
                     <div className="mb-2 h-3 w-1/2 rounded bg-neutral-200" />
@@ -824,7 +824,6 @@ export default function Dashboard() {
             }
           />
 
-          {/* Main Content */}
           <div className="min-w-0 flex-1 transition-all duration-300">
             {activeTab === "folders" ? (
               <div

@@ -102,7 +102,7 @@ export default function FolderSidebar({
   return (
     <>
       <aside
-        className={`w-64 shrink-0 rounded-md border border-black/10 bg-gray-50 overflow-hidden ${className ?? ""}`}
+        className={`w-64 shrink-0 rounded-md border border-black bg-gray-50 overflow-hidden ${className ?? ""}`}
       >
         <div className="flex items-center justify-between border-b border-black/10 bg-neutral-600 px-3 py-2">
           <div className="text-sm font-semibold text-white">
@@ -110,14 +110,14 @@ export default function FolderSidebar({
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-1 text-xs text-white hover:bg-neutral-400"
+              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-2 text-xs text-white hover:bg-neutral-400"
               onClick={() => setShowCreateModal(true)}
               title="Create folder"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button
-              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-1 text-xs text-white hover:bg-neutral-400"
+              className="inline-flex items-center rounded-md border border-white bg-neutral-600 px-2 py-2 text-xs text-white hover:bg-neutral-400"
               onClick={() => setSidebarOpen((v) => !v)}
               aria-expanded={sidebarOpen}
               title={sidebarOpen ? "Collapse" : "Expand"}
@@ -142,7 +142,7 @@ export default function FolderSidebar({
 
             <div className="space-y-2">
               {filteredFolders.length === 0 ? (
-                <div className="rounded-md border border-black/10 bg-white px-3 py-4 text-center text-xs text-gray-600">
+                <div className="rounded-md border border-black/10 bg-neutral-200 px-3 py-4 text-center text-xs text-gray-600">
                   No folders
                 </div>
               ) : (
@@ -157,7 +157,7 @@ export default function FolderSidebar({
                   return (
                     <div
                       key={folder.folder_id}
-                      className="rounded-md border border-black/10 bg-white p-3 text-xs text-gray-700 hover:bg-gray-50"
+                      className="rounded-md border border-black bg-white p-3 text-xs text-gray-700 hover:bg-gray-50"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
