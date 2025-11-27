@@ -22,6 +22,8 @@ import { mapApiPredictorToUi } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 import { type DatasetItem } from "../components/DatasetCard";
 import { mapApiDatasetToUi } from "../lib/datasets";
+import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
+import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
 
 // Types for our local state
 interface DatasetPreview {
@@ -60,6 +62,8 @@ export default function UsePredictor() {
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [results, setResults] = useState<PredictionResult | null>(null);
+  const [isLabeledDataset, setIsLabeledDataset] = useState(false);
+  const [survivalCurvesData, setSurvivalCurvesData] = useState<SurvivalCurvesData | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -118,15 +122,26 @@ export default function UsePredictor() {
   useEffect(() => {
     if (!selectedPredictor || !selectedDataset || !datasetPreview) {
       setFeatureStatus(null);
+      setIsLabeledDataset(false);
       return;
     }
 
+    // Check if dataset is labeled (has time and censored columns)
+    const hasTimeColumn = datasetPreview.columns.includes('time');
+    const hasCensoredColumn = datasetPreview.columns.includes('censored');
+    const isLabeled = hasTimeColumn && hasCensoredColumn;
+    setIsLabeledDataset(isLabeled);
+
     // Get required features from predictor
     const requiredFeatures = selectedPredictor.ml_selected_features || [];
-    const availableFeatures = datasetPreview.columns;
+    
+    // Filter out time and censored columns from available features
+    const availableFeatures = datasetPreview.columns.filter(
+      (col: string) => col !== 'time' && col !== 'censored'
+    );
 
     // If trained on "all", we need to know what "all" was. 
-    // The backend `ml_predict_unlabeled_data` handles this logic too, 
+    // The backend `ml_predict` handles this logic too, 
     // but for UI feedback we need it here.
     // If `requiredFeatures` is a string "all", we can't validate easily on frontend without more info.
     // But usually after training it should be a list.
@@ -134,7 +149,7 @@ export default function UsePredictor() {
     // Let's assume it's a list of strings.
     if (Array.isArray(requiredFeatures) && requiredFeatures.length > 0) {
         const missing = requiredFeatures.filter((f: string) => !availableFeatures.includes(f));
-        const extra = availableFeatures.filter((f: string) => !requiredFeatures.includes(f) && f !== 'time' && f !== 'event'); // Ignore standard cols
+        const extra = availableFeatures.filter((f: string) => !requiredFeatures.includes(f));
 
         if (missing.length === 0) {
             setFeatureStatus({
@@ -166,11 +181,53 @@ export default function UsePredictor() {
 
     setLoading(true);
     setResults(null);
+    setSurvivalCurvesData(null);
+    
     try {
-      const response = await api.post(
+      const response: any = await api.post(
         `/api/predictors/${selectedPredictor.id}/ml/predict/`,
         { dataset_id: selectedDataset.id }
       );
+      
+      console.log('Prediction response:', response);
+      
+      // Transform survival curves data if present
+      // Response structure: { predictions: { survival_curves: [[...], [...]], time_points: [...] } }
+      if (response.predictions?.survival_curves && response.predictions?.time_points) {
+        const curves: Record<string, SurvivalCurve> = {};
+        const survivalCurves = response.predictions.survival_curves;
+        const timePoints = response.predictions.time_points;
+        
+        console.log('Transforming survival curves...');
+        console.log('Number of curves:', survivalCurves.length);
+        console.log('Number of time points:', timePoints.length);
+        
+        // Each survival_curves[i] is an array of probabilities for individual i
+        survivalCurves.forEach((probabilities: number[], index: number) => {
+          curves[String(index)] = {
+            times: timePoints,
+            // Convert to percentage and clamp to max 100% (some values are slightly > 1.0)
+            survival_probabilities: probabilities.map((p: number) => Math.min(100, p * 100))
+          };
+        });
+        
+        const transformedData = {
+          quantile_levels: timePoints, // Use time_points as quantile_levels
+          survival_probabilities: [], // Not used by component
+          curves
+        };
+        
+        console.log('Transformed survival curves data:', transformedData);
+        console.log('Sample curve 0:', curves['0']);
+        setSurvivalCurvesData(transformedData);
+      } else {
+        console.warn('No survival curves data in response');
+        console.log('Response structure:', Object.keys(response));
+        if (response.predictions) {
+          console.log('Predictions keys:', Object.keys(response.predictions));
+        }
+      }
+      
       setResults({
         status: "success",
         message: "Prediction completed successfully.",
@@ -250,7 +307,7 @@ export default function UsePredictor() {
 
       {/* Dataset Selector */}
       <Card className={`p-6 transition-opacity ${!selectedPredictor ? "opacity-50 pointer-events-none" : ""}`}>
-        <h2 className="text-xl font-bold mb-4">Select Unlabeled Dataset</h2>
+        <h2 className="text-xl font-bold mb-4">Select Dataset</h2>
         <Select
           disabled={!selectedPredictor}
           onValueChange={(val) => {
@@ -301,6 +358,15 @@ export default function UsePredictor() {
                         </Table>
                     </div>
                     <p className="text-xs text-gray-400 mt-2">Showing {datasetPreview.preview_data.length} rows and {datasetPreview.columns.length} columns.</p>
+                    
+                    {/* Informational message for labeled datasets */}
+                    {isLabeledDataset && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <span className="font-semibold">ℹ️ Note:</span> This dataset contains <code className="bg-blue-100 px-1 rounded">time</code> and <code className="bg-blue-100 px-1 rounded">censored</code> columns which will be ignored for prediction purposes.
+                        </p>
+                      </div>
+                    )}
                 </div>
             ) : (
                 <div className="text-red-500 mt-2">Failed to load preview.</div>
@@ -366,27 +432,43 @@ export default function UsePredictor() {
           <p className="mb-4">{results.message}</p>
           
           {results.status === 'success' && results.data && (
-            <div className="bg-white p-4 rounded border overflow-auto max-h-96">
-                <pre className="text-xs">{JSON.stringify(results.data, null, 2)}</pre>
-                
-                {/* 
-                    TODO: Render a nice table or visualization here.
-                    The ML API returns a JSON with predictions. 
-                    We should parse it and show a table or download button.
-                */}
-                <div className="mt-4">
-                    <Button variant="outline" onClick={() => {
-                        // Create a blob and download
-                        const blob = new Blob([JSON.stringify(results.data, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `prediction_results_${selectedPredictor?.id}_${selectedDataset?.id}.json`;
-                        a.click();
-                    }}>
-                        Download JSON
-                    </Button>
+            <div className="space-y-6">
+              
+              {/* Survival Curves Visualization */}
+              {survivalCurvesData && selectedPredictor && (
+                <div className="bg-white p-4 rounded border">
+                  <IndividualSurvivalCurves
+                    data={survivalCurvesData}
+                    timeUnit={selectedPredictor.dataset?.time_unit || null}
+                    predictorId={parseInt(selectedPredictor.id)}
+                  />
                 </div>
+              )}
+              
+              {/* Raw JSON Data (collapsible) */}
+              <details className="bg-white p-4 rounded border">
+                <summary className="cursor-pointer font-semibold text-gray-700 hover:text-gray-900">
+                  View Raw JSON Response
+                </summary>
+                <div className="mt-4 overflow-auto max-h-96">
+                  <pre className="text-xs">{JSON.stringify(results.data, null, 2)}</pre>
+                </div>
+              </details>
+              
+              {/* Download Button */}
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={() => {
+                  // Create a blob and download
+                  const blob = new Blob([JSON.stringify(results.data, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `prediction_results_${selectedPredictor?.id}_${selectedDataset?.id}.json`;
+                  a.click();
+                }}>
+                  Download Raw JSON
+                </Button>
+              </div>
             </div>
           )}
         </Card>

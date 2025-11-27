@@ -26,6 +26,7 @@ export interface PredictorItem {
   dataset?: {
     id: string;
     title: string;
+    time_unit: string;
     original_filename?: string;
   };
   isPublic?: boolean;

@@ -19,7 +19,7 @@ import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
 import UsePredictor from "./pages/UsePredictor";
-import RequiresPredictorRoute from "./auth/RequiresPredictorRoute";
+import RequirementsRoute from "./auth/RequirementsRoute";
 
 
 export default function App() {
@@ -55,9 +55,9 @@ export default function App() {
           <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
           <Route path='predictors/:id/edit' element={<PredictorEdit />} />
           <Route path='use-predictor' element={
-            <RequiresPredictorRoute>
+            <RequirementsRoute>
               <UsePredictor />
-            </RequiresPredictorRoute>
+            </RequirementsRoute>
           } />
         </Route>
 

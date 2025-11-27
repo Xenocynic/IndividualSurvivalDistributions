@@ -19,7 +19,7 @@ from .views import (
     # Predictor-specific ML views
     train_predictor_model,
     predict_with_predictor,
-    ml_predict_unlabeled_data,
+    ml_predict,
 )
 
 router = DefaultRouter()
@@ -39,6 +39,6 @@ urlpatterns = [
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
-    path("<int:predictor_id>/ml/predict/", ml_predict_unlabeled_data, name="ml-predict"),
+    path("<int:predictor_id>/ml/predict/", ml_predict, name="ml-predict"),
     path("ml/models/", ml_list_models, name="ml-list-models"),
 ] + router.urls

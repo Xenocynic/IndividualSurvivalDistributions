@@ -119,8 +119,6 @@ class PredictorViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Assign the logged-in user as the owner and handle folders + permissions."""
-        print("RAW request.data:", self.request.data)
-
         predictor = serializer.save(owner=self.request.user)
 
         # -------------------------
@@ -538,7 +536,6 @@ class PredictorPermissionViewSet(viewsets.ModelViewSet):
         ]
         """
         # Save predictor with the creator as owner
-        print("RAW request.data:", self.request.data)
         serializer.save()
 
     def perform_destroy(self, instance):
@@ -726,7 +723,7 @@ def predictor_full_predictions(request, predictor_id):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def ml_predict_unlabeled_data(request, predictor_id):
+def ml_predict(request, predictor_id):
     """
     Predict outcomes for an unlabeled dataset using a trained predictor.
     Validates that the dataset has the exact same features as the predictor.
@@ -760,22 +757,6 @@ def ml_predict_unlabeled_data(request, predictor_id):
 
         predictor_features = predictor.ml_selected_features
         
-        # Case: predictor was trained with "all" features
-        if predictor_features == "all" or predictor_features is None:
-            if not predictor.dataset or not predictor.dataset.file_path:
-                 return Response({"error": "Predictor training dataset not found."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            train_file_path = os.path.join(settings.MEDIA_ROOT, predictor.dataset.file_path)
-            if not os.path.exists(train_file_path):
-                 return Response({"error": "Predictor training dataset file missing."}, status=status.HTTP_400_BAD_REQUEST)
-                 
-            try:
-                with open(train_file_path, 'rb') as f:
-                    train_df = pd.read_csv(f, nrows=0)
-                predictor_features = train_df.columns.tolist()[2:] # drop time and event columns
-            except Exception as e:
-                return Response({"error": f"Failed to read predictor training dataset: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         # ---------------------------------------------------
         # 3. Load target dataset header and validate features
         # ---------------------------------------------------
@@ -790,11 +771,14 @@ def ml_predict_unlabeled_data(request, predictor_id):
         try:
             with open(target_file_path, 'rb') as f:
                 target_header_df = pd.read_csv(f, nrows=0)
-            target_features = target_header_df.columns.tolist()
+            all_target_columns = target_header_df.columns.tolist()
+            
+            # Filter out time and censored columns if they exist (for labeled datasets)
+            target_features = [col for col in all_target_columns if col not in ['time', 'censored']]
         except Exception as e:
             return Response({"error": f"Failed to read target dataset header: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Compare features
+        # Compare features (excluding time and censored columns)
         if set(predictor_features) != set(target_features):
              missing = list(set(predictor_features) - set(target_features))
              extra = list(set(target_features) - set(predictor_features))
@@ -809,8 +793,8 @@ def ml_predict_unlabeled_data(request, predictor_id):
         with open(target_file_path, 'rb') as f:
             full_df = pd.read_csv(f)
 
-        # Drop time/event columns if they exist
-        for col in ['time', 'event']:
+        # Drop time/censored columns if they exist (for labeled datasets)
+        for col in ['time', 'censored']:
             if col in full_df.columns:
                 full_df = full_df.drop(columns=[col])
 
@@ -825,6 +809,7 @@ def ml_predict_unlabeled_data(request, predictor_id):
             'model_id': predictor.model_id,
             'features': records, # For batch prediction
         }
+
 
         # Optional: custom time points
         if "time_points" in request.data:

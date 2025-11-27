@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   createDataset,
   grantDatasetViewer,
@@ -36,6 +36,8 @@ type TimeUnit = "year" | "month" | "day" | "hour";
 
 export default function DatasetUpload() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectedFromUsePredictor = location.state?.from === "use-predictor";
 
   // form state
   const [name, setName] = useState("");
@@ -266,6 +268,23 @@ export default function DatasetUpload() {
         </div>
         <div className="h-1 w-full bg-neutral-600" />
       </div>
+
+      {/* Notification Banner - Only shown when redirected from use-predictor */}
+      {redirectedFromUsePredictor && (
+        <div className="mx-auto max-w-3xl px-4 pt-4">
+          <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 text-2xl">ℹ️</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900">No Datasets Available</h3>
+                <p className="mt-1 text-sm text-blue-800">
+                  You must upload a dataset before you can create predictors or make predictions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Body — single centered column (match PredictorCreate) */}
       <div className="mx-auto max-w-3xl space-y-8 p-4">
