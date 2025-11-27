@@ -181,7 +181,7 @@ export default function DatasetEdit() {
 
   // "valid" when the required bits are present and changed
   const pendingShareRows = useMemo(
-    () => shareRows.filter((row) => !row.permissionId && row.username.trim() ),
+    () => shareRows.filter((row) => !row.permissionId && row.username.trim()),
     [shareRows]
   );
 
@@ -341,8 +341,8 @@ export default function DatasetEdit() {
     return (
       <div className="min-h-[60vh] bg-neutral-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-700 mx-auto" />
-          <div className="mt-2 text-sm text-gray-600">Loading dataset...</div>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-neutral-700 mx-auto" />
+          <div className="mt-2 text-sm text-neutral-600">Loading dataset...</div>
         </div>
       </div>
     );
@@ -357,7 +357,7 @@ export default function DatasetEdit() {
             onClick={() =>
               navigate("/dashboard", { state: { tab: "datasets" } })
             }
-            className="mt-4 inline-flex items-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800 active:translate-y-[0.5px]"
+            className="mt-4 inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
           >
             Back to Dashboard
           </button>
@@ -368,7 +368,7 @@ export default function DatasetEdit() {
 
   return (
     <div className="min-h-[60vh] bg-neutral-100">
-      {/* Sticky header (matches PredictorCreate / DatasetUpload) */}
+      {/* Sticky header (matches DatasetUpload) */}
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <button
@@ -413,14 +413,16 @@ export default function DatasetEdit() {
                 }
               }}
               maxLength={50}
-              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+              className="w-full rounded-md border border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
               placeholder="A concise dataset name"
             />
             <div className="flex justify-between items-start min-h-[1.25rem] text-xs">
               <div>
                 {name && name.trim() !== originalName ? (
                   checking ? (
-                    <span className="text-gray-500">Checking availability…</span>
+                    <span className="text-neutral-500">
+                      Checking availability…
+                    </span>
                   ) : nameTaken === true ? (
                     <span className="text-red-600">
                       This name is already taken.
@@ -430,23 +432,23 @@ export default function DatasetEdit() {
                       Name is available. Proceed!
                     </span>
                   ) : (
-                    <span className="text-gray-500">
+                    <span className="text-neutral-500">
                       Could not verify name; you can still proceed.
                     </span>
                   )
                 ) : (
-                  <span className="text-gray-500">
+                  <span className="text-neutral-500">
                     This maps to <code>dataset_name</code>.
                   </span>
                 )}
               </div>
               <span
                 className={`text-xs ${
-                  name.length > 40
-                    ? "text-orange-600"
-                    : name.length > 45
+                  name.length > 45
                     ? "text-red-600"
-                    : "text-gray-400"
+                    : name.length > 40
+                    ? "text-orange-600"
+                    : "text-neutral-400"
                 }`}
               >
                 {name.length}/50
@@ -468,17 +470,17 @@ export default function DatasetEdit() {
               }}
               maxLength={200}
               rows={4}
-              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+              className="w-full rounded-md border border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
               placeholder="Optional notes for collaborators about this dataset (max 2 sentences)."
             />
             <div className="flex justify-end">
               <span
                 className={`text-xs ${
-                  notes.length > 160
-                    ? "text-orange-600"
-                    : notes.length > 180
+                  notes.length > 180
                     ? "text-red-600"
-                    : "text-gray-400"
+                    : notes.length > 160
+                    ? "text-orange-600"
+                    : "text-neutral-400"
                 }`}
               >
                 {notes.length}/200
@@ -487,20 +489,20 @@ export default function DatasetEdit() {
           </section>
 
           {/* Current File Info */}
-          <section className="space-y-3 rounded-lg border border-black/10 bg-neutral-50 p-4">
-            <div className="text-sm font-semibold uppercase tracking-wide text-gray-900">
+          <section className="space-y-3 rounded-lg border border-neutral-300 bg-neutral-50 p-4">
+            <div className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Current file
             </div>
-            <div className="rounded-md border border-black/10 bg-gray-50 p-3">
+            <div className="rounded-md border border-neutral-300 bg-white p-3">
               {dataset?.has_file ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl">📄</span>
                     <div>
-                      <div className="text-sm font-medium">
+                      <div className="text-sm font-medium text-neutral-900">
                         {dataset.file_display_name || dataset.original_filename}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-neutral-500">
                         {dataset.file_size_display} • Uploaded{" "}
                         {new Date(
                           dataset.uploaded_at
@@ -509,29 +511,31 @@ export default function DatasetEdit() {
 
                       <div className="mt-2 flex gap-4 border-t border-black/5 pt-2">
                         <div>
-                          <div className="text-xs text-gray-500">Features</div>
-                          <div className="text-sm font-medium text-gray-800">
+                          <div className="text-xs text-neutral-500">
+                            Features
+                          </div>
+                          <div className="text-sm font-medium text-neutral-800">
                             {dataset.num_features ?? "N/A"}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-neutral-500">
                             Labels (Samples)
                           </div>
-                          <div className="text-sm font-medium text-gray-800">
+                          <div className="text-sm font-medium text-neutral-800">
                             {dataset.num_labels ?? "N/A"}
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-neutral-600">
                     Note: Files cannot be changed after upload. To use a
                     different file, create a new dataset.
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-neutral-600">
                   No file associated with this dataset.
                 </div>
               )}
@@ -539,8 +543,8 @@ export default function DatasetEdit() {
           </section>
 
           {/* Time Unit */}
-          <section className="space-y-2">
-            <div className="text-sm font-semibold uppercase tracking-wide text-gray-900">
+          <section className="space-y-2 rounded-lg border border-black/10 bg-neutral-50/80 p-4">
+            <div className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Time Unit
             </div>
             <div className="inline-flex overflow-hidden rounded-md border border-black/10 bg-white">
@@ -551,15 +555,15 @@ export default function DatasetEdit() {
                   onClick={() => setTimeUnit(unit)}
                   className={`px-3 py-1.5 text-sm capitalize transition-colors ${
                     timeUnit === unit
-                      ? "bg-black text-white"
-                      : "bg-white text-gray-800 hover:bg-gray-100"
+                      ? "bg-neutral-900 text-white"
+                      : "bg-white text-neutral-800 hover:bg-neutral-50"
                   } ${unit !== "year" ? "border-l border-black/10" : ""}`}
                 >
                   {unit}
                 </button>
               ))}
             </div>
-            <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
+            <div className="rounded-md bg-neutral-200 p-2 text-xs text-neutral-700">
               Specify the time scale used by this dataset (e.g., survival
               durations recorded in months).
             </div>
@@ -578,13 +582,13 @@ export default function DatasetEdit() {
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  className="h-4 w-4 accent-black"
+                  className="h-4 w-4 accent-neutral-900"
                 />
                 <span className="text-xs font-medium text-neutral-800">
                   Make Dataset Public
                 </span>
               </label>
-              <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
+              <div className="rounded-md bg-neutral-200 p-2 text-xs text-neutral-700">
                 If enabled, other users can discover and view this dataset.
                 Viewers can use datasets, but only the owner can modify or
                 delete it.
@@ -593,7 +597,7 @@ export default function DatasetEdit() {
 
             {/* Sharing */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-800">
+              <h3 className="text-sm font-semibold text-neutral-800">
                 Share with other users
               </h3>
               {sharingError && (
@@ -601,15 +605,15 @@ export default function DatasetEdit() {
                   {sharingError}
                 </div>
               )}
-              <div className="rounded-md border border-black/10 bg-white">
-                <div className="grid grid-cols-2 border-b bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700">
+              <div className="rounded-md border border-neutral-200 bg-white">
+                <div className="grid grid-cols-2 border-b bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-800">
                   <div>Users</div>
                   <div>Permissions</div>
                 </div>
 
                 <div className="divide-y">
                   {shareRows.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-500">
+                    <div className="px-3 py-2 text-xs text-neutral-500">
                       No viewers have been added yet.
                     </div>
                   ) : (
@@ -620,7 +624,7 @@ export default function DatasetEdit() {
                       >
                         <div className="flex items-center gap-2">
                           <button
-                            className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+                            className="rounded-md border border-neutral-300 px-2 py-1 text-xs transition hover:bg-neutral-50 disabled:opacity-50"
                             title="Remove"
                             onClick={() => removeShareRow(row)}
                             disabled={saving || row.isProcessing}
@@ -632,7 +636,7 @@ export default function DatasetEdit() {
                               <div className="text-sm font-medium">
                                 {row.username}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-neutral-500">
                                 Existing viewer
                               </div>
                             </div>
@@ -653,21 +657,21 @@ export default function DatasetEdit() {
                             />
                           )}
                         </div>
-                        <div className="text-sm text-gray-700">Viewer</div>
+                        <div className="text-sm text-neutral-700">Viewer</div>
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="flex items-center justify-between border-t bg-gray-100 px-3 py-2">
+                <div className="flex items-center justify-between border-t bg-neutral-100 px-3 py-2">
                   <button
                     onClick={addShareRow}
-                    className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50"
+                    className="rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium transition hover:bg-neutral-50 disabled:opacity-50"
                     disabled={saving}
                   >
                     + Add
                   </button>
-                  <div className="text-[11px] text-gray-600">
+                  <div className="text-[11px] text-neutral-600">
                     Viewers can use this dataset but cannot edit or delete it.
                   </div>
                 </div>
@@ -676,15 +680,15 @@ export default function DatasetEdit() {
           </section>
 
           {/* Connected Predictors */}
-          <section className="space-y-3 rounded-lg border border-black/10 bg-gray-50 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+          <section className="space-y-3 rounded-lg border border-black/10 bg-neutral-50 p-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">
               Predictors using this dataset
             </h2>
-            <div className="rounded-md border border-black/10 bg-white p-3">
+            <div className="rounded-md border border-neutral-200 bg-white p-3">
               {datasetId ? (
                 <LinkedPredictorsList datasetId={datasetId} />
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-neutral-500">
                   Could not load predictors.
                 </p>
               )}
@@ -718,7 +722,7 @@ function ConfirmLeave({
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-lg">
         <h3 className="text-base font-semibold">Leave without saving?</h3>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-neutral-600">
           Your changes will not be saved if you return to the Dashboard.
         </p>
         <div className="mt-4 flex justify-end gap-2">
@@ -730,7 +734,7 @@ function ConfirmLeave({
           </button>
           <button
             onClick={onContinue}
-            className="rounded-md bg-black px-3 py-1.5 text-sm text-white shadow-sm transition hover:bg-gray-800 active:translate-y-[0.5px]"
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
           >
             Continue
           </button>
