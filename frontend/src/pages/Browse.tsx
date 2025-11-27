@@ -132,10 +132,15 @@ function BrowseContent() {
     queryFn: () => listPublicDatasets(),
     select: (data) => data.map((d) => {
       const ui = toDatasetItem(d, currentUserId);
+      const rawDate = d.uploaded_at;
       const item: Item = {
         id: ui.id,
         title: ui.title,
-        updatedAt: ui.updatedAt ?? "",
+        updatedAt: rawDate ? new Date(rawDate).toLocaleDateString("en-US", {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'   
+        }) : "No date",
         isPublic: !!(d as any).is_public,
         ownerName: ui.ownerName || (d as any).owner_name || "Owner",
         notes: ui.notes,
