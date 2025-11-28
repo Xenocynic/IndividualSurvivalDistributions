@@ -947,7 +947,7 @@ export default function Browse() {
                               />
                               {/* Pin button overlay */}
                               <button
-                                className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-xs shadow-sm ${
+                                className={`absolute right-5.5 top-4 rounded-md border px-2 py-1 text-xs shadow-sm ${
                                   isPinned
                                     ? "bg-neutral-100"
                                     : "bg-white hover:bg-neutral-50"

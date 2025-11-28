@@ -57,9 +57,6 @@ export default function FolderItemList({
   items,
   selectedItems,
   onSelectItem,
-  onEditItem,
-  onDeleteItem,
-  onViewItem,
   onRemoveFromFolder,
 }: FolderItemListProps) {
   function effectiveType(
@@ -115,7 +112,7 @@ export default function FolderItemList({
         key={it.id}
         className={`group rounded-lg border border-black/10 bg-white p-3 text-sm transition-colors ${
           isSelected
-            ? "ring-2 ring-blue-500"
+            ? "ring-2 ring-cobalt-500"
             : "hover:bg-gray-50"
         }`}
         onClick={(e) => {
@@ -159,53 +156,16 @@ export default function FolderItemList({
 
           {isSelected && (
             <div className="flex flex-col items-end gap-2 text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                {onViewItem && (
-                  <button
-                    className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewItem(it.id, t);
-                    }}
-                  >
-                    View
-                  </button>
-                )}
-
-                {onEditItem && (
-                  <button
-                    className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditItem(it.id, t);
-                    }}
-                  >
-                    Edit
-                  </button>
-                )}
-
-                {onDeleteItem && (
-                  <button
-                    className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteItem(it.id, t);
-                    }}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
 
               {onRemoveFromFolder && (
                 <button
-                  className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
+                  className="inline-flex items-center rounded-md border border-neutral-600 bg-neutral-100 px-2.5 py-1 text-black hover:bg-gray-200"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveFromFolder(it.id, t);
                   }}
                 >
-                  Remove
+                  -
                 </button>
               )}
             </div>
