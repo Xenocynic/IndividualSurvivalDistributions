@@ -31,7 +31,7 @@ export type Predictor = {
     IBS?: number;
     [key: string]: any;
   };
-  ml_selected_features: string;
+  ml_selected_features: string | string[] | any;
   features?: string[];
 };
 
@@ -60,7 +60,21 @@ export async function createPredictor(body: {
   ml_trained_at: string;
   ml_model_metrics: Record<string, any>;
   ml_training_status: string;
-  ml_selected_features: string;
+  ml_selected_features: string | string[] | null | any;
+  // Advanced settings
+  num_time_points?: number;
+  regularization?: "l1" | "l2";
+  objective_function?: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML";
+  marginal_loss_type?: "weighted" | "unweighted";
+  c_param_search_scope?: "basic" | "fine" | "extremely fine";
+  cox_feature_selection?: boolean;
+  mrmr_feature_selection?: boolean;
+  mtlr_predictor?: "stable" | "testing1";
+  tune_parameters?: boolean;
+  use_smoothed_log_likelihood?: boolean;
+  use_predefined_folds?: boolean;
+  run_cross_validation?: boolean;
+  standardize_features?: boolean;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -224,6 +238,23 @@ export interface TrainPredictorParams {
     batch_size?: number;
     weight_decay?: number;
     n_quantiles?: number;
+    n_exp?: number;
+    // Advanced settings
+    num_time_points?: number;
+    regularization?: "l1" | "l2";
+    objective_function?: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML";
+    marginal_loss_type?: "weighted" | "unweighted";
+    c_param_search_scope?: "basic" | "fine" | "extremely fine";
+    cox_feature_selection?: boolean;
+    mrmr_feature_selection?: boolean;
+    mtlr_predictor?: "stable" | "testing1";
+    tune_parameters?: boolean;
+    use_smoothed_log_likelihood?: boolean;
+    use_predefined_folds?: boolean;
+    run_cross_validation?: boolean;
+    standardize_features?: boolean;
+    // Feature selection
+    selected_features?: string[];
     [key: string]: any;
   };
 }
@@ -240,7 +271,7 @@ interface TrainPredictorResponse {
   status: string;
   model_id: string;
   metrics?: Record<string, any>;
-  selected_features: string;
+  selected_features: string | string[] | any;
   model_config?: string;
   model_file?: {
     encoder: string;

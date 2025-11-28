@@ -15,6 +15,7 @@ interface SearchBarProps {
   onChange: (v: string) => void;
   placeholder?: string;
   onClear?: () => void;
+  disabled?: boolean;
 }
 
 export default function SearchBar({
@@ -22,6 +23,7 @@ export default function SearchBar({
   onChange,
   placeholder = "Search",
   onClear,
+  disabled = false,
 }: SearchBarProps) {
   const id = useId();
 
@@ -41,7 +43,8 @@ export default function SearchBar({
           if (e.key === "Escape") clear(e);
         }}
         placeholder={placeholder}
-        className="w-full rounded-md border border-black bg-white px-3 py-2 pr-8 text-sm  focus:border-black/30 focus:ring-2 focus:ring-black/10"
+        disabled={disabled}
+        className="w-full rounded-md border border-black bg-white px-3 py-2 pr-8 text-sm focus:border-black/30 focus:ring-2 focus:ring-black/10 disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
       {value && (
         <button
