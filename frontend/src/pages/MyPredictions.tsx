@@ -1,4 +1,42 @@
-import { useState, useEffect } from "react";
+/**
+ * My Predictions Page
+ * 
+ * Displays a list of all predictions created by the current user.
+ * Provides filtering, sorting, searching, and management capabilities for saved predictions.
+ * 
+ * Features:
+ * - Comprehensive table view of all user predictions
+ * - Search functionality across name, dataset, and model
+ * - Filter by labeled status (all/labeled/unlabeled)
+ * - Sort by name, created date, or model name (asc/desc)
+ * - View modal with tabbed interface for labeled predictions
+ * - Delete confirmation with error handling
+ * - Click-outside-to-close modal functionality
+ * - Automatic data transformation for visualizations
+ * 
+ * State Management:
+ * - predictions: Array of all user predictions
+ * - loading: Loading state for API calls
+ * - searchQuery: Text search term (debounced 300ms)
+ * - viewingPrediction: Currently selected prediction for modal view
+ * - deletingId: ID of prediction being deleted
+ * - activeTab: Current tab in view modal (individual/dcalibration/kaplan-meier)
+ * - labeledFilter: Filter for labeled vs unlabeled predictions
+ * - sortBy: Column to sort by (name/created/model)
+ * - sortOrder: Sort direction (asc/desc)
+ * 
+ * API Integration:
+ * - Fetches predictions via listMyPredictions() on mount and search change
+ * - Deletes predictions via deletePrediction()
+ * - Debounced search to reduce API calls
+ * 
+ * Visualization Support:
+ * - Individual Survival Curves (all predictions)
+ * - D-Calibration Histogram (labeled predictions only)
+ * - Kaplan-Meier Visualization (labeled predictions only)
+ */
+
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "../components/use_predictor/card";
 import { Button } from "../components/use_predictor/button";
@@ -15,7 +53,15 @@ import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
-import { useMemo } from "react";
+
+/**
+ * MyPredictions Page Component
+ * 
+ * Main component for the My Predictions page.
+ * Handles state management, data fetching, filtering, and rendering of the predictions table and modals.
+ * 
+ * @returns JSX element containing the predictions management interface
+ */
 
 export default function MyPredictions() {
   const navigate = useNavigate();

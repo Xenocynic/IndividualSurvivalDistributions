@@ -1,3 +1,55 @@
+/**
+ * Use Predictor Page
+ * 
+ * Single-page workflow for running predictions on datasets using trained models.
+ * Provides a guided three-step process: select predictor, select dataset, run prediction.
+ * 
+ * Workflow:
+ * 1. Select a trained predictor from dropdown (auto-loads metadata)
+ * 2. Select a dataset from dropdown (auto-loads preview and validates features)
+ * 3. Review validation status and run prediction if features match
+ * 4. Save prediction results with a custom name
+ * 
+ * Features:
+ * - Automatic feature validation (checks for missing/extra features)
+ * - Truncated feature display (shows first 10 with "..." for long lists)
+ * - Dataset preview with first 10 rows
+ * - Labeled dataset detection (checks for time/censored columns)
+ * - Yellow warning banner for labeled datasets
+ * - Full-screen loading modal during prediction
+ * - Enhanced button hover effects (scale, shadow)
+ * - Performance optimizations (memoized dropdowns, callbacks)
+ * 
+ * Validation Logic:
+ * - Checks that selected dataset has EXACT features required by predictor
+ * - Allows predictions only when features match perfectly  * - Detects and ignores time/censored columns for labeled datasets
+ * - Displays truncated list of missing/extra features for better UX
+ * 
+ * State Management:
+ * - predictors: List of all trained predictors
+ * - datasets: List of all available datasets
+ * - selectedPredictor: Currently selected predictor (with metadata)
+ * - selectedDataset: Currently selected dataset
+ * - datasetPreview: Preview data for selected dataset (columns + 10 rows)
+ * - featureStatus: Validation result (ok/not ok, message, missing, extra)
+ * - loading: Whether prediction is currently running
+ * - results: Prediction results from ML API
+ * - isLabeledDataset: Whether dataset has time/censored columns
+ * - survivalCurvesData: Transformed curves for visualization
+ * - showSaveModal: Whether save modal is visible
+ * 
+ * Performance Optimizations:
+ * - Memoized dropdown options to prevent re-renders
+ * - useCallback for change handlers
+ * - Debounced feature validation
+ * 
+ * API Integration:
+ * - Fetches predictors and datasets on mount
+ * - Fetches dataset preview when dataset selected
+ * - Runs prediction via /api/predictors/:id/ml/predict/
+ * - Passes labeled=true parameter for labeled datasets
+ */
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card } from "../components/use_predictor/card";
 import { Button } from "../components/use_predictor/button";
@@ -25,26 +77,54 @@ import { mapApiDatasetToUi } from "../lib/datasets";
 import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
 import PredictionSaveModal from "../components/PredictionSaveModal";
 
-// Types for our local state
+/**
+ * Local type definitions for Use Predictor page
+ */
+
+/** Dataset preview structure returned from backend */
 interface DatasetPreview {
+  /** Column names in the dataset */
   columns: string[];
+  /** First 10 rows of data (2D array) */
   preview_data: any[][];
 }
 
+/** Feature validation result */
 interface ValidationStatus {
+  /** Whether features match requirements */
   ok: boolean;
+  /** Human-readable validation message */
   message: string;
+  /** List of missing required features (if any) */
   missing?: string[];
+  /** List of extra features not used in training (if any) */
   extra?: string[];
 }
 
+/** Prediction result from ML API */
 interface PredictionResult {
+  /** Whether prediction succeeded or failed */
   status: "success" | "error";
+  /** Status message */
   message: string;
-  data?: any; // The full response from the ML API
+  /** Full prediction data from ML API (if successful) */
+  data?: any;
 }
 
-// Helper function to truncate feature lists for display
+/**
+ * Truncates a list of features for display
+ * 
+ * Shows up to maxDisplay features followed by "..." if list is longer.
+ * Used to prevent overwhelming the user with long feature lists.
+ * 
+ * @param features - Array of feature names
+ * @param maxDisplay - Maximum number of features to show (default: 10)
+ * @returns Comma-separated string of features, truncated if necessary
+ * 
+ * @example
+ * truncateFeatures(['a', 'b', 'c'], 10) // Returns: "a, b, c"
+ * truncateFeatures(['a', 'b', ..., 'z'], 10) // Returns: "a, b, c, d, e, f, g, h, i, j..."
+ */
 const truncateFeatures = (features: string[], maxDisplay: number = 10): string => {
   if (features.length <= maxDisplay) {
     return features.join(', ');
@@ -52,6 +132,14 @@ const truncateFeatures = (features: string[], maxDisplay: number = 10): string =
   return features.slice(0, maxDisplay).join(', ') + '...';
 };
 
+/**
+ * UsePredictor Page Component
+ * 
+ * Main component for the Use Predictor page.
+ * Implements a three-step workflow for running predictions.
+ * 
+ * @returns JSX element containing the prediction workflow interface
+ */
 export default function UsePredictor() {
   const { user } = useAuth();
   const currentUserId = (user as any)?.id ?? (user as any)?.pk;

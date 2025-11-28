@@ -1,3 +1,45 @@
+/**
+ * Prediction Save Modal Component
+ * 
+ * A modal dialog for saving prediction results to the database.
+ * Displays prediction visualizations and allows users to name and save their predictions.
+ * 
+ * Features:
+ * - Tabbed interface for labeled predictions (Individual, D-Calibration, Kaplan-Meier)
+ * - Simplified view for unlabeled predictions (Individual curves only)
+ * - Automatic extraction of C-index and IBS metrics for labeled datasets
+ * - Redirects to My Predictions page after successful save
+ */
+
+/**
+ * PredictionSaveModal Component
+ * 
+ * Modal dialog for saving prediction results to the database.
+ * Displays prediction results in a tabbed interface and allows users to name and save the prediction.
+ * 
+ * Features:
+ * - Name input for the prediction
+ * - Preview of survival curves
+ * - Tabbed interface for labeled datasets (Individual Predictions, D-Calibration, Kaplan-Meier)
+  * - Automatic extraction of C-index and IBS metrics from prediction data
+ * - Error handling and loading states
+ * - Navigation to My Predictions page after successful save
+ * 
+ * @example
+ * ```tsx
+ * <PredictionSaveModal
+ *   predictionData={mlApiResponse}
+ *   survivalCurvesData={transformedCurves}
+ *   predictorId={5}
+ *   predictorName="Cancer Risk Model"
+ *   datasetId={12}
+ *   timeUnit="months"
+ *   isLabeled={true}
+ *   onClose={() => setShowModal(false)}
+ * />
+ * ```
+ */
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/use_predictor/button";
@@ -7,17 +49,38 @@ import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 import type { SurvivalCurvesData } from "../lib/predictors";
 
+/**
+ * Props for the PredictionSaveModal component
+ */
 interface PredictionSaveModalProps {
+  /** Full prediction response from the ML API */
   predictionData: any;
+  
+  /** Transformed survival curves data for visualization */
   survivalCurvesData: SurvivalCurvesData | null;
+  
+  /** ID of the predictor used for this prediction */
   predictorId: number;
+  
+  /** Name of the predictor used for this prediction */
   predictorName: string;
+  
+  /** ID of the dataset the prediction was run on */
   datasetId: number;
+  
+  /** Time unit for the predictor (e.g., "days", "months") */
   timeUnit: string | null;
+  
+  /** Whether this prediction was made on a labeled dataset (has time/censored columns) */
   isLabeled: boolean;
+  
+  /** Callback to close the modal */
   onClose: () => void;
 }
 
+/**
+ * Available tab options for labeled predictions
+ */
 type Tab = "individual" | "dcalibration" | "kaplan-meier";
 
 export default function PredictionSaveModal({
