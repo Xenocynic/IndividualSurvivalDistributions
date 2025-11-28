@@ -6,17 +6,13 @@
  * - Handles layout (title, optional description, sticky-to-bottom footer),
  *   selection ring, and an action toolbar that sits in-flow (no overlap).
  *
- * React/TS notes:
- * - Props use ReactNode so callers can pass strings or JSX.
- * - children renders the action buttons (Edit / Delete / View) when visible
- *   based on `actionVisibility`.
- * - onActionAreaClick stops propagation so clicking actions doesn't toggle selection.
- *
- * Styling updates:
- * - Unified neutral palette (matches Create/Upload pages).
- * - Actions/header row only takes space when visible (selected/hover) or when eyebrow is present.
+ * Styling:
+ * - Hover: subtle lift + scale + shadow when NOT selected.
+ * - Click: quick zoom in/out via CSS animation.
+ * - Selected: solid ring + slightly stronger shadow, but no hover pop-out.
  */
 
+import { useState } from "react";
 import type {
   PropsWithChildren,
   CSSProperties,
@@ -34,9 +30,7 @@ type CardShellProps = {
   onSelect?: () => void;
   onDoubleClick?: () => void;
   onActionAreaClick?: (e: MouseEvent) => void;
-  /** when to reveal the action buttons (children) */
   actionVisibility?: "hover" | "selected" | "always";
-  /** LEFT side of the header row (e.g., UsernameTag). If provided, it sits opposite the actions. */
   eyebrowLeft?: ReactNode;
 };
 
@@ -60,6 +54,8 @@ export default function CardShell({
   eyebrowLeft,
   children,
 }: PropsWithChildren<CardShellProps>) {
+  const [isClickAnimating, setIsClickAnimating] = useState(false);
+
   // Visibility classes that REMOVE layout space when hidden.
   const actionsRowClass =
     actionVisibility === "always"
@@ -78,25 +74,49 @@ export default function CardShell({
     (actionVisibility === "selected" && selected) ||
     actionVisibility === "hover"; // renders but hidden until hover (no space)
 
+  const triggerSelect = () => {
+    onSelect?.();
+    setIsClickAnimating(true);
+    window.setTimeout(() => {
+      setIsClickAnimating(false);
+    }, 170); 
+  };
+
+  const baseClasses =
+    "group relative cursor-pointer rounded-md border border-neutral-200 bg-white p-4 shadow-card " +
+    "transform-gpu transition-all duration-200 ease-out";
+
+  const hoverClasses = selected
+    ? ""
+    : "hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgba(15,23,42,0.18)] hover:z-10 hover:ring-1 hover:ring-neutral-400";
+
+  const selectedClasses = selected
+    ? "ring-2 ring-neutral-900 shadow-md"
+    : "";
+
+  const clickAnimClass = isClickAnimating ? "card-zoom" : "";
+
   return (
     <div
       role="button"
       tabIndex={0}
       aria-pressed={selected}
-      onClick={onSelect}
+      onClick={triggerSelect}
       onDoubleClick={onDoubleClick}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onSelect?.();
+          triggerSelect();
         }
       }}
-      className={`group relative cursor-pointer rounded-md border border-neutral-200 bg-white p-4 shadow-card transition
-        ${selected ? "ring-2 ring-neutral-900" : "hover:ring-1 hover:ring-neutral-400"}`}
+      className={[
+        baseClasses,
+        hoverClasses,
+        selectedClasses,
+        clickAnimClass,
+      ].join(" ")}
     >
       <div className="flex min-h-[168px] flex-col gap-1">
-        {/* Header row (username on left, actions on right). 
-            Takes NO space when hidden (hover/selected modes). */}
         {showHeaderRow ? (
           <div className="flex items-center justify-between">
             <div className="min-h-[1rem]">{eyebrowLeft}</div>
@@ -115,14 +135,14 @@ export default function CardShell({
         ) : null}
 
         {/* Title (separate from actions, never overlapped) */}
-        <h3 className="text-sm font-medium leading-snug overflow-hidden text-ellipsis whitespace-nowrap">
+        <h3 className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium leading-snug">
           {title}
         </h3>
 
         {/* Description */}
         {description ? (
           <div
-            className="text-sm leading-5 text-neutral-600 break-words hyphens-auto"
+            className="break-words text-sm leading-5 text-neutral-600 hyphens-auto"
             style={clamp3}
           >
             {description}

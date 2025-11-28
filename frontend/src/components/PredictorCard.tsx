@@ -50,7 +50,7 @@ type PredictorCardProps = {
   /** Optional explicit pinned state; falls back to item.pinned if omitted. */
   isPinned?: boolean;
   /** Called when the pin star is toggled. */
-  onTogglePin?: (id: string, nextPinned: boolean) => void;
+  onTogglePin?: (id: string, nextPinned?: boolean) => void;
 };
 
 export default function PredictorCard({
@@ -96,6 +96,8 @@ export default function PredictorCard({
   const editDelay = showPin ? 120 : 60;
   const deleteDelay = showPin ? 180 : 120;
 
+  const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
+
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
       <CardShell
@@ -121,9 +123,9 @@ export default function PredictorCard({
           )
         }
         footerLeft={
-          item.updatedAt ? (
+          displayUpdated ? (
             <span className="text-[11px] text-neutral-500">
-              Updated {item.updatedAt}
+              Updated {displayUpdated}
             </span>
           ) : null
         }
@@ -243,4 +245,28 @@ function bubbleDelayStyle(selected: boolean, delayMs: number) {
   return selected
     ? { transitionDelay: `${delayMs}ms` }
     : { transitionDelay: "0ms" };
+}
+
+/**
+ * Use raw ISO if available, otherwise fall back to updatedAt.
+ * Always try to format as `Jan 1, 2025` when parseable.
+ */
+function getDisplayDate(
+  updatedAt?: string,
+  updatedAtRaw?: string
+): string | undefined {
+  const source = updatedAtRaw ?? updatedAt;
+  if (!source) return undefined;
+
+  const millis = Date.parse(source);
+  if (Number.isNaN(millis)) {
+    // assume updatedAt is already user-facing text
+    return updatedAt;
+  }
+
+  return new Date(millis).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
