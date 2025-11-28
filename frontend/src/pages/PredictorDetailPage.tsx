@@ -158,7 +158,7 @@ export default function PredictorDetailPage() {
   // --- Render States ---
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-gray-900" />
         <p className="ml-3 text-gray-600">Loading Predictor...</p>
       </div>

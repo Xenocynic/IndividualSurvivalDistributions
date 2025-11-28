@@ -152,7 +152,7 @@ export default function DatasetView() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] grid place-items-center">
+      <div className="min-h-screen grid place-items-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
           <div className="mt-2 text-sm text-neutral-600">Loading dataset…</div>
