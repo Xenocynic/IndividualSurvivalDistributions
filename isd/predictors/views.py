@@ -811,6 +811,10 @@ def ml_predict(request, predictor_id):
         }
 
 
+        # Optional: labeled parameter for labeled datasets
+        if "labeled" in request.data:
+            ml_payload["labeled"] = request.data["labeled"]
+
         # Optional: custom time points
         if "time_points" in request.data:
             ml_payload["time_points"] = request.data["time_points"]

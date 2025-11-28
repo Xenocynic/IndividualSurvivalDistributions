@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card } from "../components/use_predictor/card";
 import { Button } from "../components/use_predictor/button";
 import {
@@ -22,8 +22,8 @@ import { mapApiPredictorToUi } from "../lib/predictors";
 import { type PredictorItem } from "../components/PredictorCard";
 import { type DatasetItem } from "../components/DatasetCard";
 import { mapApiDatasetToUi } from "../lib/datasets";
-import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
+import PredictionSaveModal from "../components/PredictionSaveModal";
 
 // Types for our local state
 interface DatasetPreview {
@@ -43,6 +43,14 @@ interface PredictionResult {
   message: string;
   data?: any; // The full response from the ML API
 }
+
+// Helper function to truncate feature lists for display
+const truncateFeatures = (features: string[], maxDisplay: number = 10): string => {
+  if (features.length <= maxDisplay) {
+    return features.join(', ');
+  }
+  return features.slice(0, maxDisplay).join(', ') + '...';
+};
 
 export default function UsePredictor() {
   const { user } = useAuth();
@@ -64,6 +72,8 @@ export default function UsePredictor() {
   const [results, setResults] = useState<PredictionResult | null>(null);
   const [isLabeledDataset, setIsLabeledDataset] = useState(false);
   const [survivalCurvesData, setSurvivalCurvesData] = useState<SurvivalCurvesData | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+
 
   // Fetch initial data
   useEffect(() => {
@@ -126,9 +136,15 @@ export default function UsePredictor() {
       return;
     }
 
-    // Check if dataset is labeled (has time and censored columns)
-    const hasTimeColumn = datasetPreview.columns.includes('time');
-    const hasCensoredColumn = datasetPreview.columns.includes('censored');
+    // Check if dataset is labeled (has time and censored columns which are case-insensitive)
+    const hasTimeColumn = datasetPreview.columns.some(col =>
+      /time/i.test(col)
+    );
+    const hasCensoredColumn = datasetPreview.columns.some(col =>
+      /censored/i.test(col)
+    );
+
+    // If dataset is labeled, pass parameter (labeled=True) to backend to generate full predictions when predicting
     const isLabeled = hasTimeColumn && hasCensoredColumn;
     setIsLabeledDataset(isLabeled);
 
@@ -136,45 +152,67 @@ export default function UsePredictor() {
     const requiredFeatures = selectedPredictor.ml_selected_features || [];
     
     // Filter out time and censored columns from available features
-    const availableFeatures = datasetPreview.columns.filter(
-      (col: string) => col !== 'time' && col !== 'censored'
+    const availableFeatures = datasetPreview.columns.filter((col: string) =>
+      !/time|censored/i.test(col)
     );
 
-    // If trained on "all", we need to know what "all" was. 
-    // The backend `ml_predict` handles this logic too, 
-    // but for UI feedback we need it here.
-    // If `requiredFeatures` is a string "all", we can't validate easily on frontend without more info.
-    // But usually after training it should be a list.
-    
-    // Let's assume it's a list of strings.
+  
+    // Feature validation logic
     if (Array.isArray(requiredFeatures) && requiredFeatures.length > 0) {
         const missing = requiredFeatures.filter((f: string) => !availableFeatures.includes(f));
         const extra = availableFeatures.filter((f: string) => !requiredFeatures.includes(f));
 
-        if (missing.length === 0) {
+        if (missing.length === 0 && extra.length === 0) {
+            // Perfect match - all required features present, no extra features
             setFeatureStatus({
                 ok: true,
-                message: `All ${requiredFeatures.length} required features present.`,
+                message: `All ${requiredFeatures.length} required features are present.`,
+            });
+        } else if (missing.length === 0 && extra.length > 0) {
+            // All required features present but has extra features
+            setFeatureStatus({
+                ok: false,
+                message: `Dataset has ${extra.length} extra feature(s) not used in training: ${truncateFeatures(extra)}`,
                 extra
             });
         } else {
+            // Missing required features
             setFeatureStatus({
                 ok: false,
-                message: `Missing ${missing.length} features.`,
+                message: `Missing ${missing.length} required feature(s):`,
                 missing,
                 extra
             });
         }
     } else {
-        // Fallback if we can't validate (e.g. "all" or missing metadata)
-        // We'll let the backend handle the strict validation
+        // Fallback if we can't validate 
         setFeatureStatus({
-            ok: true,
-            message: "Ready to predict. (Feature validation will happen on server)"
+            ok: false,
+            message: "Feature validation failed."
         });
     }
 
   }, [selectedPredictor, selectedDataset, datasetPreview]);
+
+  // Memoize dropdown options to prevent re-renders
+  const predictorOptions = useMemo(() => predictors, [predictors]);
+  const datasetOptions = useMemo(() => datasets, [datasets]);
+  
+  // Memoize change handlers
+  const handlePredictorChange = useCallback((val: string) => {
+    const pred = predictors.find((x) => x.id === val);
+    setSelectedPredictor(pred || null);
+    setSelectedDataset(null);
+    setDatasetPreview(null);
+    setFeatureStatus(null);
+    setResults(null);
+  }, [predictors]);
+  
+  const handleDatasetChange = useCallback((val: string) => {
+    const ds = datasets.find((x) => x.id === val);
+    setSelectedDataset(ds || null);
+    setResults(null);
+  }, [datasets]);
 
   const runPrediction = async () => {
     if (!selectedPredictor || !selectedDataset) return;
@@ -184,9 +222,17 @@ export default function UsePredictor() {
     setSurvivalCurvesData(null);
     
     try {
+      // Build request payload
+      const payload: any = { dataset_id: selectedDataset.id };
+      
+      // Add labeled parameter if dataset is labeled
+      if (isLabeledDataset) {
+        payload.labeled = true;
+      }
+      
       const response: any = await api.post(
         `/api/predictors/${selectedPredictor.id}/ml/predict/`,
-        { dataset_id: selectedDataset.id }
+        payload
       );
       
       console.log('Prediction response:', response);
@@ -233,6 +279,9 @@ export default function UsePredictor() {
         message: "Prediction completed successfully.",
         data: response,
       });
+      
+      // Show save modal after successful prediction
+      setShowSaveModal(true);
     } catch (err: any) {
       console.error("Prediction failed", err);
       setResults({
@@ -252,13 +301,7 @@ export default function UsePredictor() {
       <Card className="p-6 overflow-visible relative z-auto">
         <h2 className="text-xl font-bold mb-4">Select Predictor</h2>
         <Select
-          onValueChange={(val) => {
-            const p = predictors.find((x) => x.id === val);
-            setSelectedPredictor(p || null);
-            setSelectedDataset(null);
-            setFeatureStatus(null);
-            setResults(null);
-          }}
+          onValueChange={handlePredictorChange}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Choose a trained predictor..." />
@@ -267,7 +310,7 @@ export default function UsePredictor() {
             {predictors.length === 0 ? (
                 <SelectItem value="none" disabled>No trained predictors available</SelectItem>
             ) : (
-                predictors.map((p) => (
+                predictorOptions.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                     {p.title} {p.ml_training_status === "Trained" ? "✅" : ""}
                 </SelectItem>
@@ -310,17 +353,13 @@ export default function UsePredictor() {
         <h2 className="text-xl font-bold mb-4">Select Dataset</h2>
         <Select
           disabled={!selectedPredictor}
-          onValueChange={(val) => {
-            const ds = datasets.find((x) => x.id === val);
-            setSelectedDataset(ds || null);
-            setResults(null);
-          }}
+          onValueChange={handleDatasetChange}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Choose a dataset..." />
           </SelectTrigger>
           <SelectContent>
-            {datasets.map((d) => (
+            {datasetOptions.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.title}
               </SelectItem>
@@ -361,9 +400,9 @@ export default function UsePredictor() {
                     
                     {/* Informational message for labeled datasets */}
                     {isLabeledDataset && (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          <span className="font-semibold">ℹ️ Note:</span> This dataset contains <code className="bg-blue-100 px-1 rounded">time</code> and <code className="bg-blue-100 px-1 rounded">censored</code> columns which will be ignored for prediction purposes.
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-400 rounded-lg">
+                        <p className="text-sm text-yellow-900">
+                          <span className="font-semibold">⚠️ Note:</span> This dataset contains <code className="bg-yellow-100 px-1 rounded">time</code> and <code className="bg-yellow-100 px-1 rounded">censored</code> columns which will be ignored for prediction purposes.
                         </p>
                       </div>
                     )}
@@ -392,12 +431,12 @@ export default function UsePredictor() {
                 
                 {featureStatus.missing && featureStatus.missing.length > 0 && (
                     <div className="mt-2 text-red-700 text-sm">
-                        <strong>Missing:</strong> {featureStatus.missing.join(", ")}
+                        <strong>Missing:</strong> {truncateFeatures(featureStatus.missing)}
                     </div>
                 )}
                  {featureStatus.extra && featureStatus.extra.length > 0 && (
                     <div className="mt-1 text-yellow-700 text-sm">
-                        <strong>Ignored Extra:</strong> {featureStatus.extra.join(", ")}
+                        <strong>Ignored Extra:</strong> {truncateFeatures(featureStatus.extra)}
                     </div>
                 )}
             </div>
@@ -410,7 +449,7 @@ export default function UsePredictor() {
         <Button
           disabled={!featureStatus || !featureStatus.ok || loading}
           onClick={runPrediction}
-          className="px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
+          className="px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-200"
           size="lg"
         >
           {loading ? (
@@ -423,55 +462,35 @@ export default function UsePredictor() {
         </Button>
       </div>
 
-      {/* Results */}
-      {results && (
-        <Card className={`p-6 border-t-4 ${results.status === 'success' ? 'border-blue-500 bg-blue-50' : 'border-red-500 bg-red-50'}`}>
-          <h3 className="text-xl font-bold mb-2">
-            {results.status === 'success' ? "Prediction Results" : "Error"}
-          </h3>
-          <p className="mb-4">{results.message}</p>
-          
-          {results.status === 'success' && results.data && (
-            <div className="space-y-6">
-              
-              {/* Survival Curves Visualization */}
-              {survivalCurvesData && selectedPredictor && (
-                <div className="bg-white p-4 rounded border">
-                  <IndividualSurvivalCurves
-                    data={survivalCurvesData}
-                    timeUnit={selectedPredictor.dataset?.time_unit || null}
-                    predictorId={parseInt(selectedPredictor.id)}
-                  />
-                </div>
-              )}
-              
-              {/* Raw JSON Data (collapsible) */}
-              <details className="bg-white p-4 rounded border">
-                <summary className="cursor-pointer font-semibold text-gray-700 hover:text-gray-900">
-                  View Raw JSON Response
-                </summary>
-                <div className="mt-4 overflow-auto max-h-96">
-                  <pre className="text-xs">{JSON.stringify(results.data, null, 2)}</pre>
-                </div>
-              </details>
-              
-              {/* Download Button */}
-              <div className="flex justify-center">
-                <Button variant="outline" onClick={() => {
-                  // Create a blob and download
-                  const blob = new Blob([JSON.stringify(results.data, null, 2)], { type: "application/json" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `prediction_results_${selectedPredictor?.id}_${selectedDataset?.id}.json`;
-                  a.click();
-                }}>
-                  Download Raw JSON
-                </Button>
-              </div>
+      {/* Full-Screen Loading Modal */}
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 max-w-md">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
             </div>
-          )}
-        </Card>
+            <h3 className="text-xl font-semibold text-gray-900">Predicting...</h3>
+            <p className="text-gray-600 text-center">
+              Running prediction on your dataset. This may take a few moments.
+            </p>
+          </div>
+        </div>
+      )}
+
+     
+      
+      {/* Save Modal */}
+      {showSaveModal && selectedPredictor && selectedDataset && results?.data && (
+        <PredictionSaveModal
+          predictionData={results.data}
+          survivalCurvesData={survivalCurvesData}
+          predictorId={parseInt(selectedPredictor.id)}
+          predictorName={selectedPredictor.title}
+          datasetId={parseInt(selectedDataset.id)}
+          timeUnit={selectedPredictor.dataset?.time_unit || null}
+          isLabeled={isLabeledDataset}
+          onClose={() => setShowSaveModal(false)}
+        />
       )}
     </div>
   );

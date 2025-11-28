@@ -19,6 +19,7 @@ import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
 import UsePredictor from "./pages/UsePredictor";
+import MyPredictions from "./pages/MyPredictions";
 import RequirementsRoute from "./auth/RequirementsRoute";
 
 
@@ -59,6 +60,7 @@ export default function App() {
               <UsePredictor />
             </RequirementsRoute>
           } />
+          <Route path='my-predictions' element={<MyPredictions />} />
         </Route>
 
         {/* Fallback */}

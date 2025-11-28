@@ -272,12 +272,12 @@ export default function DatasetUpload() {
       {/* Notification Banner - Only shown when redirected from use-predictor */}
       {redirectedFromUsePredictor && (
         <div className="mx-auto max-w-3xl px-4 pt-4">
-          <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+          <div className="rounded-lg border-l-4 border-yellow-400 bg-yellow-50 p-4">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-2xl">ℹ️</div>
+              <div className="flex-shrink-0 text-2xl">⚠️</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-blue-900">No Datasets Available</h3>
-                <p className="mt-1 text-sm text-blue-800">
+                <h3 className="font-semibold text-yellow-900">No Datasets Available</h3>
+                <p className="mt-1 text-sm text-yellow-900">
                   You must upload a dataset before you can create predictors or make predictions.
                 </p>
               </div>
