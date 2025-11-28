@@ -18,7 +18,7 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.4",
-    "recharts": "^2.12.7"
+    "recharts": "^2.15.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

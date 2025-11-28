@@ -100,7 +100,7 @@ interface EventHistogramDatum extends HistogramBin {
 export default function PredictorDetailPage() {
   const { predictorId } = useParams<{ predictorId: string }>();
   const navigate = useNavigate();
-    const location = useLocation();
+  const location = useLocation();
 
   // fall back to the parent page + correct tab
   type NavOrigin = "browse" | "dashboard";
@@ -139,7 +139,7 @@ export default function PredictorDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-                const data = await api.get<PredictorDetail>(
+        const data = await api.get<PredictorDetail>(
           `/api/predictors/${predictorId}/`
         );
         setPredictor(data);
@@ -214,7 +214,18 @@ export default function PredictorDetailPage() {
 
           {/* status badge placeholder */}
           <div className="hidden rounded-full bg-neutral-600 px-3 py-1 text-xs sm:block">
-            Status: <span className="font-medium">Trained</span>
+            Status: {" "}
+            <span className="font-medium">
+              {predictor.ml_training_status === "not_trained"
+                ? "Not Trained"
+                : predictor.ml_training_status === "training"
+                  ? "Training"
+                  : predictor.ml_training_status === "trained"
+                    ? "Trained"
+                    : predictor.ml_training_status === "failed"
+                      ? "Failed"
+                      : "Unknown"}
+            </span>
           </div>
         </div>
         <div className="h-[4px] w-full bg-neutral-600" />
@@ -232,11 +243,10 @@ export default function PredictorDetailPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${
-                    isActive
-                      ? "bg-neutral-800 text-white"
-                      : "border bg-white text-neutral-700 hover:bg-neutral-50"
-                  }`}
+                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${isActive
+                    ? "bg-neutral-800 text-white"
+                    : "border bg-white text-neutral-700 hover:bg-neutral-50"
+                    }`}
                 >
                   {tab === "retrain" ? "Predictor Settings / Retrain" : tab.replace("-", " ")}
                 </button>
@@ -307,7 +317,7 @@ function DatasetTab({
   const [cvError, setCvError] = useState<string | null>(null);
   const [isCvLoading, setIsCvLoading] = useState(false);
 
-  
+
 
   const datasetId = predictor.dataset?.dataset_id;
 
@@ -455,8 +465,7 @@ function DatasetTab({
 
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
-      `rounded-md px-3 py-1.5 text-sm transition ${
-        activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
+      `rounded-md px-3 py-1.5 text-sm transition ${activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
       }`,
     [activeView]
   );
@@ -528,13 +537,13 @@ function DatasetTab({
             <InfoItem
               label="Dataset"
               value={
-              <Link
-                to={`/datasets/${predictor.dataset.dataset_id}/view`}
-                state={{ from: navOrigin }}
-                className="font-mono text-blue-600 hover:underline"
-              >
-                {predictor.dataset.dataset_name}
-              </Link>
+                <Link
+                  to={`/datasets/${predictor.dataset.dataset_id}/view`}
+                  state={{ from: navOrigin }}
+                  className="font-mono text-blue-600 hover:underline"
+                >
+                  {predictor.dataset.dataset_name}
+                </Link>
               }
             />
             <InfoItem label="Dataset ID" value={predictor.dataset.dataset_id} />
@@ -1351,7 +1360,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
             Auto-filled from current predictor settings. Adjust in “Advanced Settings”.
           </p>
 
-        {/* darker bubble for readability */}
+          {/* darker bubble for readability */}
           <div className="mt-3 space-y-1 rounded-md bg-neutral-100 p-3 text-sm text-neutral-800">
             <div>
               Regularization: <span className="font-mono">{regularization.toUpperCase()}</span>
@@ -1616,7 +1625,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
   const handleViewIndividualPredictions = useCallback(async () => {
     // Switch to individual view immediately
     setActiveView("individual");
-    
+
     if (!predictor.model_id) {
       setCurvesError("This predictor has not been trained yet.");
       return;
@@ -1646,11 +1655,10 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
       <div className="flex flex-wrap justify-center gap-2">
         <button
           onClick={() => setActiveView("statistics")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "statistics"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
+          className={`rounded-md px-3 py-1.5 text-sm ${activeView === "statistics"
+            ? "bg-neutral-800 text-white"
+            : "border bg-white hover:bg-neutral-50"
+            }`}
         >
           5-Fold Cross-Validation Statistics
         </button>
@@ -1659,41 +1667,37 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         </button>
         <button
           onClick={handleViewIndividualPredictions}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "individual"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
+          className={`rounded-md px-3 py-1.5 text-sm ${activeView === "individual"
+            ? "bg-neutral-800 text-white"
+            : "border bg-white hover:bg-neutral-50"
+            }`}
         >
           Individual Predictions
         </button>
         <button
           onClick={() => setActiveView("dcalibration")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "dcalibration"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
+          className={`rounded-md px-3 py-1.5 text-sm ${activeView === "dcalibration"
+            ? "bg-neutral-800 text-white"
+            : "border bg-white hover:bg-neutral-50"
+            }`}
         >
           D-Calibration Histogram
         </button>
         <button
           onClick={() => setActiveView("kaplanmeier")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "kaplanmeier"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
+          className={`rounded-md px-3 py-1.5 text-sm ${activeView === "kaplanmeier"
+            ? "bg-neutral-800 text-white"
+            : "border bg-white hover:bg-neutral-50"
+            }`}
         >
           Kaplan Meier Visualization
         </button>
         <button
           onClick={() => setActiveView("comparison")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "comparison"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
+          className={`rounded-md px-3 py-1.5 text-sm ${activeView === "comparison"
+            ? "bg-neutral-800 text-white"
+            : "border bg-white hover:bg-neutral-50"
+            }`}
         >
           Compare Predictors
         </button>
@@ -1732,9 +1736,9 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
               <p>Loading survival curves...</p>
             </div>
           ) : survivalCurves ? (
-            <IndividualSurvivalCurves 
-              data={survivalCurves} 
-              timeUnit={predictor.time_unit} 
+            <IndividualSurvivalCurves
+              data={survivalCurves}
+              timeUnit={predictor.time_unit}
               predictorId={predictor.predictor_id}
             />
           ) : (
@@ -1815,37 +1819,37 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
                 </p>
               </>
             )}
-      </Card>
+          </Card>
 
-      <Card>
-        <h4 className="text-sm font-semibold text-neutral-700">Examine Classification Accuracy</h4>
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="text-sm">
-            Statistics accuracy, specificity, sensitivity (t-calibration) for classifier with cutoff:
-          </label>
-          <input type="number" className="w-24 rounded-md border border-neutral-300 p-1 text-sm" defaultValue={18.4} />
-          <span className="text-sm text-neutral-700">days</span>
-          <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white">Submit</button>
-        </div>
-
-        <div className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <h5 className="text-sm font-semibold text-neutral-700">Generated Classifier Performance and Histogram</h5>
-            <div className="flex items-center gap-2">
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Show">
-                Show
-              </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Print">
-                🖨️
-              </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Download">
-                ⤓
-              </button>
+          <Card>
+            <h4 className="text-sm font-semibold text-neutral-700">Examine Classification Accuracy</h4>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <label className="text-sm">
+                Statistics accuracy, specificity, sensitivity (t-calibration) for classifier with cutoff:
+              </label>
+              <input type="number" className="w-24 rounded-md border border-neutral-300 p-1 text-sm" defaultValue={18.4} />
+              <span className="text-sm text-neutral-700">days</span>
+              <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white">Submit</button>
             </div>
-          </div>
-          <div className="h-56 w-full rounded border-2 border-neutral-300" />
-        </div>
-      </Card>
+
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h5 className="text-sm font-semibold text-neutral-700">Generated Classifier Performance and Histogram</h5>
+                <div className="flex items-center gap-2">
+                  <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Show">
+                    Show
+                  </button>
+                  <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Print">
+                    🖨️
+                  </button>
+                  <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Download">
+                    ⤓
+                  </button>
+                </div>
+              </div>
+              <div className="h-56 w-full rounded border-2 border-neutral-300" />
+            </div>
+          </Card>
         </>
       )}
     </div>

@@ -20,7 +20,7 @@ export type Predictor = {
   created_at: string;
   updated_at: string;
   time_unit?: "year" | "month" | "day" | "hour";
-  folder_id?: string;
+  folder_id?: number | string | null;
   folder_name?: string;
   // NEW: ML Model fields
   model_id?: string;
@@ -31,8 +31,16 @@ export type Predictor = {
     IBS?: number;
     [key: string]: any;
   };
-  ml_selected_features: string;
+  ml_selected_features?: string[] | null;
   features?: string[];
+  permissions: {
+    id: number;
+    role: "owner" | "viewer";
+    user: {
+      id: number;
+      username: string;
+    };
+  }[];
 };
 
 export type PredictorPermission = {
@@ -55,12 +63,12 @@ export async function createPredictor(body: {
   dataset_id: number;
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
-  folder_id?: string;
+  folder_id?: number | string | null;
   model_id: string;
   ml_trained_at: string;
   ml_model_metrics: Record<string, any>;
   ml_training_status: string;
-  ml_selected_features: string;
+  ml_selected_features?: string[] | null;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
@@ -123,8 +131,17 @@ export async function updatePredictor(
   updatedData: {
     name?: string;
     description?: string;
-    time_unit?: string;
+    dataset_id?: number | null;
+    folder_id?: number | string | null;
+
     is_private?: boolean;
+
+    // ML fields
+    model_id?: string | null;
+    ml_training_status?: 'not_trained' | 'training' | 'trained' | 'failed';
+    ml_trained_at?: string | null;
+    ml_model_metrics?: Record<string, any>;
+    ml_selected_features?: string[] | null;
   }
 ): Promise<Predictor> {
   return api.patch(`/api/predictors/${id}/`, updatedData);
@@ -182,7 +199,9 @@ export function mapApiPredictorToUi(
   return {
     id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
     title: item.name ?? item.title ?? "Untitled predictor",
-    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"), // optional logic
+    status: item.ml_training_status === "not_trained"
+      ? "DRAFT"
+      : "PUBLISHED",
     updatedAt:
       formatDate(item.updated_at) ??
       item.modified ??
@@ -195,6 +214,7 @@ export function mapApiPredictorToUi(
     notes: item.description ?? item.notes ?? "",
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
+    ml_training_status: item.ml_training_status,
   };
 }
 

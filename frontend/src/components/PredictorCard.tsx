@@ -19,7 +19,7 @@ import type { DragItem } from "../types/dragDrop";
 export interface PredictorItem {
   id: string;
   title: string;
-  status?: "DRAFT" | "PUBLISHED"; 
+  status?: "DRAFT" | "PUBLISHED";
   updatedAt?: string;
   owner?: boolean;
   notes?: string;
@@ -27,6 +27,7 @@ export interface PredictorItem {
   pinned?: boolean;
   folderId?: string;
   folderName?: string;
+  ml_training_status?: "not_trained" | "training" | "trained" | "failed";
 }
 
 export default function PredictorCard({
@@ -34,6 +35,7 @@ export default function PredictorCard({
   selected = false,
   onToggleSelect,
   onEdit,
+  onDraftEdit,
   onDelete,
   onView,
   onDoubleClick,
@@ -44,6 +46,7 @@ export default function PredictorCard({
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
   onEdit?: (id: string) => void;
+  onDraftEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
   onDoubleClick?: (id: string) => void;
@@ -87,7 +90,14 @@ export default function PredictorCard({
           {item.owner ? (
             <>
               <button
-                onClick={() => onEdit?.(item.id)}
+                onClick={() => {
+                  // Draft predictors checking
+                  if (item.ml_training_status === "not_trained") {
+                    onDraftEdit?.(item.id);
+                  } else {
+                    onEdit?.(item.id);
+                  }
+                }}
                 className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
               >
                 Edit
@@ -101,8 +111,9 @@ export default function PredictorCard({
             </>
           ) : null}
         </>
-      )}
-    </CardShell>
+      )
+      }
+    </CardShell >
   );
 
   return (
