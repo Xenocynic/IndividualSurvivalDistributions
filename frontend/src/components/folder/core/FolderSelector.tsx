@@ -11,6 +11,7 @@
 import { useState, useEffect } from "react";
 import {
   listMyFolders,
+  listMyOwnedFolders,
   createFolder,
   type Folder,
   type CreateFolderRequest,
@@ -28,6 +29,8 @@ export interface FolderSelectorProps {
   // For inline folder creation
   availablePredictors?: PredictorItem[];
   availableDatasets?: DatasetItem[];
+  // Only show folders owned by the user (for operations that require ownership)
+  ownedOnly?: boolean;
 }
 
 export default function FolderSelector({
@@ -38,6 +41,7 @@ export default function FolderSelector({
   className = "",
   availablePredictors = [],
   availableDatasets = [],
+  ownedOnly = false,
 }: FolderSelectorProps) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +53,13 @@ export default function FolderSelector({
   // Load user's folders
   useEffect(() => {
     loadFolders();
-  }, []);
+  }, [ownedOnly]);
 
   const loadFolders = async () => {
     try {
       setLoading(true);
       setError(null);
-      const userFolders = await listMyFolders();
+      const userFolders = ownedOnly ? await listMyOwnedFolders() : await listMyFolders();
       setFolders(userFolders);
     } catch (err: any) {
       console.error("Failed to load folders:", err);

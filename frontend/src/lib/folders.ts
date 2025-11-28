@@ -133,6 +133,10 @@ export async function listMyFolders(): Promise<Folder[]> {
   return api.get<Folder[]>("/api/folders/");
 }
 
+export async function listMyOwnedFolders(): Promise<Folder[]> {
+  return api.get<Folder[]>("/api/folders/?owned_only=true");
+}
+
 export async function createFolder(request: CreateFolderRequest): Promise<Folder> {
   return api.post<Folder>("/api/folders/", request);
 }
