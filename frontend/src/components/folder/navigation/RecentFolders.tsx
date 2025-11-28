@@ -5,6 +5,9 @@
  * - Quick access panel for recently accessed folders
  * - Stores recent folder access in localStorage
  * - Provides one-click navigation to recent folders
+ * - Only shows the top 3 most recently accessed folders when expanded
+ * - Stays collapsed by default; header/tab is always visible.
+ * ----------------------------------------------------------------------------------
  */
 
 import { useState, useEffect } from "react";
@@ -31,7 +34,7 @@ interface RecentFoldersProps {
 }
 
 const RECENT_FOLDERS_KEY = "kiro_recent_folders";
-const MAX_RECENT_FOLDERS = 5;
+const MAX_RECENT_FOLDERS = 5; // how many we store in localStorage (UI only shows 3)
 
 export default function RecentFolders({
   onFolderSelect,
@@ -39,7 +42,7 @@ export default function RecentFolders({
   className = "",
 }: RecentFoldersProps) {
   const [recentFolders, setRecentFolders] = useState<RecentFolder[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); // default: collapsed
 
   // Load recent folders from localStorage on mount
   useEffect(() => {
@@ -92,15 +95,26 @@ export default function RecentFolders({
   };
 
   if (recentFolders.length === 0) {
+    // No header at all if we've literally never had a recent folder
     return null;
   }
+
+  // Ensure we’re always showing the *most recent* ones, just in case order got weird
+  const sortedByRecency = [...recentFolders].sort((a, b) => {
+    const aTime = new Date(a.last_accessed).getTime();
+    const bTime = new Date(b.last_accessed).getTime();
+    return bTime - aTime;
+  });
+
+  // Only show the top 3 in the panel
+  const visibleFolders = sortedByRecency.slice(0, 3);
 
   return (
     <div
       className={`bg-white rounded-lg border border-gray-200 ${className}`}
     >
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setIsExpanded((prev) => !prev)}
         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100 rounded-t-lg"
       >
         <div className="flex items-center gap-2">
@@ -109,7 +123,7 @@ export default function RecentFolders({
             Recent Folders
           </span>
           <span className="text-xs text-gray-600">
-            ({recentFolders.length})
+            ({sortedByRecency.length})
           </span>
         </div>
         {isExpanded ? (
@@ -121,13 +135,13 @@ export default function RecentFolders({
 
       {isExpanded && (
         <div className="border-t border-gray-200">
-          {recentFolders.map((folder) => (
+          {visibleFolders.map((folder) => (
             <button
               key={folder.folder_id}
               onClick={() => handleFolderClick(folder.folder_id)}
-              className={`w-full flex items-center gap-3 p-3 text-left hover:bg-gray- transition-colors ${
+              className={`w-full flex items-center gap-3 p-3 text-left transition-colors hover:bg-gray-50 ${
                 currentFolderId === folder.folder_id
-                  ? "bg-black-50 border-l-2 border-l-black"
+                  ? "bg-black/5 border-l-2 border-l-black"
                   : ""
               }`}
             >

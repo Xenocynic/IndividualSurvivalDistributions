@@ -300,17 +300,29 @@ export default function FolderCreationModal({
             {/* Privacy Setting */}
             <div>
               <label className="mb-3 block text-sm font-medium text-neutral-900">
-                Privacy Setting
+                Visibility
               </label>
-              <FolderPrivacyToggle
-                isPrivate={isPrivate}
-                onChange={setIsPrivate}
-                disabled={isLoading}
-                showLabel={true}
-                showDescription={true}
-                size="md"
-              />
+
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  checked={!isPrivate}
+                  onChange={(e) => setIsPrivate(!e.target.checked)}
+                  disabled={isLoading}
+                  className="h-4 w-4 accent-neutral-900 disabled:opacity-50"
+                />
+                <span className="text-xs font-medium text-neutral-800">
+                  Make folder public
+                </span>
+              </div>
+
+              <div className="rounded-md border border-dashed border-neutral-200 bg-neutral-200 p-2 text-xs text-neutral-700">
+                When checked, all users will be able to discover this folder.
+                Leave unchecked to keep it and its contents private to you
+                (and the users you share with).
+              </div>
             </div>
+
 
             {/* Item Selection */}
             <div>
