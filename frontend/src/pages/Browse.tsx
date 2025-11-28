@@ -58,13 +58,13 @@ import DatasetCard, { type DatasetItem } from "../components/DatasetCard";
 type Tab = "predictors" | "datasets" | "folders";
 
 /**
- * Item is the local UI shape used by Browse cards.
+ * Extra fields used by Browse cards.
  */
 type BrowseBase = {
   ownerName?: string | null | undefined;
   // raw timestamp for chronological filtering
   updatedAtRaw?: string | null | undefined;
-  // these are mainly used for datasets but kept shared for simplicity
+  // mostly for datasets, but shared for simplicity
   hasFile?: boolean;
   originalFilename?: string | null | undefined;
 };
@@ -197,76 +197,90 @@ export default function Browse() {
   // --- TANSTACK QUERY: FETCH MAIN LISTS ---
 
   // Fetch Public Predictors
-// Fetch Public Predictors
-const {
-  data: predictors = [],
-  isLoading: isPredictorsLoading,
-  error: predictorsError,
-} = useQuery<BrowsePredictor[]>({
-  queryKey: ["public-predictors"],
-  queryFn: async () => {
-    const apiPreds = await listPublicPredictors();
-    return apiPreds.map((p: any) => {
-      const ui = toPredictorItem(p);
+  const {
+    data: predictors = [],
+    isLoading: isPredictorsLoading,
+    error: predictorsError,
+  } = useQuery<BrowsePredictor[]>({
+    queryKey: ["public-predictors"],
+    queryFn: async () => {
+      const apiPreds = await listPublicPredictors();
+      return apiPreds.map((p: any) => {
+        const ui = toPredictorItem(p);
 
-      const updatedAtRaw =
-        (p as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
-      const updatedAt =
-        (ui as any).updatedAt ??
-        (updatedAtRaw
-          ? new Date(updatedAtRaw).toLocaleDateString()
-          : undefined);
+        const updatedAtRaw =
+          (p as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
+        const updatedAt =
+          (ui as any).updatedAt ??
+          (updatedAtRaw
+            ? new Date(updatedAtRaw).toLocaleDateString()
+            : undefined);
 
-      const item: BrowsePredictor = {
-        ...ui,
-        ownerName: p.owner?.username || "Unknown Owner",
-        updatedAtRaw,
-        updatedAt,
-      };
-      return item;
-    });
-  },
-  enabled: activeTab === "predictors",
-  staleTime: 1000 * 60 * 5,
-});
+        const item: BrowsePredictor = {
+          ...ui,
+          ownerName:
+            (ui as any).ownerName ??
+            (p.owner?.username ??
+              (p.owner_name as string | undefined) ??
+              "Unknown owner"),
+          updatedAtRaw,
+          updatedAt,
+        };
 
+        return item;
+      });
+    },
+    enabled: activeTab === "predictors",
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Fetch Public Datasets
-// Fetch Public Datasets
-const {
-  data: datasets = [],
-  isLoading: isDatasetsLoading,
-  error: datasetsError,
-} = useQuery<BrowseDataset[]>({
-  queryKey: ["public-datasets"],
-  queryFn: async () => {
-    const apiDsets = await listPublicDatasets();
-    return apiDsets.map((d: any) => {
-      const ui = toDatasetItem(d, currentUserId);
+  const {
+    data: datasets = [],
+    isLoading: isDatasetsLoading,
+    error: datasetsError,
+  } = useQuery<BrowseDataset[]>({
+    queryKey: ["public-datasets"],
+    queryFn: async () => {
+      const apiDsets = await listPublicDatasets();
+      return apiDsets.map((d: any) => {
+        const ui = toDatasetItem(d, currentUserId);
 
-      const updatedAtRaw =
-        (d as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
-      const updatedAt =
-        (ui as any).updatedAt ??
-        (updatedAtRaw
-          ? new Date(updatedAtRaw).toLocaleDateString()
-          : undefined);
+        const updatedAtRaw =
+          (d as any).uploaded_at ??
+          (d as any).updated_at ??
+          (ui as any).updatedAtRaw ??
+          null;
+        const updatedAt =
+          (ui as any).updatedAt ??
+          (updatedAtRaw
+            ? new Date(updatedAtRaw).toLocaleDateString()
+            : undefined);
 
-      const item: BrowseDataset = {
-        ...ui,
-        ownerName: ui.ownerName || d.owner_name || "Owner",
-        updatedAtRaw,
-        updatedAt,
-        hasFile: ui.hasFile,
-        originalFilename: ui.originalFilename,
-      };
-      return item;
-    });
-  },
-  enabled: activeTab === "datasets",
-  staleTime: 1000 * 60 * 5,
-});
+        const item: BrowseDataset = {
+          ...ui,
+          ownerName:
+            ui.ownerName ||
+            (d.owner_name as string | undefined) ||
+            "Owner",
+          updatedAtRaw,
+          updatedAt,
+          hasFile:
+            (ui as any).hasFile ??
+            Boolean((d as any).file || (d as any).uploaded_file),
+          originalFilename:
+            (ui as any).originalFilename ??
+            (d.original_filename as string | undefined) ??
+            (d.filename as string | undefined) ??
+            null,
+        };
 
+        return item;
+      });
+    },
+    enabled: activeTab === "datasets",
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Fetch Public Folders
   const {
@@ -331,7 +345,6 @@ const {
 
   // --- FILTERING ---
 
-  // filtered items for predictors / datasets
   const filteredPredictors = useMemo<BrowsePredictor[]>(() => {
     if (activeTab !== "predictors") return [];
 
@@ -364,7 +377,7 @@ const {
     if (predictorUpdatedWithin !== "any") {
       base = base.filter((item) =>
         matchesUpdatedWithin(
-          item.updatedAtRaw ?? item.updatedAt,
+          item.updatedAtRaw ?? (item as any).updatedAt,
           predictorUpdatedWithin
         )
       );
@@ -416,7 +429,7 @@ const {
     if (datasetUpdatedWithin !== "any") {
       base = base.filter((item) =>
         matchesUpdatedWithin(
-          item.updatedAtRaw ?? item.updatedAt,
+          item.updatedAtRaw ?? (item as any).updatedAt,
           datasetUpdatedWithin
         )
       );
@@ -501,6 +514,7 @@ const {
       ? pinnedDatasetIds
       : pinnedFolderIds;
 
+  // For now, we only show pinned predictors/datasets in sidebar (folders use inline pins only)
   const pinned =
     activeTab === "folders"
       ? []
@@ -827,9 +841,7 @@ const {
                         (activeTab === "predictors" &&
                           pinnedPredictorIds.has(p.id)) ||
                         (activeTab === "datasets" &&
-                          pinnedDatasetIds.has(p.id)) ||
-                        (activeTab === "folders" &&
-                          pinnedFolderIds.has(p.id));
+                          pinnedDatasetIds.has(p.id));
                       return (
                         <div
                           key={p.id}
@@ -845,11 +857,7 @@ const {
                                 : "hover:bg-neutral-50"
                             }`}
                             title={isPinned ? "Unpin" : "Pin"}
-                            onClick={() =>
-                              activeTab === "folders"
-                                ? toggleFolderPin(p.id)
-                                : togglePin(p.id)
-                            }
+                            onClick={() => togglePin(p.id)}
                           >
                             {isPinned ? "★" : "☆"}
                           </button>
@@ -961,66 +969,79 @@ const {
                 ) : (
                   <>
                     {/* Predictors and Datasets Tab Content */}
-                    <>
-                      {/* Predictors vs Datasets share the same layout, but use their own cards */}
-                      {activeTab === "predictors" ? (
-                        <>
-                          {filteredPredictors.length === 0 && !errorMessage ? (
-                            <div className="py-12 text-center">
-                              <div className="text-lg text-neutral-500">
-                                No public predictors available
-                              </div>
-                              <div className="mt-2 text-sm text-neutral-400">
-                                Public predictors will appear here when
-                                available
-                              </div>
+                    {activeTab === "predictors" ? (
+                      <>
+                        {filteredPredictors.length === 0 && !errorMessage ? (
+                          <div className="py-12 text-center">
+                            <div className="text-lg text-neutral-500">
+                              No public predictors available
                             </div>
-                          ) : (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                              {filteredPredictors.map((item) => {
-                                const isPinned = pinnedPredictorIds.has(item.id);
-                                const isSelected = selectedPredictorId === item.id;
-                                const cardItem: PredictorItem = { ...item, owner: false };
+                            <div className="mt-2 text-sm text-neutral-400">
+                              Public predictors will appear here when available
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {filteredPredictors.map((item) => {
+                              const isPinned = pinnedPredictorIds.has(item.id);
+                              const isSelected =
+                                selectedPredictorId === item.id;
 
-                                return (
-                                  <PredictorCard
-                                    key={item.id}
-                                    item={cardItem}
-                                    selected={isSelected}
-                                    onToggleSelect={toggleSelect}
-                                    onView={(id) =>
-                                      navigate(`/predictors/${id}`, {
-                                        state: { from: "browse" },
-                                      })
-                                    }
-                                    showOwnerActions={false}  // no Edit/Delete on Browse
-                                    showPin                   // enable inline pin
-                                    isPinned={isPinned}
-                                    onTogglePin={(id) => togglePin(id)}
-                                  />
-                                );
-                              })}
-                            </div>
+                              // `PredictorItem` is what PredictorCard expects; we can
+                              // safely treat the BrowsePredictor as a superset.
+                              const cardItem: PredictorItem = {
+                                ...item,
+                                // By definition these are public, and “owner” in this context
+                                // is not “me”, so just treat as non-owner for UI.
+                                owner: false as any,
+                              };
 
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          {filteredDatasets.length === 0 && !errorMessage ? (
-                            <div className="py-12 text-center">
-                              <div className="text-lg text-neutral-500">
-                                No public datasets available
-                              </div>
-                              <div className="mt-2 text-sm text-neutral-400">
-                                Public datasets will appear here when available
-                              </div>
+                              return (
+                                <PredictorCard
+                                  key={item.id}
+                                  item={cardItem}
+                                  selected={isSelected}
+                                  onToggleSelect={toggleSelect}
+                                  onView={(id) =>
+                                    navigate(`/predictors/${id}`, {
+                                      state: { from: "browse" },
+                                    })
+                                  }
+                                  // Browse never shows Edit/Delete
+                                  showOwnerActions={false}
+                                  // Inline pin controls
+                                  showPin
+                                  isPinned={isPinned}
+                                  onTogglePin={(id) => togglePin(id)}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {filteredDatasets.length === 0 && !errorMessage ? (
+                          <div className="py-12 text-center">
+                            <div className="text-lg text-neutral-500">
+                              No public datasets available
                             </div>
-                          ) : (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                              {filteredDatasets.map((item) => {
+                            <div className="mt-2 text-sm text-neutral-400">
+                              Public datasets will appear here when available
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {filteredDatasets.map((item) => {
                               const isPinned = pinnedDatasetIds.has(item.id);
-                              const isSelected = selectedDatasetId === item.id;
-                              const cardItem: DatasetItem = { ...item, owner: false };
+                              const isSelected =
+                                selectedDatasetId === item.id;
+
+                              const cardItem: DatasetItem = {
+                                ...item,
+                                // same reasoning as predictors
+                                owner: false as any,
+                              };
 
                               return (
                                 <DatasetCard
@@ -1028,21 +1049,21 @@ const {
                                   item={cardItem}
                                   selected={isSelected}
                                   onToggleSelect={toggleSelect}
-                                  onView={(id) => navigate(`/datasets/${id}/view`)}
+                                  onView={(id) =>
+                                    navigate(`/datasets/${id}/view`)
+                                  }
                                   onDownload={downloadDataset}
-                                  showOwnerActions={false}     
-                                  showPin                     
+                                  showOwnerActions={false}
+                                  showPin
                                   isPinned={isPinned}
                                   onTogglePin={(id) => togglePin(id)}
                                 />
                               );
                             })}
-
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
               </>
@@ -1260,21 +1281,4 @@ function FolderAdvancedFilterMenu({
       </div>
     </details>
   );
-}
-
-function bubbleButtonClass(selected: boolean) {
-  return [
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
-    "text-[11px] font-medium text-neutral-700 bg-white shadow-sm hover:bg-neutral-200",
-    "transform-gpu origin-left transition-all duration-200 ease-out",
-    selected
-      ? "opacity-100 translate-y-0 scale-100"
-      : "pointer-events-none opacity-0 -translate-y-1 scale-90",
-  ].join(" ");
-}
-
-function bubbleDelayStyle(selected: boolean, delayMs: number) {
-  return selected
-    ? { transitionDelay: `${delayMs}ms` }
-    : { transitionDelay: "0ms" };
 }

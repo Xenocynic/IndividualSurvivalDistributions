@@ -44,7 +44,7 @@ type DatasetCardProps = {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
-  onDownload?: (id: string, allowAdminAccess: boolean) => void;
+  onDownload?: (id: string, allowAdminAccess?: boolean) => void;
   onDrop?: (item: DragItem, folderId?: string) => void;
   isLoading?: boolean;
 
@@ -55,7 +55,7 @@ type DatasetCardProps = {
   /** Optional explicit pinned state. */
   isPinned?: boolean;
   /** Called when the pin star is toggled. */
-  onTogglePin?: (id: string, nextPinned: boolean) => void;
+  onTogglePin?: (id: string, nextPinned?: boolean) => void;
 };
 
 export default function DatasetCard({
@@ -112,6 +112,8 @@ export default function DatasetCard({
 
   const viewerDownloadDelay = showPin ? 120 : 60;
 
+  const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
+
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
       <CardShell
@@ -137,16 +139,16 @@ export default function DatasetCard({
           )
         }
         footerLeft={
-          item.updatedAt ? (
+          displayUpdated ? (
             <span className="text-[11px] text-neutral-500">
-              Updated {item.updatedAt}
+              Updated {displayUpdated}
             </span>
           ) : null
         }
         footerRight={
           <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
             {/* Top row: rows / size / filename */}
-            <div className="flex w-full justify-end flex-wrap gap-2">
+            <div className="flex w-full flex-wrap justify-end gap-2">
               {typeof item.rows === "number" && (
                 <span>{item.rows.toLocaleString()} rows</span>
               )}
@@ -184,8 +186,6 @@ export default function DatasetCard({
             )}
           </div>
         }
-
-
         selected={selected}
         onSelect={() => onToggleSelect?.(item.id)}
         onActionAreaClick={(e) => {
@@ -228,21 +228,16 @@ export default function DatasetCard({
         )}
 
         {/* Owner-only controls */}
-        {item.owner ? (
+        {item.owner && showOwnerActions && (
           <>
-            {showOwnerActions && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onEdit?.(item.id)}
-                  className={bubbleButtonClass(selected)}
-                  style={bubbleDelayStyle(selected, editDelay)}
-                >
-                  <Pencil className="h-5 w-3" />
-                </button>
-
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => onEdit?.(item.id)}
+              className={bubbleButtonClass(selected)}
+              style={bubbleDelayStyle(selected, editDelay)}
+            >
+              <Pencil className="h-5 w-3" />
+            </button>
 
             {item.hasFile && onDownload && (
               <button
@@ -258,31 +253,30 @@ export default function DatasetCard({
               </button>
             )}
 
-                <button
-                  type="button"
-                  onClick={() => onDelete?.(item.id)}
-                  className={bubbleDeleteButtonClass(selected)}
-                  style={bubbleDelayStyle(selected, deleteDelay)}
-                >
-                  <Trash2 className="h-5 w-3" />
-                </button>
-          </>
-        ) : (
-          // Viewer-only controls
-          item.hasFile &&
-          onDownload && (
             <button
               type="button"
-              onClick={() =>
-                onDownload(item.id, item.allow_admin_access ?? true)
-              }
-              className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, viewerDownloadDelay)}
-              title="Download file"
+              onClick={() => onDelete?.(item.id)}
+              className={bubbleDeleteButtonClass(selected)}
+              style={bubbleDelayStyle(selected, deleteDelay)}
             >
-              <DownloadIcon className="h-3 w-3" />
+              <Trash2 className="h-5 w-3" />
             </button>
-          )
+          </>
+        )}
+
+        {/* Viewer-only controls */}
+        {!item.owner && item.hasFile && onDownload && (
+          <button
+            type="button"
+            onClick={() =>
+              onDownload(item.id, item.allow_admin_access ?? true)
+            }
+            className={bubbleButtonClass(selected)}
+            style={bubbleDelayStyle(selected, viewerDownloadDelay)}
+            title="Download file"
+          >
+            <DownloadIcon className="h-3 w-3" />
+          </button>
         )}
       </CardShell>
     </DraggableCard>
@@ -316,4 +310,28 @@ function bubbleDelayStyle(selected: boolean, delayMs: number) {
   return selected
     ? { transitionDelay: `${delayMs}ms` }
     : { transitionDelay: "0ms" };
+}
+
+/**
+ * Use raw ISO if available, otherwise fall back to updatedAt.
+ * Always try to format as `Jan 1, 2025` when parseable.
+ */
+function getDisplayDate(
+  updatedAt?: string,
+  updatedAtRaw?: string
+): string | undefined {
+  const source = updatedAtRaw ?? updatedAt;
+  if (!source) return undefined;
+
+  const millis = Date.parse(source);
+  if (Number.isNaN(millis)) {
+    // assume updatedAt is already user-facing text
+    return updatedAt;
+  }
+
+  return new Date(millis).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

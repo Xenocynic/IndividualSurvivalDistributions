@@ -22,7 +22,7 @@
  *
  */
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Toolbar from "../components/Toolbar";
@@ -39,7 +39,7 @@ import {
 import FolderEditModal from "../components/folder/modals/FolderEditModal";
 import FolderSharingModal from "../components/folder/modals/FolderSharingModal";
 import { addFolderToRecent } from "../components/folder/navigation/RecentFolders";
-import { DeletePredictor } from "../components/DeletePredictor";
+import { DeleteConfirmation } from "../components/DeleteConfirmation";
 import DragDropProvider from "../components/DragDropProvider";
 
 import type { Ownership } from "../components/FilterMenu";
@@ -82,6 +82,7 @@ import type { FolderSortOption, FolderType } from "../components/folder";
 import { FolderOpen } from "lucide-react";
 
 type Tab = "predictors" | "datasets" | "folders";
+type DeleteType = "predictor" | "dataset" | "folder";
 type KeywordTarget = "title" | "notes" | "both";
 type TimeWindow = "any" | "7d" | "30d" | "365d";
 
@@ -123,7 +124,6 @@ export default function Dashboard() {
     [user]
   );
   const navigate = useNavigate();
-
   const [searchParams, setSearchParams] = useSearchParams();
 
   // derive activeTab from URL (?tab=predictors|datasets|folders)
@@ -291,12 +291,12 @@ export default function Dashboard() {
     folderQuery: "",
   });
 
-  // pending delete (works for both predictors and datasets)
-  const [pendingDelete, setPendingDelete] = useState<{
+  // UNIFIED DELETE STATE
+  const [deleteContext, setDeleteContext] = useState<{
     id: string;
     title: string;
+    type: DeleteType;
   } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // folder management
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
@@ -512,27 +512,6 @@ export default function Dashboard() {
     }, 100);
   }
 
-  async function handleFolderDelete(folderId: string) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this folder? Items will be preserved."
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await deleteFolderMutation.mutateAsync(folderId);
-      setExpandedFolders((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(folderId);
-        return newSet;
-      });
-    } catch (error: any) {
-      console.error("Failed to delete folder:", error);
-    }
-  }
-
   const handleRemoveFromFolder = useCallback(
     async (
       itemId: string,
@@ -608,8 +587,9 @@ export default function Dashboard() {
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
+      const cleanFilename = filename.replace(/^"|"$/g, "");
       link.href = url;
-      link.download = filename;
+      link.download = cleanFilename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -619,37 +599,54 @@ export default function Dashboard() {
     }
   }
 
-  // --- DELETE CONFIRMATION ---
+  // --- UNIFIED DELETE HANDLERS ---
 
-  async function confirmDelete() {
-    if (!pendingDelete || isDeleting) return;
+  // prompt delete
+  const promptDelete = useCallback(
+    (id: string, title: string, type: DeleteType) => {
+      setDeleteContext({ id, title, type });
+    },
+    []
+  );
 
-    setIsDeleting(true);
+  // confirm delete
+  async function handleConfirmDelete() {
+    if (!deleteContext) return;
+    const { id, type } = deleteContext;
 
     try {
-      if (activeTab === "predictors") {
-        await deletePredictorMutation.mutateAsync(pendingDelete.id);
-
-        if (selection.predictorId === pendingDelete.id) {
+      if (type === "predictor") {
+        await deletePredictorMutation.mutateAsync(id);
+        if (selection.predictorId === id) {
           setSelection((prev) => ({ ...prev, predictorId: null }));
         }
-      } else {
-        await deleteDatasetMutation.mutateAsync(parseInt(pendingDelete.id, 10));
-
-        if (selection.datasetId === pendingDelete.id) {
+      } else if (type === "dataset") {
+        await deleteDatasetMutation.mutateAsync(parseInt(id, 10));
+        if (selection.datasetId === id) {
           setSelection((prev) => ({ ...prev, datasetId: null }));
         }
+      } else if (type === "folder") {
+        await deleteFolderMutation.mutateAsync(id);
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
 
-      setPendingDelete(null);
+      setDeleteContext(null); // close modal on success
     } catch (error: any) {
-      const errorMessage =
+      const msg =
         error?.details?.error || error?.message || "Failed to delete item";
-      alert(`Delete failed: ${errorMessage}`);
-    } finally {
-      setIsDeleting(false);
+      alert(`Delete failed: ${msg}`);
     }
   }
+
+  // Determine if any delete operation is in progress
+  const isDeleteLoading =
+    deletePredictorMutation.isPending ||
+    deleteDatasetMutation.isPending ||
+    deleteFolderMutation.isPending;
 
   // --- RENDER ---
 
@@ -862,7 +859,10 @@ export default function Dashboard() {
                               setIsEditModalOpen(true);
                             }
                           }}
-                          onDelete={handleFolderDelete}
+                          // UNIFIED DELETE:
+                          onDelete={(id) =>
+                            promptDelete(id, folder.name, "folder")
+                          }
                           onShare={(folderId) => {
                             const f = folders.find(
                               (x) => x.folder_id === folderId
@@ -895,12 +895,19 @@ export default function Dashboard() {
                               itemType === "predictor"
                                 ? predictors.find((p) => p.id === itemId)
                                 : datasets.find((d) => d.id === itemId);
+                            // We might need to find items deep within folders if they aren't in the main lists
                             const foundItem =
                               item ||
                               (folder.items?.find(
                                 (i) => i.id === itemId
                               ) as any);
-                            if (foundItem) setPendingDelete(foundItem);
+                            if (foundItem) {
+                              promptDelete(
+                                foundItem.id,
+                                foundItem.title,
+                                itemType
+                              );
+                            }
                           }}
                           onItemView={(itemId) => viewItem(itemId)}
                           onRemoveFromFolder={(itemId, itemType) =>
@@ -965,10 +972,7 @@ export default function Dashboard() {
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
-                              setPendingDelete(
-                                (predictors.find((x) => x.id === id) ??
-                                  null) as any
-                              )
+                              promptDelete(id, it.title, "predictor")
                             }
                             onView={viewItem}
                             onDrop={handleDrop}
@@ -985,10 +989,7 @@ export default function Dashboard() {
                             onToggleSelect={toggleSelect}
                             onEdit={editItem}
                             onDelete={(id) =>
-                              setPendingDelete(
-                                (datasets.find((x) => x.id === id) ??
-                                  null) as any
-                              )
+                              promptDelete(id, it.title, "dataset")
                             }
                             onView={viewItem}
                             onDownload={() => {
@@ -1012,7 +1013,8 @@ export default function Dashboard() {
                   {(activeTab === "predictors"
                     ? filteredPredictors
                     : filteredDatasets
-                  ).filter((item) => !item.folderId).length === 0 &&
+                  )
+                    .filter((item) => !item.folderId).length === 0 &&
                     !isLoading && (
                       <div className="col-span-full flex items-center justify-center py-12 text-center">
                         <div className="max-w-sm">
@@ -1033,12 +1035,18 @@ export default function Dashboard() {
               </DroppableFolder>
             )}
 
-            <DeletePredictor
-              open={!!pendingDelete}
-              name={pendingDelete?.title ?? ""}
-              onCancel={() => !isDeleting && setPendingDelete(null)}
-              onConfirm={confirmDelete}
-              isLoading={isDeleting}
+            {/* UNIFIED DELETE MODAL */}
+            <DeleteConfirmation
+              open={!!deleteContext}
+              name={deleteContext?.title ?? ""}
+              description={
+                deleteContext?.type === "folder"
+                  ? "Items inside this folder will be preserved."
+                  : "This action cannot be undone."
+              }
+              onCancel={() => setDeleteContext(null)}
+              onConfirm={handleConfirmDelete}
+              isLoading={isDeleteLoading}
             />
 
             <FolderCreationModal
