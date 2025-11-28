@@ -18,6 +18,9 @@ import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
+import UsePredictor from "./pages/UsePredictor";
+import MyPredictions from "./pages/MyPredictions";
+import RequirementsRoute from "./auth/RequirementsRoute";
 
 
 export default function App() {
@@ -52,6 +55,12 @@ export default function App() {
           <Route path='predictors/new' element={<PredictorCreate />} />
           <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
           <Route path='predictors/:id/edit' element={<PredictorEdit />} />
+          <Route path='use-predictor' element={
+            <RequirementsRoute>
+              <UsePredictor />
+            </RequirementsRoute>
+          } />
+          <Route path='my-predictions' element={<MyPredictions />} />
         </Route>
 
         {/* Fallback */}

@@ -25,32 +25,11 @@ import logging
 import json
 import requests
 from django.conf import settings
+from .permissions import CanAccessDataset, IsDatasetOwner
 from predictors.models import Predictor
 from predictors.serializers import PredictorSerializer
-from predictors.views import CanAccessPredictor
+from predictors.permissions import CanAccessPredictor
 
-# ----------------------------
-# Custom Permissions
-# ----------------------------
-class IsDatasetOwner(permissions.BasePermission):
-    """Only dataset owners / superuser can update/delete"""
-    def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user or request.user.is_superuser
-
-
-class CanAccessDataset(permissions.BasePermission):
-    """Allow view if owner / superuser, has permission or dataset is public"""
-    def has_object_permission(self, request, view, obj):
-        # Superusers have access to all datasets
-        if request.user.is_superuser:
-            return True
-        # Owner always has access
-        if obj.owner == request.user:
-            return True
-        if obj.is_public:
-            return True
-        # Other users can access only if a DatasetPermission exists
-        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
 # ----------------------------
 # Dataset ViewSet
@@ -553,6 +532,47 @@ class DatasetViewSet(viewsets.ModelViewSet):
         serializer = PredictorSerializer(accessible_predictors, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # NEW: Preview endpoint displays first 10 rows and column names of the dataset
+    @action(detail=True, methods=['get'], url_path='preview')
+    def preview(self, request, pk=None):
+        """
+        Return the first 10 rows and column names of the dataset.
+        """
+        try:
+            dataset = self.get_object()
+            
+            if not dataset.file_path:
+                return Response(
+                    {"error": "Dataset has no associated file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                return Response(
+                    {"error": "Dataset file not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Read first 10 rows
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=10)
+            
+           
+            # Replace NaN with None for JSON compatibility
+            df = df.where(pd.notnull(df), None)
+
+            return Response({
+                "columns": df.columns.tolist(),
+                "preview_data": df.values.tolist()
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to generate preview: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 # ----------------------------
 # Dataset Permission ViewSet
@@ -748,6 +768,8 @@ def ml_train_model(request, dataset_id):
             )
 
 
+
+
 def _download_model_artifacts(ml_data, model_id):
     """
     Download all model artifacts from the ML API response and save them locally.
@@ -810,3 +832,5 @@ def _download_model_artifacts(ml_data, model_id):
             download_file(full_preds['survival_curves'], os.path.join(model_dir, 'survival_curves.json'))
     
     logger.info(f"Model artifacts download completed for {model_id}")
+
+

@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
 import { listMyDatasets, getDatasetStats } from "../lib/datasets";
@@ -48,6 +48,8 @@ type TrainingStep = "idle" | "creating" | "training" | "complete" | "error";
 
 export default function PredictorCreate() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectedFromUsePredictor = location.state?.from === "use-predictor";
 
   // form state
   const [name, setName] = useState("");
@@ -408,6 +410,24 @@ export default function PredictorCreate() {
         </div>
         <div className="h-1 w-full bg-neutral-600" />
       </div>
+
+      {/* Notification Banner - Only shown when redirected from use-predictor */}
+      {redirectedFromUsePredictor && (
+        <div className="mx-auto max-w-3xl px-4 pt-4">
+          <div className="rounded-lg border-l-4 border-yellow-400 bg-yellow-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 text-2xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-900">No Trained Predictors Available</h3>
+                <p className="mt-1 text-sm text-yellow-900">
+                  You must create a predictor before making any predictions. 
+                  
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <div className="mx-auto max-w-3xl px-4 py-6">

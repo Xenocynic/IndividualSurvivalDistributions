@@ -26,10 +26,23 @@ export interface PredictorItem {
   owner?: boolean;
   ownerName?: string | null;
   notes?: string;
+  dataset?: {
+    id: string;
+    title: string;
+    time_unit: string;
+    original_filename?: string;
+  };
   isPublic?: boolean;
   pinned?: boolean;
   folderId?: string;
   folderName?: string;
+  ml_selected_features?: string[] | string;
+  ml_training_status?: string;
+  ml_trained_at?: string;
+  model_metadata?: {
+    model_type?: string;
+    n_features?: number;
+  };
 }
 
 type PredictorCardProps = {
