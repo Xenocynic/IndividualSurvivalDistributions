@@ -2,29 +2,32 @@
  * ----------------------------------------------------------------------------------
  * AdvancedFilterMenu
  * ----------------------------------------------------------------------------------
- * - Small popover for "extra" search / filter options.
- * - First feature: lets the user choose where keyword search applies:
- *   - Title only
- *   - Notes only
- *   - Title + notes
+ * - Unified filter popover for:
+ *   - Visibility: all / public / private
+ *   - Keyword scope: title / notes / both
  *
  * Usage:
- * - Parent owns the `keywordTarget` state ("title" | "notes" | "both")
- *   and passes it in along with `onKeywordTargetChange`.
- * - You can extend this component later with more controls (date range,
- *   username, size, etc.) without changing the basic API.
+ * - Parent owns both `visibility` and `keywordTarget` state and handlers.
+ * - This component just renders the UI and wires up callbacks.
+ * ----------------------------------------------------------------------------------
  */
 
 import { useEffect, useRef, useState } from "react";
 
+export type Visibility = "all" | "public" | "private";
 export type KeywordTarget = "title" | "notes" | "both";
 
-interface AdvancedFilterMenuProps {
+export interface AdvancedFilterMenuProps {
+  visibility: Visibility;
+  onVisibilityChange: (value: Visibility) => void;
+
   keywordTarget: KeywordTarget;
   onKeywordTargetChange: (value: KeywordTarget) => void;
 }
 
 export default function AdvancedFilterMenu({
+  visibility,
+  onVisibilityChange,
   keywordTarget,
   onKeywordTargetChange,
 }: AdvancedFilterMenuProps) {
@@ -46,49 +49,59 @@ export default function AdvancedFilterMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  const visibilityOptions: { value: Visibility; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "public", label: "Public" },
+    { value: "private", label: "Private" },
+  ];
+
+  const keywordOptions: { value: KeywordTarget; label: string }[] = [
+    { value: "title", label: "Title only" },
+    { value: "notes", label: "Notes only" },
+    { value: "both", label: "Title + notes" },
+  ];
+
+  const triggerLabel =
+    visibility === "all"
+      ? "Filters"
+      : `Filters · ${visibility[0].toUpperCase()}${visibility.slice(1)}`;
+
   return (
     <div className="relative inline-block text-left" ref={containerRef}>
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded-md border border-black/10 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+        className="inline-flex h-9 items-center gap-1 rounded-md border border-black/10 bg-white px-3 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={open}
       >
-        <span>Filter</span>
-        <span className="text-xs">{open ? "▴" : "▾"}</span>
+        <span>{triggerLabel}</span>
+        <span className="text-xs text-neutral-500">{open ? "▴" : "▾"}</span>
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-2 w-64 rounded-md border border-black/10 bg-white p-3 text-sm shadow-md"
+          className="absolute right-0 z-40 mt-2 w-72 rounded-md border border-black/10 bg-white p-3 text-xs shadow-lg"
         >
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Search options
-          </div>
-
-          {/* Search scope section */}
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-gray-700">Search in:</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {[
-                { key: "title", label: "Title only" },
-                { key: "notes", label: "Notes only" },
-                { key: "both", label: "Title + notes" },
-              ].map((opt) => {
-                const selected = keywordTarget === opt.key;
+          {/* Visibility section */}
+          <div className="mb-3">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Visibility
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {visibilityOptions.map((opt) => {
+                const selected = visibility === opt.value;
                 return (
                   <button
-                    key={opt.key}
+                    key={opt.value}
                     type="button"
-                    className={`rounded-full border px-2.5 py-1 text-xs ${
-                      selected
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                    onClick={() =>
-                      onKeywordTargetChange(opt.key as KeywordTarget)
+                    onClick={() => onVisibilityChange(opt.value)}
+                    className={
+                      "h-8 w-full rounded-md border px-2.5 text-[11px] font-medium transition " +
+                      (selected
+                        ? "border-neutral-900 bg-neutral-900 text-white"
+                        : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50")
                     }
                   >
                     {opt.label}
@@ -98,9 +111,40 @@ export default function AdvancedFilterMenu({
             </div>
           </div>
 
-          {/* Placeholder for future filters */}
-          <div className="mt-3 border-t border-gray-100 pt-2 text-[11px] text-gray-500">
-            More filters (date, owner, size, etc.) can be added here later.
+          {/* Divider */}
+          <div className="my-2 h-px bg-neutral-100" />
+
+          {/* Keyword scope section */}
+          <div>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Search in
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {keywordOptions.map((opt) => {
+                const selected = keywordTarget === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onKeywordTargetChange(opt.value)}
+                    className={
+                      "h-8 w-full rounded-md border px-2.5 text-[11px] font-medium transition " +
+                      (selected
+                        ? "border-neutral-900 bg-neutral-900 text-white"
+                        : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50")
+                    }
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Subtle hint line if you want to extend later */}
+          <div className="mt-3 text-[10px] text-neutral-400">
+            You can extend this menu with more filters (date, owner, size, etc.)
+            without changing the API.
           </div>
         </div>
       )}

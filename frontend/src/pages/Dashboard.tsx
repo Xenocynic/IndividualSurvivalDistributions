@@ -1122,10 +1122,17 @@ function AdvancedFilterMenu({
     <details className="group relative">
       <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
         Filters
-        <span className="text-[20px] text-neutral-500 transition-transform group-open:rotate-180">
+        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
           ▾
         </span>
       </summary>
+      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
+        {/* Info pill about how filters work */}
+        <div className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-600">
+          Filters refine whatever you type into the search bar. If there
+          is nothing, it defaults to searching through everything! Start
+          typing to refine your search.
+        </div> </div>
       <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
         {/* Ownership */}
         <div className="mb-3">
@@ -1251,10 +1258,17 @@ function FolderAdvancedFilterMenu({
     <details className="group relative">
       <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
         Filters
-        <span className="text-[20px] text-neutral-500 transition-transform group-open:rotate-180">
+        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
           ▾
         </span>
       </summary>
+      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
+        {/* Info pill about how filters work */}
+        <div className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-600">
+          Filters refine whatever you type into the search bar. If there
+          is nothing, it defaults to searching through everything! Start
+          typing to refine your search.
+        </div> </div>
       <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
         {/* Ownership */}
         <div className="mb-3">
@@ -1366,14 +1380,6 @@ function FolderAdvancedFilterMenu({
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Sort by */}
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-semibold text-neutral-700">Sort by</span>
-          </div>
-          <FolderSortMenu value={sortOption} onChange={onSortOptionChange} />
         </div>
       </div>
     </details>

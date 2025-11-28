@@ -15,10 +15,10 @@ html, body, #root { height: 100%; }
   0% {
     transform: scale(1);
   }
-  40% {
-    transform: scale(1.05);
+  60% {
+    transform: scale(0.95);
   }
-  100% {
+   100% {
     transform: scale(1);
   }
 }
