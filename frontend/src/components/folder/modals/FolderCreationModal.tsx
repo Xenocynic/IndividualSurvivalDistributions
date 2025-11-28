@@ -13,7 +13,6 @@ import { useState, useEffect, useMemo } from "react";
 import type { CreateFolderRequest } from "../../../lib/folders";
 import type { PredictorItem } from "../../PredictorCard";
 import type { DatasetItem } from "../../DatasetCard";
-import FolderPrivacyToggle from "../ui/FolderPrivacyToggle";
 import { X, BrainCircuit, Table, Loader2 } from "lucide-react";
 
 export interface FolderCreationModalProps {

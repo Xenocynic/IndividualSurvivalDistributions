@@ -57,9 +57,6 @@ export default function FolderItemList({
   items,
   selectedItems,
   onSelectItem,
-  onEditItem,
-  onDeleteItem,
-  onViewItem,
   onRemoveFromFolder,
 }: FolderItemListProps) {
   function effectiveType(

@@ -123,7 +123,7 @@ export default function RecentFolders({
             Recent Folders
           </span>
           <span className="text-xs text-gray-600">
-            ({sortedByRecency.length})
+            ({visibleFolders.length})
           </span>
         </div>
         {isExpanded ? (
