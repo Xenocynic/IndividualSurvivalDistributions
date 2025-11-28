@@ -111,11 +111,11 @@ export default function RecentFolders({
 
   return (
     <div
-      className={`bg-white rounded-lg border border-gray-200 ${className}`}
+      className={`bg-neutral-200 rounded-lg border border-gray-200 ${className}`}
     >
       <button
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100 rounded-t-lg"
+        className="w-full flex items-center justify-between p-3 text-left hover:border hover:border-neutral-400 hover:bg-neutral-100 rounded-t-lg"
       >
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-gray-700" />
@@ -134,12 +134,12 @@ export default function RecentFolders({
       </button>
 
       {isExpanded && (
-        <div className="border-t border-gray-200">
+        <div className="border-t border-neutral-400">
           {visibleFolders.map((folder) => (
             <button
               key={folder.folder_id}
               onClick={() => handleFolderClick(folder.folder_id)}
-              className={`w-full flex items-center gap-3 p-3 text-left transition-colors hover:bg-gray-50 ${
+              className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${
                 currentFolderId === folder.folder_id
                   ? "bg-black/5 border-l-2 border-l-black"
                   : ""
