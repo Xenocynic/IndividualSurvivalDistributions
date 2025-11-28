@@ -247,7 +247,7 @@ export default function PredictorDetailPage() {
                   className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${
                     isActive
                       ? "bg-neutral-800 text-white"
-                      : "border bg-white text-neutral-700 hover:bg-neutral-50"
+                      : "border bg-white text-neutral-700 hover:bg-neutral-200"
                   }`}
                 >
                   {tab === "retrain" ? "Predictor Settings / Retrain" : tab.replace("-", " ")}
@@ -468,7 +468,7 @@ function DatasetTab({
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
       `rounded-md px-3 py-1.5 text-sm transition ${
-        activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
+        activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-200"
       }`,
     [activeView]
   );
@@ -490,7 +490,7 @@ function DatasetTab({
             <button
               onClick={handleRefreshStats}
               disabled={isRefreshing}
-              className="mt-4 rounded-md border bg-white px-3 py-1.5 text-xs text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-4 rounded-md border bg-white px-3 py-1.5 text-xs text-neutral-700 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRefreshing ? "Refreshing…" : "Generate statistics"}
             </button>
@@ -567,7 +567,7 @@ function DatasetTab({
               <button
                 onClick={handleRefreshStats}
                 disabled={isRefreshing}
-                className="rounded-md border bg-white px-3 py-1 text-xs text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md border bg-white px-3 py-1 text-xs text-neutral-700 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isRefreshing ? "Refreshing…" : "Refresh metrics"}
               </button>
@@ -1267,7 +1267,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
-
+  
   // --- Feature Filtering Logic ---
   const filteredFeatures = useMemo(() => {
     if (!searchQuery) return predictor.features;
@@ -1352,7 +1352,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       setIsRetraining(false);
     }
   };
-
+  const isDisabled = isRetraining || selectedFeatures.size === 0;
   return (
     <div className="space-y-8">
       {/* “Options” & “Results” */}
@@ -1385,14 +1385,44 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
       {/* Buttons row */}
       <div className="flex flex-wrap justify-center gap-2">
-        <button className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-neutral-50">View Sparsity Values</button>
+        <button
+          className="
+            rounded-md border bg-white px-3 py-2 text-sm 
+            transition-all duration-200
+            hover:bg-neutral-200 hover:shadow-md 
+            active:scale-[0.97]
+          "
+        >
+          View Sparsity Values
+        </button>
         <button
           onClick={handleRetrain}
-          disabled={isRetraining || selectedFeatures.size === 0}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          disabled={isDisabled}
+          className={`
+            inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition
+            ${isDisabled
+              ? "bg-red-600 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700 cursor-pointer"
+            }
+          `}
         >
-          {isRetraining ? "Retraining..." : "Re-train With Selected Options"}
+          {/* Text (changes depending on disabled/enabled) */}
+          <span className="px-3">
+            {isDisabled
+              ? "Select a feature to re-train"
+              : isRetraining
+                  ? "Retraining..."
+                  : "Re-train With Selected Options"}
+          </span>
+
+          {/* Right icon only when enabled */}
+          {!isDisabled && (
+            <span className="flex h-full items-center border-l border-white/30 px-3">
+              <span className="text-lg leading-none">✓</span>
+            </span>
+          )}
         </button>
+
       </div>
 
       {/* Feature table */}
@@ -1424,7 +1454,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
           <div className="max-h-72 overflow-y-auto bg-white">
             {currentFeatures.map((feature) => (
-              <label key={feature} className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-neutral-50">
+              <label key={feature} className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-neutral-200">
                 <input
                   type="checkbox"
                   checked={selectedFeatures.has(feature)}
@@ -1609,8 +1639,12 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       <div className="flex justify-end">
         <button
           onClick={handleRetrain}
-          disabled={isRetraining || selectedFeatures.size === 0}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          disabled={isDisabled}
+          className={`rounded-md px-4 py-2 text-sm font-medium text-white transition-colors duration-200
+            ${isDisabled
+              ? "bg-neutral-700 opacity-60 cursor-not-allowed"
+              : "bg-neutral-900 hover:bg-black cursor-pointer"
+            }`}
         >
           {isRetraining ? "Retraining..." : "Start Retraining Job"}
         </button>
@@ -1661,12 +1695,12 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           className={`rounded-md px-3 py-1.5 text-sm ${
             activeView === "statistics"
               ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
+              : "border bg-white hover:bg-neutral-200"
           }`}
         >
           5-Fold Cross-Validation Statistics
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">
+        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-200">
           Download Predictions (CSV)
         </button>
         <button
@@ -1674,7 +1708,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           className={`rounded-md px-3 py-1.5 text-sm ${
             activeView === "individual"
               ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
+              : "border bg-white hover:bg-neutral-200"
           }`}
         >
           Individual Predictions
@@ -1684,7 +1718,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           className={`rounded-md px-3 py-1.5 text-sm ${
             activeView === "dcalibration"
               ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
+              : "border bg-white hover:bg-neutral-200"
           }`}
         >
           D-Calibration Histogram
@@ -1694,12 +1728,12 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           className={`rounded-md px-3 py-1.5 text-sm ${
             activeView === "kaplanmeier"
               ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
+              : "border bg-white hover:bg-neutral-200"
           }`}
         >
           Kaplan Meier Visualization
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Show Feature Weights</button>
+        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-200">Show Feature Weights</button>
       </div>
 
       {activeView === "kaplanmeier" ? (
@@ -1822,20 +1856,50 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           </label>
           <input type="number" className="w-24 rounded-md border border-neutral-300 p-1 text-sm" defaultValue={18.4} />
           <span className="text-sm text-neutral-700">days</span>
-          <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white">Submit</button>
+            <button
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white 
+                        cursor-pointer shadow-sm transition 
+                        hover:bg-neutral-800 hover:shadow-md 
+                        active:scale-[0.97] active:shadow-sm"
+            >
+              Submit
+            </button>
         </div>
 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between">
             <h5 className="text-sm font-semibold text-neutral-700">Generated Classifier Performance and Histogram</h5>
             <div className="flex items-center gap-2">
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Show">
+              <button
+                className="rounded-md border bg-white px-2 py-1 text-xs text-neutral-800
+                          cursor-pointer shadow-sm transition
+                          hover:bg-neutral-100 hover:shadow-md
+                          active:scale-[.97]
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                aria-label="Show"
+              >
                 Show
               </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Print">
+
+              <button
+                className="rounded-md border bg-white px-2 py-1 text-xs text-neutral-800
+                          cursor-pointer shadow-sm transition
+                          hover:bg-neutral-100 hover:shadow-md
+                          active:scale-[.97]
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                aria-label="Print"
+              >
                 🖨️
               </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Download">
+
+              <button
+                className="rounded-md border bg-white px-2 py-1 text-xs text-neutral-800
+                          cursor-pointer shadow-sm transition
+                          hover:bg-neutral-100 hover:shadow-md
+                          active:scale-[.97]
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                aria-label="Download"
+              >
                 ⤓
               </button>
             </div>
@@ -1865,21 +1929,21 @@ function Pagination({
   return (
     <div className="flex items-center gap-1">
       {page > 1 && (
-        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50" onClick={onPrev}>
+        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-200" onClick={onPrev}>
           PREV
         </button>
       )}
       {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
-          className={`rounded-md border px-2 py-1 text-sm ${n === page ? "bg-neutral-200" : "hover:bg-neutral-50"}`}
+          className={`rounded-md border px-2 py-1 text-sm ${n === page ? "bg-neutral-200" : "hover:bg-neutral-200"}`}
           onClick={() => onJump(n)}
         >
           {n}
         </button>
       ))}
       {page < totalPages && (
-        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50" onClick={onNext}>
+        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-200" onClick={onNext}>
           NEXT
         </button>
       )}
