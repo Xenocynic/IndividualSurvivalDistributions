@@ -7,6 +7,8 @@
  * - Owner sees View / Edit / Delete; viewer sees View only.
  * - Buttons appear with a staggered, “bubbly” animation when the card is selected.
  * - Supports drag and drop functionality for folder organization.
+ * - Can optionally show a pin button (for Browse) and hide owner actions.
+ * ----------------------------------------------------------------------------------
  */
 
 import CardShell from "./CardShell";
@@ -22,7 +24,7 @@ export interface PredictorItem {
   updatedAt?: string;
   updatedAtRaw?: string;
   owner?: boolean;
-  ownerName?: string | null; // new: used for UsernameTag
+  ownerName?: string | null;
   notes?: string;
   isPublic?: boolean;
   pinned?: boolean;
@@ -40,6 +42,15 @@ type PredictorCardProps = {
   onDoubleClick?: (id: string) => void;
   onDrop?: (item: DragItem, folderId?: string) => void;
   isLoading?: boolean;
+
+  /** If false, hide owner-only Edit/Delete (used by Browse). Defaults to true. */
+  showOwnerActions?: boolean;
+  /** If true, show the pin star button (used by Browse). Defaults to false. */
+  showPin?: boolean;
+  /** Optional explicit pinned state; falls back to item.pinned if omitted. */
+  isPinned?: boolean;
+  /** Called when the pin star is toggled. */
+  onTogglePin?: (id: string, nextPinned: boolean) => void;
 };
 
 export default function PredictorCard({
@@ -52,6 +63,10 @@ export default function PredictorCard({
   onDoubleClick,
   onDrop,
   isLoading = false,
+  showOwnerActions = true,
+  showPin = false,
+  isPinned: isPinnedProp,
+  onTogglePin,
 }: PredictorCardProps) {
   const dragItem: DragItem = {
     id: item.id,
@@ -70,6 +85,16 @@ export default function PredictorCard({
         ? "Public"
         : "Private"
       : undefined;
+
+  const isPinned =
+    typeof isPinnedProp === "boolean" ? isPinnedProp : !!item.pinned;
+
+  // Delays: keep Dashboard behaviour the same (no pin),
+  // and when showPin=true just insert the pin between View and Edit.
+  const viewDelay = 0;
+  const pinDelay = 60;
+  const editDelay = showPin ? 120 : 60;
+  const deleteDelay = showPin ? 180 : 120;
 
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
@@ -131,24 +156,47 @@ export default function PredictorCard({
         // Keep header row space always reserved; buttons control their own visibility
         actionVisibility="always"
       >
-        {/* View button */}
+        {/* View button (everyone) */}
         <button
           type="button"
           onClick={() => onView?.(item.id)}
           className={bubbleButtonClass(selected)}
-          style={bubbleDelayStyle(selected, 0)}
+          style={bubbleDelayStyle(selected, viewDelay)}
         >
           <Eye className="h-5 w-3" />
         </button>
 
-        {/* Owner-only actions */}
-        {item.owner && (
+        {/* Pin button (Browse, etc.) */}
+        {showPin && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const next = !isPinned;
+              onTogglePin?.(item.id, next);
+            }}
+            className={[
+              bubbleButtonClass(selected),
+              isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
+            ].join(" ")}
+            style={bubbleDelayStyle(selected, pinDelay)}
+            title={isPinned ? "Unpin" : "Pin"}
+            aria-label={isPinned ? "Unpin predictor" : "Pin predictor"}
+          >
+            <span className="text-sm" aria-hidden="true">
+              {isPinned ? "★" : "☆"}
+            </span>
+          </button>
+        )}
+
+        {/* Owner-only actions (Dashboard, etc.) */}
+        {item.owner && showOwnerActions && (
           <>
             <button
               type="button"
               onClick={() => onEdit?.(item.id)}
               className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, 60)}
+              style={bubbleDelayStyle(selected, editDelay)}
             >
               <Pencil className="h-5 w-3" />
             </button>
@@ -157,7 +205,7 @@ export default function PredictorCard({
               type="button"
               onClick={() => onDelete?.(item.id)}
               className={bubbleDeleteButtonClass(selected)}
-              style={bubbleDelayStyle(selected, 120)}
+              style={bubbleDelayStyle(selected, deleteDelay)}
             >
               <Trash2 className="h-5 w-3" />
             </button>

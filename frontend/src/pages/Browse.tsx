@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import SearchBar from "../components/SearchBar";
-import CardShell from "../components/CardShell";
 import PublicFilter, { type Visibility } from "../components/PublicFilter";
-import UsernameTag from "../components/UsernameTag";
 import DragDropProvider from "../components/DragDropProvider";
 
 import {
@@ -54,10 +52,8 @@ import type {
   DatasetFilterState,
   FolderFilterState,
 } from "../types/flitering";
-import type { PredictorItem } from "../components/PredictorCard";
-import type { DatasetItem } from "../components/DatasetCard";
-
-import { Eye, Download } from "lucide-react";
+import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
+import DatasetCard, { type DatasetItem } from "../components/DatasetCard";
 
 type Tab = "predictors" | "datasets" | "folders";
 
@@ -201,52 +197,76 @@ export default function Browse() {
   // --- TANSTACK QUERY: FETCH MAIN LISTS ---
 
   // Fetch Public Predictors
-  const {
-    data: predictors = [],
-    isLoading: isPredictorsLoading,
-    error: predictorsError,
-  } = useQuery<BrowsePredictor[]>({
-    queryKey: ["public-predictors"],
-    queryFn: async () => {
-      const apiPreds = await listPublicPredictors();
-      return apiPreds.map((p: any) => {
-        const ui = toPredictorItem(p);
-        const item: BrowsePredictor = {
-          ...ui,
-          ownerName: p.owner?.username || "Unknown Owner",
-          updatedAtRaw: (p as any).updated_at ?? null,
-        };
-        return item;
-      });
-    },
-    enabled: activeTab === "predictors",
-    staleTime: 1000 * 60 * 5,
-  });
+// Fetch Public Predictors
+const {
+  data: predictors = [],
+  isLoading: isPredictorsLoading,
+  error: predictorsError,
+} = useQuery<BrowsePredictor[]>({
+  queryKey: ["public-predictors"],
+  queryFn: async () => {
+    const apiPreds = await listPublicPredictors();
+    return apiPreds.map((p: any) => {
+      const ui = toPredictorItem(p);
+
+      const updatedAtRaw =
+        (p as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
+      const updatedAt =
+        (ui as any).updatedAt ??
+        (updatedAtRaw
+          ? new Date(updatedAtRaw).toLocaleDateString()
+          : undefined);
+
+      const item: BrowsePredictor = {
+        ...ui,
+        ownerName: p.owner?.username || "Unknown Owner",
+        updatedAtRaw,
+        updatedAt,
+      };
+      return item;
+    });
+  },
+  enabled: activeTab === "predictors",
+  staleTime: 1000 * 60 * 5,
+});
+
 
   // Fetch Public Datasets
-  const {
-    data: datasets = [],
-    isLoading: isDatasetsLoading,
-    error: datasetsError,
-  } = useQuery<BrowseDataset[]>({
-    queryKey: ["public-datasets"],
-    queryFn: async () => {
-      const apiDsets = await listPublicDatasets();
-      return apiDsets.map((d: any) => {
-        const ui = toDatasetItem(d, currentUserId);
-        const item: BrowseDataset = {
-          ...ui,
-          ownerName: ui.ownerName || d.owner_name || "Owner",
-          updatedAtRaw: (d as any).updated_at ?? null,
-          hasFile: ui.hasFile,
-          originalFilename: ui.originalFilename,
-        };
-        return item;
-      });
-    },
-    enabled: activeTab === "datasets",
-    staleTime: 1000 * 60 * 5,
-  });
+// Fetch Public Datasets
+const {
+  data: datasets = [],
+  isLoading: isDatasetsLoading,
+  error: datasetsError,
+} = useQuery<BrowseDataset[]>({
+  queryKey: ["public-datasets"],
+  queryFn: async () => {
+    const apiDsets = await listPublicDatasets();
+    return apiDsets.map((d: any) => {
+      const ui = toDatasetItem(d, currentUserId);
+
+      const updatedAtRaw =
+        (d as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
+      const updatedAt =
+        (ui as any).updatedAt ??
+        (updatedAtRaw
+          ? new Date(updatedAtRaw).toLocaleDateString()
+          : undefined);
+
+      const item: BrowseDataset = {
+        ...ui,
+        ownerName: ui.ownerName || d.owner_name || "Owner",
+        updatedAtRaw,
+        updatedAt,
+        hasFile: ui.hasFile,
+        originalFilename: ui.originalFilename,
+      };
+      return item;
+    });
+  },
+  enabled: activeTab === "datasets",
+  staleTime: 1000 * 60 * 5,
+});
+
 
   // Fetch Public Folders
   const {
@@ -536,22 +556,25 @@ export default function Browse() {
     });
   }, []);
 
-  const downloadDataset = useCallback(async (id: string) => {
-    try {
-      const datasetId = parseInt(id, 10);
-      const { blob, filename } = await downloadDatasetFile(datasetId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      alert(`Download failed: ${error.message || "Unknown error"}`);
-    }
-  }, []);
+  const downloadDataset = useCallback(
+    async (id: string, _allowAdminAccess?: boolean) => {
+      try {
+        const datasetId = parseInt(id, 10);
+        const { blob, filename } = await downloadDatasetFile(datasetId);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error: any) {
+        alert(`Download failed: ${error.message || "Unknown error"}`);
+      }
+    },
+    []
+  );
 
   // Folder expansion - updates Query Cache manually for efficiency
   const handleToggleFolderExpand = useCallback(
@@ -938,155 +961,88 @@ export default function Browse() {
                 ) : (
                   <>
                     {/* Predictors and Datasets Tab Content */}
-                    {filtered.length === 0 && !errorMessage ? (
-                      <div className="py-12 text-center">
-                        <div className="text-lg text-neutral-500">
-                          No public {activeTab} available
-                        </div>
-                        <div className="mt-2 text-sm text-neutral-400">
-                          Public {activeTab} will appear here when available
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {filtered.map((it) => {
-                          const isPinned = pinnedSet.has(it.id);
-                          const asDataset = it as BrowseDataset;
-                          const asAny = it as any;
+                    <>
+                      {/* Predictors vs Datasets share the same layout, but use their own cards */}
+                      {activeTab === "predictors" ? (
+                        <>
+                          {filteredPredictors.length === 0 && !errorMessage ? (
+                            <div className="py-12 text-center">
+                              <div className="text-lg text-neutral-500">
+                                No public predictors available
+                              </div>
+                              <div className="mt-2 text-sm text-neutral-400">
+                                Public predictors will appear here when
+                                available
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {filteredPredictors.map((item) => {
+                                const isPinned = pinnedPredictorIds.has(item.id);
+                                const isSelected = selectedPredictorId === item.id;
+                                const cardItem: PredictorItem = { ...item, owner: false };
 
-                          const isPredictorTab = activeTab === "predictors";
-                          const isDatasetTab = activeTab === "datasets";
-
-                          // (Currently unused but left for future stats)
-                          const _datasetName = isPredictorTab
-                            ? asAny.dataset_name ?? asAny.datasetName ?? null
-                            : null;
-
-                          const _sampleCount = isDatasetTab
-                            ? asAny.sample_count ??
-                              asAny.sampleCount ??
-                              asAny.rowCount ??
-                              null
-                            : null;
-
-                          const _featureCount = isDatasetTab
-                            ? asAny.feature_count ?? asAny.featureCount ?? null
-                            : null;
-
-                          const visibilityLabel = it.isPublic
-                            ? "Public"
-                            : "Private";
-
-                          const isSelected =
-                            activeTab === "predictors"
-                              ? selectedPredictorId === it.id
-                              : selectedDatasetId === it.id;
-
-                          return (
-                            <CardShell
-                              key={it.id}
-                              actionVisibility="selected"
-                              selected={isSelected}
-                              onSelect={() => toggleSelect(it.id)}
-                              eyebrowLeft={
-                                <div className="flex items-center gap-1 text-[11px] text-neutral-500">
-                                  <UsernameTag
-                                    name={it.ownerName || "Owner"}
+                                return (
+                                  <PredictorCard
+                                    key={item.id}
+                                    item={cardItem}
+                                    selected={isSelected}
+                                    onToggleSelect={toggleSelect}
+                                    onView={(id) =>
+                                      navigate(`/predictors/${id}`, {
+                                        state: { from: "browse" },
+                                      })
+                                    }
+                                    showOwnerActions={false}  // no Edit/Delete on Browse
+                                    showPin                   // enable inline pin
+                                    isPinned={isPinned}
+                                    onTogglePin={(id) => togglePin(id)}
                                   />
-                                </div>
-                              }
-                              // Title is now just the title text
-                              title={
-                                <div className="truncate text-sm font-semibold text-neutral-900">
-                                  {it.title}
-                                </div>
-                              }
-                              description={
-                                <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
-                                  {it.notes || "No description provided."}
-                                </div>
-                              }
-                              footerLeft={
-                                <div className="flex min-h-[1.5rem] flex-col justify-end text-[11px] text-neutral-500">
-                                  <span>Updated {it.updatedAt}</span>
-                                </div>
-                              }
-                              footerRight={
-                                <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-500">
-                                  {isDatasetTab &&
-                                    asDataset.hasFile &&
-                                    asDataset.originalFilename && (
-                                      <span
-                                        className="inline-flex max-w-[9rem] items-center justify-end rounded-md border bg-neutral-50 px-2 py-[1px]"
-                                        title={`File: ${asDataset.originalFilename}`}
-                                      >
-                                        ▦
-                                        <span className="ml-1 truncate">
-                                          {asDataset.originalFilename}
-                                        </span>
-                                      </span>
-                                    )}
-                                  <span className="rounded bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
-                                    {visibilityLabel}
-                                  </span>
-                                </div>
-                              }
-                            >
-                              {/* VIEW button  */}
-                              <button
-                                className={bubbleButtonClass(isSelected)}
-                                style={bubbleDelayStyle(isSelected, 0)}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (activeTab === "datasets") {
-                                    navigate(`/datasets/${it.id}/view`);
-                                  } else {
-                                    navigate(`/predictors/${it.id}`, {
-                                      state: { from: "browse" },
-                                    });
-                                  }
-                                }}
-                              >
-                                <Eye className="h-5 w-3.5" />
-                              </button>
+                                );
+                              })}
+                            </div>
 
-                              {/* DOWNLOAD button  */}
-                              {isDatasetTab && asDataset.hasFile && (
-                                <button
-                                  className={bubbleButtonClass(isSelected)}
-                                  style={bubbleDelayStyle(isSelected, 60)}
-                                  title="Download file"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    downloadDataset(it.id);
-                                  }}
-                                >
-                                  <Download className="h-5 w-3.5" />
-                                </button>
-                              )}
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {filteredDatasets.length === 0 && !errorMessage ? (
+                            <div className="py-12 text-center">
+                              <div className="text-lg text-neutral-500">
+                                No public datasets available
+                              </div>
+                              <div className="mt-2 text-sm text-neutral-400">
+                                Public datasets will appear here when available
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {filteredDatasets.map((item) => {
+                              const isPinned = pinnedDatasetIds.has(item.id);
+                              const isSelected = selectedDatasetId === item.id;
+                              const cardItem: DatasetItem = { ...item, owner: false };
 
-                              {/* PIN button  */}
-                              <button
-                                className={
-                                  bubbleButtonClass(isSelected) +
-                                  (isPinned
-                                    ? " bg-neutral-200 hover:bg-neutral-300"
-                                    : "")
-                                }
-                                style={bubbleDelayStyle(isSelected, 120)}
-                                title={isPinned ? "Unpin" : "Pin"}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  togglePin(it.id);
-                                }}
-                              >
-                                {isPinned ? "★" : "☆"}
-                              </button>
-                            </CardShell>
-                          );
-                        })}
-                      </div>
-                    )}
+                              return (
+                                <DatasetCard
+                                  key={item.id}
+                                  item={cardItem}
+                                  selected={isSelected}
+                                  onToggleSelect={toggleSelect}
+                                  onView={(id) => navigate(`/datasets/${id}/view`)}
+                                  onDownload={downloadDataset}
+                                  showOwnerActions={false}     
+                                  showPin                     
+                                  isPinned={isPinned}
+                                  onTogglePin={(id) => togglePin(id)}
+                                />
+                              );
+                            })}
+
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
                   </>
                 )}
               </>

@@ -122,9 +122,9 @@ export default function Settings() {
       : "text-xs font-medium text-red-600";
 
   return (
-    <div className="min-h-[60vh] bg-neutral-100">
+    <div className="min-h-[60vh] bg-blue-50">
       {/* Sticky sub-header (matches create/upload pages) */}
-      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
+      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full bg-teal-900 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex flex-col">
             <span className="text-lg font-semibold tracking-wide">
@@ -133,21 +133,21 @@ export default function Settings() {
           </div>
 
           {/* tiny butterfly animation LOL */}
-          <div className="flex items-center gap-2 text-xs text-neutral-200">
+          <div className="flex items-center gap-2 pt-1 text-xs text-teal-100">
             <span className="hidden sm:inline">
-              Small changes, big flutter.
+              Welcome back! Hopefully it's not another password reset 
             </span>
             <span className="text-xl animate-bounce">𓂃 ࣪˖ ִֶཐི༏ཋྀ󠀮</span>
           </div>
         </div>
-        <div className="h-1 w-full bg-neutral-600" />
+        <div className="h-1 w-full bg-teal-600" />
       </div>
 
       {/* Body — single centered column, matching PredictorCreate / DatasetUpload */}
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-8 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
           {/* Page heading card */}
-          <section className="space-y-2 rounded-lg border border-black/10 bg-neutral-200 p-4">
+          <section className="space-y-2 rounded-lg border border-black/10 bg-blue-100 p-4">
             <p className="text-sm text-neutral-700">
               Update your profile details and password. Changes apply to your
               current account only.
@@ -155,7 +155,7 @@ export default function Settings() {
           </section>
 
           {/* Profile section */}
-          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+          <section className="space-y-4 rounded-lg border border-black/10 bg-purple-100 p-4">
             <header className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
@@ -215,7 +215,7 @@ export default function Settings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center rounded-md border border-black/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center rounded-md border border-black/10 bg-purple-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </button>
@@ -225,7 +225,7 @@ export default function Settings() {
           </section>
 
           {/* Password section */}
-          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+          <section className="space-y-4 rounded-lg border border-black/10 bg-purple-100 p-4">
             <header>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
                 Change password

@@ -7,6 +7,8 @@
  * - Owner sees View / Edit / Download / Delete; viewer sees View / Download.
  * - Buttons appear with a staggered, “bubbly” animation when the card is selected.
  * - Supports drag and drop functionality for folder organization.
+ * - Can optionally show a pin button (for Browse) and hide owner actions.
+ * ----------------------------------------------------------------------------------
  */
 
 import CardShell from "./CardShell";
@@ -45,6 +47,15 @@ type DatasetCardProps = {
   onDownload?: (id: string, allowAdminAccess: boolean) => void;
   onDrop?: (item: DragItem, folderId?: string) => void;
   isLoading?: boolean;
+
+  /** If false, hide owner-only Edit/Delete (used by Browse). Defaults to true. */
+  showOwnerActions?: boolean;
+  /** If true, show the pin star button (used by Browse). Defaults to false. */
+  showPin?: boolean;
+  /** Optional explicit pinned state. */
+  isPinned?: boolean;
+  /** Called when the pin star is toggled. */
+  onTogglePin?: (id: string, nextPinned: boolean) => void;
 };
 
 export default function DatasetCard({
@@ -57,6 +68,10 @@ export default function DatasetCard({
   onDownload,
   onDrop,
   isLoading = false,
+  showOwnerActions = true,
+  showPin = false,
+  isPinned: isPinnedProp,
+  onTogglePin,
 }: DatasetCardProps) {
   const dragItem: DragItem = {
     id: item.id,
@@ -75,6 +90,27 @@ export default function DatasetCard({
         ? "Public"
         : "Private"
       : undefined;
+
+  const isPinned = typeof isPinnedProp === "boolean" ? isPinnedProp : false;
+
+  // Delays: keep Dashboard behaviour when showPin=false,
+  // and insert pin between View and the other actions when showPin=true.
+  const viewDelay = 0;
+  const pinDelay = 60;
+  const editDelay = showPin ? 120 : 60;
+
+  // For download/delete we branch a bit depending on whether owner actions are shown.
+  const ownerDownloadDelay = showPin
+    ? showOwnerActions
+      ? 180
+      : 120
+    : showOwnerActions
+    ? 120
+    : 60;
+
+  const deleteDelay = showPin ? 240 : 180;
+
+  const viewerDownloadDelay = showPin ? 120 : 60;
 
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
@@ -108,89 +144,128 @@ export default function DatasetCard({
           ) : null
         }
         footerRight={
-          <div className="flex items-center gap-2 text-[11px] text-neutral-600">
-            {typeof item.rows === "number" && (
-              <span>{item.rows.toLocaleString()} rows</span>
-            )}
-            {typeof item.sizeMB === "number" && (
-              <span>{item.sizeMB} MB</span>
-            )}
-            {item.hasFile && item.originalFilename && (
-              <span
-                className="inline-flex max-w-[9rem] items-center rounded-md border bg-neutral-50 px-2 py-[1px]"
-                title={`File: ${item.originalFilename}`}
-              >
-                ▦
-                <span className="ml-1 truncate">{item.originalFilename}</span>
-              </span>
-            )}
+          <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
+            {/* Top row: rows / size / filename */}
+            <div className="flex w-full justify-end flex-wrap gap-2">
+              {typeof item.rows === "number" && (
+                <span>{item.rows.toLocaleString()} rows</span>
+              )}
+
+              {typeof item.sizeMB === "number" && (
+                <span>{item.sizeMB} MB</span>
+              )}
+
+              {item.hasFile && item.originalFilename && (
+                <span
+                  className="inline-flex max-w-[9rem] items-center rounded-md border bg-neutral-50 px-2 py-[1px]"
+                  title={`File: ${item.originalFilename}`}
+                >
+                  ▦
+                  <span className="ml-1 truncate">
+                    {item.originalFilename}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Bottom row: visibility pill under the size/file row */}
             {visibilityLabel && (
-              <span
-                className={`rounded-full border px-2 py-[2px] text-[10px] ${
-                  item.isPublic
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-neutral-900 bg-neutral-900 text-white"
-                }`}
-              >
-                {visibilityLabel}
-              </span>
+              <div className="mt-0.5">
+                <span
+                  className={`rounded-full border px-2 py-[2px] text-[10px] ${
+                    item.isPublic
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-neutral-900 bg-neutral-900 text-white"
+                  }`}
+                >
+                  {visibilityLabel}
+                </span>
+              </div>
             )}
           </div>
         }
+
+
         selected={selected}
         onSelect={() => onToggleSelect?.(item.id)}
         onActionAreaClick={(e) => {
           e.stopPropagation();
         }}
+        // Keep header row space always reserved; buttons control their own visibility
         actionVisibility="always"
       >
-        {/* Everyone can view */}
+        {/* View button (everyone) */}
         <button
           type="button"
           onClick={() => onView?.(item.id)}
           className={bubbleButtonClass(selected)}
-          style={bubbleDelayStyle(selected, 0)}
+          style={bubbleDelayStyle(selected, viewDelay)}
         >
           <Eye className="h-5 w-3" />
         </button>
 
+        {/* Pin button (Browse etc.) */}
+        {showPin && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const next = !isPinned;
+              onTogglePin?.(item.id, next);
+            }}
+            className={[
+              bubbleButtonClass(selected),
+              isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
+            ].join(" ")}
+            style={bubbleDelayStyle(selected, pinDelay)}
+            title={isPinned ? "Unpin" : "Pin"}
+            aria-label={isPinned ? "Unpin dataset" : "Pin dataset"}
+          >
+            <span className="text-sm" aria-hidden="true">
+              {isPinned ? "★" : "☆"}
+            </span>
+          </button>
+        )}
+
         {/* Owner-only controls */}
         {item.owner ? (
           <>
-            <button
-              type="button"
-              onClick={() => onEdit?.(item.id)}
-              className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, 60)}
-            >
-              <Pencil className="h-5 w-3" />
-            </button>
+            {showOwnerActions && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onEdit?.(item.id)}
+                  className={bubbleButtonClass(selected)}
+                  style={bubbleDelayStyle(selected, editDelay)}
+                >
+                  <Pencil className="h-5 w-3" />
+                </button>
+
+              </>
+            )}
 
             {item.hasFile && onDownload && (
               <button
                 type="button"
                 onClick={() =>
-                  onDownload(
-                    item.id,
-                    item.allow_admin_access ?? true
-                  )
+                  onDownload(item.id, item.allow_admin_access ?? true)
                 }
                 className={bubbleButtonClass(selected)}
-                style={bubbleDelayStyle(selected, 120)}
+                style={bubbleDelayStyle(selected, ownerDownloadDelay)}
                 title="Download file"
               >
                 <DownloadIcon className="h-5 w-3" />
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => onDelete?.(item.id)}
-              className={bubbleDeleteButtonClass(selected)}
-              style={bubbleDelayStyle(selected, 180)}
-            >
-              <Trash2 className="h-5 w-3" />
-            </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(item.id)}
+                  className={bubbleDeleteButtonClass(selected)}
+                  style={bubbleDelayStyle(selected, deleteDelay)}
+                >
+                  <Trash2 className="h-5 w-3" />
+                </button>
           </>
         ) : (
           // Viewer-only controls
@@ -202,7 +277,7 @@ export default function DatasetCard({
                 onDownload(item.id, item.allow_admin_access ?? true)
               }
               className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, 60)}
+              style={bubbleDelayStyle(selected, viewerDownloadDelay)}
               title="Download file"
             >
               <DownloadIcon className="h-3 w-3" />
