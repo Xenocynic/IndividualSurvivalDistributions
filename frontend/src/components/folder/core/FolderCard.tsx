@@ -290,10 +290,7 @@ export default function FolderCard({
                 e.stopPropagation();
                 handleToggleExpand();
               }}
-              className={[
-                bubbleButtonClass(isSelected),
-                "px-5 ",
-              ].join(" ")}
+              className={[bubbleButtonClass(isSelected), "px-5"].join(" ")}
               style={bubbleDelayStyle(isSelected, expandDelay)}
             >
               <span className="mr-1 text-[11px] font-medium">
@@ -309,6 +306,7 @@ export default function FolderCard({
         )}
 
         <div className="mt-1 text-xs text-neutral-600">{countsLabel}</div>
+
         {hasDescription && (
           <div className="mt-2 rounded-md bg-neutral-200 px-3 py-2 text-[11px] leading-snug text-neutral-700">
             <span
@@ -349,55 +347,13 @@ export default function FolderCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-[11px] text-gray-600">
-              <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
-              <span>Working...</span>
-            </div>
-          ) : null}
-
-          {canEdit && (isOwner || folder.can_manage) && showActions && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {onEdit && (
-                <button
-                  className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(folder.folder_id);
-                  }}
-                  disabled={isLoading}
-                >
-                  <Pencil className="h-5 w-3" />
-                </button>
-              )}
-              {onShare && (
-                <button
-                  className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShare(folder.folder_id);
-                  }}
-                  disabled={isLoading}
-                >
-                  <Share className="h-5 w-3" />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(folder.folder_id);
-                  }}
-                  disabled={isLoading}
-                >
-                  <Trash2 className="h-5 w-3" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Small inline loading indicator only */}
+        {isLoading && (
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-600">
+            <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+            <span>Working...</span>
+          </div>
+        )}
       </div>
 
       {/* Expanded contents */}
