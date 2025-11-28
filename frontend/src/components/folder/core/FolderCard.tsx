@@ -29,6 +29,7 @@ export interface FolderCardProps {
   onDelete?: (folderId: string) => void;
   onShare?: (folderId: string) => void;
   onDuplicate?: (folderId: string) => void;
+  onFolderDuplicated?: (duplicatedFolder: Folder) => void;
   onItemSelect?: (itemId: string, itemType: "predictor" | "dataset") => void;
   onItemEdit?: (itemId: string, itemType: "predictor" | "dataset") => void;
   onItemDelete?: (itemId: string, itemType: "predictor" | "dataset") => void;
@@ -51,6 +52,7 @@ export default function FolderCard({
   onDelete,
   onShare,
   onDuplicate,
+  onFolderDuplicated,
   onItemSelect,
   onItemEdit,
   onItemDelete,
@@ -135,9 +137,12 @@ export default function FolderCard({
     setFolderData(updatedFolder);
   };
 
-  const handleFolderDuplicated = (_duplicatedFolder: Folder) => {
+  const handleFolderDuplicated = (duplicatedFolder: Folder) => {
     // The parent component should handle refreshing the folder list
     // This callback is mainly for UI feedback
+    if (onFolderDuplicated) {
+      onFolderDuplicated(duplicatedFolder);
+    }
   };
 
   return (
@@ -147,9 +152,8 @@ export default function FolderCard({
       className='rounded-xl'
     >
       <div
-        className={`group relative rounded-xl border bg-white shadow-card transition-all duration-200 border-black/10 hover:ring-1 hover:ring-black/30 ${
-          isLoading ? "opacity-90 pointer-events-none" : ""
-        }`}
+        className={`group relative rounded-xl border bg-white shadow-card transition-all duration-200 border-black/10 hover:ring-1 hover:ring-black/30 ${isLoading ? "opacity-90 pointer-events-none" : ""
+          }`}
         onMouseEnter={() => !isLoading && setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -158,9 +162,8 @@ export default function FolderCard({
           <div className='flex items-start justify-between'>
             {/* Left side: Folder icon, name, and info */}
             <div
-              className={`flex items-center gap-3 min-w-0 flex-1 ${
-                isLoading ? "cursor-not-allowed opacity-75" : "cursor-pointer"
-              }`}
+              className={`flex items-center gap-3 min-w-0 flex-1 ${isLoading ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                }`}
               onClick={isLoading ? undefined : handleToggleExpand}
             >
               {/* Folder Icon and Expand/Collapse */}
@@ -190,11 +193,10 @@ export default function FolderCard({
                   </h3>
                   {/* Privacy Status Badge */}
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      folderData.is_private
-                        ? "bg-gray-100 text-gray-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${folderData.is_private
+                      ? "bg-gray-100 text-gray-700"
+                      : "bg-green-100 text-green-700"
+                      }`}
                   >
                     {folderData.is_private ? "Private" : "Public"}
                   </span>
@@ -235,11 +237,10 @@ export default function FolderCard({
             {/* Right side: Action Menu */}
             {canManage && (
               <div
-                className={`flex items-center gap-1 ml-3 bg-white rounded-md px-2 py-1 shadow-sm transition-opacity ${
-                  showActions && !isLoading
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none"
-                }`}
+                className={`flex items-center gap-1 ml-3 bg-white rounded-md px-2 py-1 shadow-sm transition-opacity ${showActions && !isLoading
+                  ? "opacity-100"
+                  : "opacity-0 pointer-events-none"
+                  }`}
               >
                 <button
                   onClick={handleEdit}

@@ -12,9 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
-import os
+import os, sys
 
 from dotenv import load_dotenv
+MOCK_TRAINING = os.environ.get("MOCK_TRAINING", "0") == "1"
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR /'.env')
 

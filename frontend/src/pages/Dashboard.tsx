@@ -876,6 +876,11 @@ export default function Dashboard() {
                           currentUserId={currentUserId}
                           canEdit={true}
                           isLoading={loadingFolders.has(folder.folder_id)}
+                          onFolderDuplicated={(dup) => {
+                            setFolders(prev => [mapApiFolderToUi(dup), ...prev]);
+                            // refresh from server so contents update
+                            fetchFolders();
+                          }}
                         />
                       </div>
                     );

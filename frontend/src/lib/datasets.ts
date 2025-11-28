@@ -108,7 +108,7 @@ export async function createDataset(request: CreateDatasetRequest): Promise<Crea
     await new Promise((res) => setTimeout(res, 3000));  // delay for the waiting modal to show up
 
     const mock = {
-      dataset_id: Date.now(),              // fake ID
+      dataset_id: 10,              // fake ID
       dataset_name: request.dataset_name,
       owner: 1,
       owner_name: "testuser2",

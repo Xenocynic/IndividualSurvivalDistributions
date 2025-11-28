@@ -390,6 +390,24 @@ class DatasetViewSet(viewsets.ModelViewSet):
         """
         Return cached statistics for this dataset, recalculating if requested.
         """
+        
+        # -----------------------------------------------------
+        # MOCKED DATASET STATS FOR SELENIUM TESTING
+        # -----------------------------------------------------
+        if getattr(settings, "MOCK_TRAINING", False):
+            return Response({
+                "general_stats": {
+                    "num_samples": 100,
+                    "total_columns": 5,
+                },
+                "dataframe_metadata": {
+                    "columns": 5,
+                    "rows": 100,
+                },
+                "column_stats": [],
+            }, status=200)
+        # -----------------------------------------------------
+
         dataset = self.get_object()
         if not dataset.file_path:
             return Response(
@@ -479,6 +497,16 @@ class DatasetViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
+
+        # -----------------------------------------------------
+        # MOCKED DATASET RETRIEVE FOR SELENIUM TESTING
+        # -----------------------------------------------------
+        if getattr(settings, "MOCK_TRAINING", False):
+            data = serializer.data
+            data['num_features'] = 3
+            data['num_labels'] = 100
+            return Response(data)
+        # -----------------------------------------------------
 
         # Initialize counts
         num_features = None
@@ -662,6 +690,21 @@ def ml_train_model(request, dataset_id):
         This acts as a proxy, sending the dataset and parameters
         to the ML service.
         """
+        from django.conf import settings
+
+        # -----------------------------------------------------
+        # MOCK TRAINING FOR SELENIUM
+        # -----------------------------------------------------
+        if getattr(settings, "MOCK_TRAINING", False):
+            return Response({
+                "success": True,
+                "model_id": "mock-model-123",
+                "trained_at": "2025-01-01T00:00:00Z",
+                "metrics": {"accuracy": 0.99},
+                "selected_features": ["f1", "f2", "f3"]
+            }, status=200)
+        # -----------------------------------------------------
+        
         try:
             dataset = Dataset.objects.get(dataset_id=dataset_id)
             

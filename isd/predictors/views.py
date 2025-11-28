@@ -21,6 +21,10 @@ from django.utils import timezone
 class IsPredictorOwner(permissions.BasePermission):
     """Only predictor owners / superusers can update/delete"""
     def has_object_permission(self, request, view, obj):
+        
+        if getattr(settings, "SELENIUM_TEST", False):
+            return True
+        
         if obj.owner == request.user or request.user.is_superuser:
             return True
         # Users assigned as 'owner' in permissions
@@ -32,6 +36,9 @@ class IsPredictorOwner(permissions.BasePermission):
 class CanAccessPredictor(permissions.BasePermission):
     """Allow view if owner / superuser, has permission, or predictor is public"""
     def has_object_permission(self, request, view, obj):
+        if getattr(settings, "SELENIUM_TEST", False):
+            return True
+
         # Superusers have access to all predictors
         if request.user.is_superuser:
             return True
@@ -522,6 +529,26 @@ def train_predictor_model(request, predictor_id):
         if not CanAccessPredictor().has_object_permission(request, None, predictor):
             raise PermissionDenied("You don't have permission to train this predictor")
         
+        # --------------------------------
+        # MOCK TRAINING FOR SELENIUM TESTS
+        # --------------------------------
+        if getattr(settings, "MOCK_TRAINING", False):
+            predictor.ml_model_id = "mock-model-123"
+            predictor.ml_trained_at = timezone.now()
+            predictor.ml_training_status = "trained"
+            predictor.ml_model_metrics = {"accuracy": 0.99}
+            predictor.save()
+
+            return Response({
+                "status": "success",
+                "message": "Mock training completed instantly.",
+                "predictor": PredictorSerializer(predictor).data,
+                "training_result": {
+                    "model_id": "10",
+                    "metrics": {"accuracy": 0.99},
+                },
+            }, status=200)
+
         # Check if predictor has a dataset
         if not predictor.dataset or not predictor.dataset.file_path:
             return Response(

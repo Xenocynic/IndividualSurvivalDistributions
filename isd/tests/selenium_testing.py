@@ -179,6 +179,14 @@ class PasswordResetFlowTest(LiveServerTestCase):
             is_private=False,
         )
 
+        Predictor.objects.create(
+            name="Selenium Predictor Test",
+            description="Training predictors.",
+            dataset=public_dataset,
+            owner=user,
+            is_private=True,
+        )
+
         # (i) Create two public folders
         folder1 = Folder.objects.create(
             name="Public Folder 1",
@@ -264,7 +272,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         )
         assert "Account created successfully!" in driver.page_source or "Welcome" in driver.page_source
         time.sleep(3)
-        """
+        
         # 4. Click "Forgot password?"
         time.sleep(2)
         driver.find_element(By.LINK_TEXT, "Forgot password?").click()
@@ -322,8 +330,9 @@ class PasswordResetFlowTest(LiveServerTestCase):
         password_input = inputs[1]
 
         self.human_type(username_input, signup_data["username"])
-        self.human_type(password_input, signup_data["new_password"])"""
+        self.human_type(password_input, signup_data["new_password"])
 
+        """
         ########################
         # To be removed later, only present for quick testing
         inputs = driver.find_elements(By.CSS_SELECTOR, 'input')
@@ -332,7 +341,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         self.human_type(username_input, signup_data["username"])
         self.human_type(password_input, signup_data["password"])  
-        ########################     
+        ######################## """    
 
         # Submit login
         login_button = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
@@ -379,11 +388,11 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
 
     def view_predictor(self, driver=None):
-        # Wait for predictor cards to appear on the browse page
+        # Wait for predictor cards to appear on the dashboard page
         predictor_cards = WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='button'].group.relative"))
         )
-        assert len(predictor_cards) > 0, "No predictor cards found on the Browse page."
+        assert len(predictor_cards) > 0, "No predictor cards found on the page."
 
         # Click the first predictor card to reveal 'View' and star buttons
         first_card = predictor_cards[0]
@@ -432,7 +441,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         dataset_cards = WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='button'].group.relative"))
         )
-        assert len(dataset_cards) > 0, "No dataset cards found on the Browse page."
+        assert len(dataset_cards) > 0, "No dataset cards found on the page."
 
         # Click the first dataset card to reveal 'View' and star buttons
         first_card = dataset_cards[0]
@@ -440,7 +449,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         first_card.click()
         time.sleep(1)
 
-        # Pinning first predictor
+        # Pinning first dataset
         star_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Pin"]'))
         )
@@ -448,7 +457,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         driver.execute_script("arguments[0].click();", star_button)
         time.sleep(1)
 
-        # Unpinning first predictor
+        # Unpinning first dataset
         star_button = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Unpin"]'))
         )
@@ -518,10 +527,11 @@ class PasswordResetFlowTest(LiveServerTestCase):
         assert len(folder_cards) > 0, "No folder cards found on the Folders page."
 
         # Click the first folder card
+        time.sleep(4)
         first_folder = folder_cards[0]
         driver.execute_script("arguments[0].scrollIntoView(true);", first_folder)
         first_folder.click()
-        time.sleep(1)
+        time.sleep(3)
 
         """3. Edit Folder"""
         # Edit Folder Functionality
@@ -531,14 +541,46 @@ class PasswordResetFlowTest(LiveServerTestCase):
             EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Edit Folder')]"))
         )
 
-        desc_area = driver.find_element(By.ID, "folder-description")
-        desc_area.clear()
-        self.human_type(desc_area, "Updated description")
-        self.click_button(driver, "//button[contains(., 'Save Changes')]", delay=2)
+        # Wait for the textarea to be actually attached & visible
+        desc_area = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"))
+        )
 
-        """4. Duplicating folders"""
+        driver.execute_script("arguments[0].scrollIntoView(true);", desc_area)
+        time.sleep(0.5)
+
+        # Refetch again to avoid stale reference
+        desc_area = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"))
+        )
+
+        # Now safe to clear and type
+        desc_area.clear()
+
+        self.human_type(desc_area, "Updated description")
+        self.click_button(driver, "//button[contains(., 'Save Changes')]", delay=4)
+
+        """4. Sharing folders"""
+        first_folder = folder_cards[0]
+        driver.execute_script("arguments[0].scrollIntoView(true);", first_folder)
         first_folder.click()
-        time.sleep(1)
+        time.sleep(3)
+
+        self.click_button(driver, ".//button[@title='Share folder']", delay=2)
+
+        WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Share Folder')]"))
+        )
+        self.smooth_scroll_down_up(driver)
+        time.sleep(2)
+
+        self.click_button(driver, "//button[normalize-space()='✕']", delay=3)
+
+        """5. Duplicating folders"""
+        first_folder = folder_cards[0]
+        driver.execute_script("arguments[0].scrollIntoView(true);", first_folder)
+        first_folder.click()
+        time.sleep(3)
 
         self.click_button(driver, ".//button[@title='Duplicate folder']", delay=2)
 
@@ -546,28 +588,33 @@ class PasswordResetFlowTest(LiveServerTestCase):
         WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Duplicate Folder')]"))
         )
+        self.smooth_scroll_down_up(driver)
         time.sleep(2)
+
+        # Filling in name
+        name_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "duplicate-folder-name"))
+        )
+        name_input.clear()
+        self.human_type(name_input, "Duplicate Folder")
+        time.sleep(1)
+
+        # Filling in description
+        desc_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "duplicate-folder-description"))
+        )
+        desc_input.clear()
+        self.human_type(desc_input, "Duplicated during Selenium testing.")
+        time.sleep(1)
 
         # Click the 'Duplicate Folder' submit button
         self.click_button(driver, "//button[contains(., 'Duplicate Folder')]", delay=2)
-
-        """5. Sharing folders"""
-        first_folder.click()
-        time.sleep(1)
-
-        self.click_button(driver, ".//button[@title='Share folder']", delay=2)
-
-        WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located((By.XPATH, "//h2[contains(., 'Share Folder')]"))
-        )
-        time.sleep(2)
-
-        self.click_button(driver, "//button[normalize-space()='✕']", delay=2)
+        time.sleep(4)
 
 
     def create_edit_dataset(self, driver=None):
         # Navigate to the Datasets Section of the Dashboard
-        self.click_button(driver, "//button[contains(text(), 'Datasets')]")
+        self.click_button(driver, "//button[contains(text(), 'Datasets')]", delay=2)
 
         """1. Create New Dataset"""
         # Clicking 'Create New Dataset' button
@@ -582,7 +629,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Filling in details
         self.human_type(driver.find_element(By.XPATH, "//input[@placeholder='A concise dataset name']"), "Selenium Dataset Test")
-        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "This is description for an automated test.")
+        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "This is the description for an automated test.")
 
         # Uploading .csv file
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -601,15 +648,15 @@ class PasswordResetFlowTest(LiveServerTestCase):
             "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});",
             upload_box
         )
-        time.sleep(1)
-
+        time.sleep(2)
         file_input.send_keys(AML_CSV_PATH)
         time.sleep(2)        
 
         self.click_button(driver, "//button[contains(., 'Save') and not(@disabled)]")
+        print("JS errors:", driver.get_log("browser"))
         self.click_button(driver, "//button[contains(text(), 'Datasets')]", delay=2)
 
-        # Wait for dataset cards to appear on the browse page
+        # Wait for dataset cards to appear on the page
         dataset_cards = WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='button'].group.relative"))
         )
@@ -619,13 +666,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
         first_card = dataset_cards[0]
         driver.execute_script("arguments[0].scrollIntoView(true);", first_card)
         first_card.click()
-        time.sleep(1)
+        time.sleep(4)
 
     
     def create_edit_predictor(self, driver=None):
-        # Navigate to the Predictors Section of the Dashboard
-        self.click_button(driver, "//button[contains(text(), 'Predictors')]", delay=2)
-
         """1. Create New Predictor"""
         # Clicking 'Create New Predictor' button
         self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
@@ -638,9 +682,56 @@ class PasswordResetFlowTest(LiveServerTestCase):
         )
 
         # Filling in details
-        self.human_type(driver.find_element(By.XPATH, "//input[@placeholder='A concise predictor name']"), "Selenium Predictor Test")
-        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "Computational Tarot Card readings.")       
+        self.human_type(driver.find_element(By.XPATH, "//input[@placeholder='A concise predictor name']"), "Selenium Predictor  Test")
+        self.human_type(driver.find_element(By.XPATH, "//textarea[contains(@placeholder, 'Optional description')]"), "Training predictors.")       
+        time.sleep(1)
 
+        # Locate the select for folders
+        folder_select = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                "//select[contains(@class,'rounded-md') and contains(@class,'border')]"
+            ))
+        )
+
+        # Smooth scroll into view
+        driver.execute_script(
+            "arguments[0].scrollIntoView({behavior:'smooth', block:'center'});",
+            folder_select
+        )
+        time.sleep(1)
+
+        # Wait for the AML dataset card to appear
+        aml_card = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[.//div[contains(text(),'This is the description for an automated test.')]]"
+            ))
+        )
+
+        # Smooth scroll into view
+        driver.execute_script(
+            "arguments[0].scrollIntoView({behavior:'smooth', block:'center'});",
+            aml_card
+        )
+        time.sleep(1)
+
+        # Click the dataset card
+        aml_card.click()
+        time.sleep(1)
+
+        # Scroll & press the Train & Save button
+        train_button = driver.find_element(
+            By.XPATH,
+            "//button[contains(@class,'bg-neutral-900') and contains(text(),'Train & Save')]"
+        )
+
+        driver.execute_script(
+            "arguments[0].scrollIntoView({behavior:'smooth', block:'center'});",
+            train_button
+        )
+        time.sleep(2)
+        train_button.click()
 
 
     def test_selenium(self):
@@ -649,8 +740,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
         # Running the password reset flow test
         self.password_reset_flow(driver=driver, base_url=base_url)
-        
-        """ 
+
         # Running basic page navigation tests
         self.basic_pages(driver=driver)
        
@@ -670,7 +760,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         self.create_edit_folder(driver=driver)
 
         # Creating a new Dataset from Dashboard
-        self.create_edit_dataset(driver=driver)"""
+        self.create_edit_dataset(driver=driver)
 
         # Creating a new Predictor from Dashboard
         self.create_edit_predictor(driver=driver)
