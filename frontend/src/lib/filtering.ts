@@ -390,21 +390,24 @@ export function filterFolders(
   const { minItemCount, maxItemCount, folderType } = filter;
 
   return folders.filter((folder) => {
+    const isOwner = currentUserId ? folder.owner.id === currentUserId : false;
+    const sharedWithUser =
+      currentUserId !== undefined && currentUserId !== null
+        ? folder.permissions?.some((perm) => perm.user.id === currentUserId) ??
+          false
+        : false;
+
     // Ownership (only if currentUserId is provided)
     if (filter.ownership === "owner") {
-      if (!currentUserId || folder.owner.id !== currentUserId) {
+      if (!currentUserId || !isOwner) {
         return false;
       }
     } else if (filter.ownership === "viewer") {
       if (!currentUserId) {
         return false;
       }
-      const isOwner = folder.owner.id === currentUserId;
-      const hasPermission =
-        folder.permissions?.some((perm) => perm.user.id === currentUserId) ?? false;
-
       // Viewer = has permission but is not the owner
-      if (!hasPermission || isOwner) {
+      if (!sharedWithUser || isOwner) {
         return false;
       }
     }

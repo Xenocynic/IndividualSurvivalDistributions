@@ -8,11 +8,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  listMyFolders,
+  listMyOwnedFolders,
   createFolder,
   mapApiFolderToUi,
   type Folder,
   type CreateFolderRequest,
+  isOwner,
 } from "../../../lib/folders";
 import { addFolderToRecent } from "../navigation/RecentFolders";
 import PrivacyBadge from "../../PrivacyBadge";
@@ -24,6 +25,7 @@ import {
   Lock,
 } from "lucide-react";
 import FolderCreationModal from "../modals/FolderCreationModal";
+import { useAuth } from "../../../auth/AuthContext";
 
 export interface FolderSidebarProps {
   className?: string;
@@ -32,8 +34,14 @@ export interface FolderSidebarProps {
 
 export default function FolderSidebar({
   className,
-  onItemMoved,
+  onItemMoved: _onItemMoved,
 }: FolderSidebarProps) {
+  const { user } = useAuth();
+  const currentUserId = useMemo(
+    () => (user as any)?.id ?? (user as any)?.pk,
+    [user]
+  );
+
   const [folders, setFolders] = useState<Folder[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -44,7 +52,7 @@ export default function FolderSidebar({
 
   const fetchFolders = useCallback(async () => {
     try {
-      const data = await listMyFolders();
+      const data = await listMyOwnedFolders();
       const mapped = Array.isArray(data)
         ? data.map((f: any) => mapApiFolderToUi(f))
         : [];
@@ -57,6 +65,12 @@ export default function FolderSidebar({
   useEffect(() => {
     fetchFolders();
   }, [fetchFolders]);
+
+  // Filter to only show folders the user owns
+  const accessibleFolders = useMemo(() => {
+    if (!currentUserId) return [];
+    return folders.filter((folder) => isOwner(folder, currentUserId));
+  }, [folders, currentUserId]);
 
   async function handleCreateFolder(req: CreateFolderRequest) {
     setCreatingFolder(true);
@@ -75,8 +89,8 @@ export default function FolderSidebar({
 
   const filteredFolders = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return folders;
-    return folders.filter((folder: any) => {
+    if (!q) return accessibleFolders;
+    return accessibleFolders.filter((folder: any) => {
       if (
         folder.name.toLowerCase().includes(q) ||
         (folder.description &&
@@ -97,7 +111,7 @@ export default function FolderSidebar({
       }
       return false;
     });
-  }, [folders, query]);
+  }, [accessibleFolders, query]);
 
   return (
     <>

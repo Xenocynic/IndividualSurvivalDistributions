@@ -333,6 +333,22 @@ export function canManageFolder(folder: Folder, currentUserId?: number): boolean
 }
 
 /**
+ * Helper to determine if the folder is owned by the user or explicitly shared with them.
+ * This excludes purely public visibility so Dashboard views don't pull in public folders.
+ */
+export function isOwnedOrSharedFolder(
+  folder: Folder,
+  currentUserId?: number
+): boolean {
+  if (!currentUserId) return false;
+  if (folder.owner.id === currentUserId) return true;
+
+  return (
+    folder.permissions?.some((perm) => perm.user.id === currentUserId) ?? false
+  );
+}
+
+/**
  * Helper to get the appropriate item count for display based on user permissions
  */
 export function getVisibleItemCount(folder: Folder, _currentUserId?: number): number {

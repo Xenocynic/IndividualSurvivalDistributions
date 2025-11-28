@@ -63,6 +63,8 @@ import {
   mapApiFolderToUi,
   type CreateFolderRequest,
   handleFolderApiError,
+  isOwnedOrSharedFolder,
+  isOwner,
 } from "../lib/folders";
 import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
 import {
@@ -248,7 +250,16 @@ export default function Dashboard() {
 
   const deleteFolderMutation = useMutation({
     mutationFn: deleteFolder,
-    onSuccess: () => {
+    onSuccess: (_data, folderId) => {
+      // Optimistically drop the deleted folder from cache for instant UI update
+      queryClient.setQueryData(["folders"], (prev: any) => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.filter(
+          (f) =>
+            f.folder_id !== folderId &&
+            f.id !== folderId // fallback if backend uses id
+        );
+      });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
     },
   });
@@ -310,6 +321,11 @@ export default function Dashboard() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [sharingFolder, setSharingFolder] = useState<any | null>(null);
   const [isSharingModalOpen, setIsSharingModalOpen] = useState(false);
+  const [pendingFolderDelete, setPendingFolderDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
   // folder-specific filters
   const [folderSortOption, setFolderSortOption] =
@@ -398,6 +414,14 @@ export default function Dashboard() {
     datasetUpdatedWithin,
   ]);
 
+  // Pre-filter folders to only show owned or shared (with permissions) folders in Dashboard
+  const accessibleFolders = useMemo(() => {
+    if (!currentUserId) return [];
+    return folders.filter((folder) =>
+      isOwnedOrSharedFolder(folder, currentUserId)
+    );
+  }, [folders, currentUserId]);
+
   const filteredFolders = useMemo(() => {
     const keywords = tabState.folderQuery.trim()
       ? tabState.folderQuery.trim().split(/\s+/)
@@ -411,7 +435,7 @@ export default function Dashboard() {
       folderType: folderTypeFilter,
     };
 
-    let list = filterFolders(folders, filter, currentUserId);
+    let list = filterFolders(accessibleFolders, filter, currentUserId);
 
     if (folderUpdatedWithin !== "any") {
       list = list.filter((folder) =>
@@ -427,7 +451,7 @@ export default function Dashboard() {
 
     return sortFolders(list, folderSortOption);
   }, [
-    folders,
+    accessibleFolders,
     tabState.folderQuery,
     folderOwnership,
     folderTypeFilter,
@@ -512,24 +536,50 @@ export default function Dashboard() {
     }, 100);
   }
 
-  async function handleFolderDelete(folderId: string) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this folder? Items will be preserved."
-      )
-    ) {
-      return;
-    }
+  function handleFolderDelete(folderId: string) {
+    const folder = folders.find((f) => f.folder_id === folderId);
+    setPendingFolderDelete({
+      id: folderId,
+      name: folder?.name ?? "this folder",
+    });
+  }
+
+  async function confirmFolderDelete() {
+    if (!pendingFolderDelete || isDeletingFolder) return;
+
+    const folderId = pendingFolderDelete.id;
+    const prevFolders = queryClient.getQueryData(["folders"]);
+
+    setIsDeletingFolder(true);
+    setLoadingFolders((prev) => new Set(prev).add(folderId));
+
+    // Optimistically remove from cache so UI drops immediately
+    queryClient.setQueryData(["folders"], (prev: any) => {
+      if (!Array.isArray(prev)) return prev;
+      return prev.filter(
+        (f) => f.folder_id !== folderId && f.id !== folderId
+      );
+    });
 
     try {
       await deleteFolderMutation.mutateAsync(folderId);
       setExpandedFolders((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(folderId);
-        return newSet;
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
       });
+      setPendingFolderDelete(null);
     } catch (error: any) {
       console.error("Failed to delete folder:", error);
+      // Roll back optimistic removal if it fails
+      queryClient.setQueryData(["folders"], prevFolders);
+    } finally {
+      setLoadingFolders((prev) => {
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
+      });
+      setIsDeletingFolder(false);
     }
   }
 
@@ -839,6 +889,8 @@ export default function Dashboard() {
 
                 <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                   {filteredFolders.map((folder) => {
+                    const isFolderOwner = isOwner(folder, currentUserId);
+
                     return (
                       <div
                         key={`folder-${folder.folder_id}`}
@@ -853,25 +905,35 @@ export default function Dashboard() {
                           folder={folder}
                           expanded={expandedFolders.has(folder.folder_id)}
                           onToggleExpand={handleToggleFolderExpansion}
-                          onEdit={(folderId) => {
-                            const f = folders.find(
-                              (x) => x.folder_id === folderId
-                            );
-                            if (f) {
-                              setEditingFolder(f);
-                              setIsEditModalOpen(true);
-                            }
-                          }}
-                          onDelete={handleFolderDelete}
-                          onShare={(folderId) => {
-                            const f = folders.find(
-                              (x) => x.folder_id === folderId
-                            );
-                            if (f) {
-                              setSharingFolder(f);
-                              setIsSharingModalOpen(true);
-                            }
-                          }}
+                          onEdit={
+                            isFolderOwner
+                              ? (folderId) => {
+                                  const f = folders.find(
+                                    (x) => x.folder_id === folderId
+                                  );
+                                  if (f) {
+                                    setEditingFolder(f);
+                                    setIsEditModalOpen(true);
+                                  }
+                                }
+                              : undefined
+                          }
+                          onDelete={
+                            isFolderOwner ? handleFolderDelete : undefined
+                          }
+                          onShare={
+                            isFolderOwner
+                              ? (folderId) => {
+                                  const f = folders.find(
+                                    (x) => x.folder_id === folderId
+                                  );
+                                  if (f) {
+                                    setSharingFolder(f);
+                                    setIsSharingModalOpen(true);
+                                  }
+                                }
+                              : undefined
+                          }
                           // enable drag-and-drop directly on folder cards
                           onDrop={handleDrop}
                           onItemSelect={(itemId, itemType) => {
@@ -889,26 +951,35 @@ export default function Dashboard() {
                               }));
                             }
                           }}
-                          onItemEdit={(itemId) => editItem(itemId)}
-                          onItemDelete={(itemId, itemType) => {
-                            const item =
-                              itemType === "predictor"
-                                ? predictors.find((p) => p.id === itemId)
-                                : datasets.find((d) => d.id === itemId);
-                            const foundItem =
-                              item ||
-                              (folder.items?.find(
-                                (i) => i.id === itemId
-                              ) as any);
-                            if (foundItem) setPendingDelete(foundItem);
-                          }}
+                          onItemEdit={
+                            isFolderOwner ? (itemId) => editItem(itemId) : undefined
+                          }
+                          onItemDelete={
+                            isFolderOwner
+                              ? (itemId, itemType) => {
+                                  const item =
+                                    itemType === "predictor"
+                                      ? predictors.find((p) => p.id === itemId)
+                                      : datasets.find((d) => d.id === itemId);
+                                  const foundItem =
+                                    item ||
+                                    (folder.items?.find(
+                                      (i) => i.id === itemId
+                                    ) as any);
+                                  if (foundItem) setPendingDelete(foundItem);
+                                }
+                              : undefined
+                          }
                           onItemView={(itemId) => viewItem(itemId)}
-                          onRemoveFromFolder={(itemId, itemType) =>
-                            handleRemoveFromFolder(
-                              itemId,
-                              itemType,
-                              folder.folder_id
-                            )
+                          onRemoveFromFolder={
+                            isFolderOwner
+                              ? (itemId, itemType) =>
+                                  handleRemoveFromFolder(
+                                    itemId,
+                                    itemType,
+                                    folder.folder_id
+                                  )
+                              : undefined
                           }
                           selectedItems={
                             new Set([
@@ -921,7 +992,7 @@ export default function Dashboard() {
                             ])
                           }
                           currentUserId={currentUserId}
-                          canEdit={true}
+                          canEdit={isFolderOwner}
                           isLoading={
                             loadingFolders.has(folder.folder_id) ||
                             removeFromFolderMutation.isPending
@@ -1039,6 +1110,16 @@ export default function Dashboard() {
               onCancel={() => !isDeleting && setPendingDelete(null)}
               onConfirm={confirmDelete}
               isLoading={isDeleting}
+            />
+
+            <DeletePredictor
+              open={!!pendingFolderDelete}
+              name={pendingFolderDelete?.name ?? ""}
+              onCancel={() =>
+                !isDeletingFolder && setPendingFolderDelete(null)
+              }
+              onConfirm={confirmFolderDelete}
+              isLoading={isDeletingFolder}
             />
 
             <FolderCreationModal
@@ -1248,15 +1329,17 @@ function FolderAdvancedFilterMenu({
         </span>
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
-        {/* Ownership */}
+        {/* Ownership - only show owned/shared options in Dashboard */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-neutral-700">Ownership</div>
+          <div className="mb-1 font-semibold text-neutral-700">
+            Ownership & access
+          </div>
           <div className="flex flex-wrap gap-1">
             {(
               [
-                ["all", "All folders"],
+                ["all", "Owned or shared with me"],
                 ["owner", "Owned by me"],
-                ["viewer", "Shared with me"],
+                ["viewer", "Shared (I can access)"],
               ] as [Ownership, string][]
             ).map(([value, label]) => (
               <button
