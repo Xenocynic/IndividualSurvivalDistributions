@@ -99,10 +99,10 @@ export default function Settings() {
 
   if (loading && !user) {
     return (
-      <div className="min-h-[60vh] bg-neutral-100 flex items-center justify-center">
+      <div className="min-h-[60vh] bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-800" />
-          <div className="mt-2 text-sm text-neutral-600">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-700" />
+          <div className="mt-2 text-sm text-slate-700">
             Loading settings…
           </div>
         </div>
@@ -113,18 +113,18 @@ export default function Settings() {
   // helper styles for status messages
   const profileMsgClass =
     msg === "Profile updated."
-      ? "text-xs font-medium text-green-700"
-      : "text-xs font-medium text-red-600";
+      ? "text-xs font-medium text-emerald-700"
+      : "text-xs font-medium text-rose-700";
 
   const pwMsgClass =
     pwMsg === "Password updated."
-      ? "text-xs font-medium text-green-700"
-      : "text-xs font-medium text-red-600";
+      ? "text-xs font-medium text-emerald-700"
+      : "text-xs font-medium text-rose-700";
 
   return (
-    <div className="min-h-[60vh] bg-blue-50">
+    <div className="min-h-[60vh] bg-slate-200">
       {/* Sticky sub-header (matches create/upload pages) */}
-      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full bg-teal-900 text-white">
+      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full bg-slate-900 text-slate-50">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex flex-col">
             <span className="text-lg font-semibold tracking-wide">
@@ -133,35 +133,35 @@ export default function Settings() {
           </div>
 
           {/* tiny butterfly animation LOL */}
-          <div className="flex items-center gap-2 pt-1 text-xs text-teal-100">
+          <div className="flex items-center gap-2 pt-1 text-xs text-slate-200">
             <span className="hidden sm:inline">
               Welcome back! Hopefully it's not another password reset 
             </span>
-            <span className="text-xl animate-bounce">𓂃 ࣪˖ ִֶཐི༏ཋྀ󠀮</span>
+            <span className="text-xl animate-bounce">𓂃 ࣪˖ ִֶཐི༏ཋྀ</span>
           </div>
         </div>
-        <div className="h-1 w-full bg-teal-600" />
+        <div className="h-1 w-full bg-slate-700" />
       </div>
 
       {/* Body — single centered column, matching PredictorCreate / DatasetUpload */}
       <div className="mx-auto max-w-3xl px-4 py-6">
-        <div className="space-y-8 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+        <div className="space-y-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           {/* Page heading card */}
-          <section className="space-y-2 rounded-lg border border-black/10 bg-blue-100 p-4">
-            <p className="text-sm text-neutral-700">
+          <section className="space-y-2 rounded-lg border border-slate-200 bg-purple-100 p-4">
+            <p className="text-sm text-slate-800">
               Update your profile details and password. Changes apply to your
               current account only.
             </p>
           </section>
 
           {/* Profile section */}
-          <section className="space-y-4 rounded-lg border border-black/10 bg-purple-100 p-4">
+          <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
             <header className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900">
                   Profile
                 </h2>
-                <p className="mt-1 text-xs text-neutral-600">
+                <p className="mt-1 text-xs text-slate-600">
                   Keep your name and contact email up to date.
                 </p>
               </div>
@@ -170,7 +170,7 @@ export default function Settings() {
             <form onSubmit={onSaveProfile} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-900">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
                     First name
                   </label>
                   <input
@@ -178,11 +178,11 @@ export default function Settings() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     autoComplete="given-name"
-                    className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                    className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-900">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
                     Last name
                   </label>
                   <input
@@ -190,13 +190,13 @@ export default function Settings() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     autoComplete="family-name"
-                    className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                    className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-900">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
                   Email
                 </label>
                 <input
@@ -204,9 +204,9 @@ export default function Settings() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
-                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                 />
-                <p className="mt-1 text-[11px] text-neutral-500">
+                <p className="mt-1 text-[11px] text-slate-500">
                   This is used for account contact (for instance, if you forget your password.)
                 </p>
               </div>
@@ -215,7 +215,7 @@ export default function Settings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center rounded-md border border-black/10 bg-purple-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center rounded-md border border-sky-800 bg-sky-800 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-900 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </button>
@@ -225,42 +225,42 @@ export default function Settings() {
           </section>
 
           {/* Password section */}
-          <section className="space-y-4 rounded-lg border border-black/10 bg-purple-100 p-4">
+          <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
             <header>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900">
                 Change password
               </h2>
-              <p className="mt-1 text-xs text-neutral-600">
+              <p className="mt-1 text-xs text-slate-600">
                 Use a strong, unique password to keep your account secure.
               </p>
             </header>
 
             <form onSubmit={onChangePassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-900">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
                   New password
                 </label>
                 <input
                   type="password"
                   value={pwd1}
                   onChange={(e) => setPwd1(e.target.value)}
-                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                 />
-                <p className="mt-1 text-[11px] text-neutral-500">
+                <p className="mt-1 text-[11px] text-slate-500">
                   Minimum 8 characters. Avoid reusing passwords from other
                   sites.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-900">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
                   Confirm new password
                 </label>
                 <input
                   type="password"
                   value={pwd2}
                   onChange={(e) => setPwd2(e.target.value)}
-                  className="mt-1 w-full rounded-md border bg-white border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                 />
               </div>
 
@@ -268,7 +268,7 @@ export default function Settings() {
                 <button
                   type="submit"
                   disabled={pwSaving}
-                  className="inline-flex items-center rounded-md border border-black/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center rounded-md border border-sky-800 bg-sky-800 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-900 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {pwSaving ? "Updating…" : "Update password"}
                 </button>
@@ -278,17 +278,17 @@ export default function Settings() {
           </section>
 
           {/* Logout section */}
-          <section className="flex items-center justify-between rounded-lg border border-neutral-700 bg-neutral-900/90 px-4 py-3 text-sm text-neutral-50">
+          <section className="flex items-center justify-between rounded-lg border border-slate-300 bg-purple-100 px-4 py-3 text-sm text-slate-900">
             <div>
               <p className="font-semibold">Log out</p>
-              <p className="mt-0.5 text-xs text-neutral-200">
+              <p className="mt-0.5 text-xs text-slate-600">
                 You’ll need to sign in again to access your datasets and
                 predictors.
               </p>
             </div>
             <button
               onClick={() => logout()}
-              className="inline-flex items-center rounded-md border border-white/10 bg-black px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+              className="inline-flex items-center rounded-md border border-slate-400 bg-slate-800 px-3 py-1.5 text-sm text-white font-medium text-slate-900 shadow-sm transition hover:bg-slate-600 active:translate-y-[0.5px]"
             >
               Log out?
             </button>
