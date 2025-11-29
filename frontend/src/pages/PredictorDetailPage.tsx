@@ -24,6 +24,7 @@ import {
 import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
+import PredictorComparisonTable from "../components/PredictorComparisonTable";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -2129,11 +2130,8 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 }
 
 function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
-  const [activeView, setActiveView] = useState<
-    "statistics" | "individual" | "dcalibration" | "kaplanmeier"
-  >("statistics");
-  const [survivalCurves, setSurvivalCurves] =
-    useState<SurvivalCurvesData | null>(null);
+  const [activeView, setActiveView] = useState<"statistics" | "individual" | "dcalibration" | "kaplanmeier" | "comparison">("statistics");
+  const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
   const [isLoadingCurves, setIsLoadingCurves] = useState(false);
   const [curvesError, setCurvesError] = useState<string | null>(null);
 
@@ -2216,9 +2214,37 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
           Show Feature Weights
         </button>
+        <button
+          onClick={() => setActiveView("comparison")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "comparison"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Compare Predictors
+        </button>
+        <button
+          onClick={() => setActiveView("comparison")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "comparison"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Compare Predictors
+        </button>
+        <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
+          Show Feature Weights
+        </button>
       </div>
 
-      {activeView === "kaplanmeier" ? (
+      {activeView === "comparison" ? (
+        <PredictorComparisonTable
+          predictorId={predictor.predictor_id}
+          predictorName={predictor.name}
+        />
+      ) : activeView === "kaplanmeier" ? (
         <Card>
           <KaplanMeierVisualization
             predictorId={predictor.predictor_id}

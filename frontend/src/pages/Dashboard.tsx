@@ -53,8 +53,7 @@ import {
   mapApiDatasetToUi,
   isUserOwner,
 } from "../lib/datasets";
-import { deletePredictor } from "../lib/predictors";
-import { mapApiPredictorToUi } from "../lib/predictors";
+import { deletePredictor, mapApiPredictorToUi } from "../lib/predictors";
 import {
   listMyFolders,
   createFolder,
@@ -344,7 +343,7 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ["datasets"] });
   });
 
-  // --- FILTERED LISTS ---
+  // --- FILTERED LISTS (advanced system) ---
 
   const filteredPredictors = useMemo(() => {
     const keywords = tabState.predictorQuery.trim()
@@ -970,7 +969,9 @@ export default function Dashboard() {
                             }
                           }}
                           onItemEdit={
-                            isFolderOwner ? (itemId) => editItem(itemId) : undefined
+                            isFolderOwner
+                              ? (itemId) => editItem(itemId)
+                              : undefined
                           }
                           onItemDelete={
                             isFolderOwner
@@ -985,7 +986,11 @@ export default function Dashboard() {
                                       (i) => i.id === itemId
                                     ) as any);
                                   if (foundItem) {
-                                    promptDelete(itemId, foundItem.title ?? "Item", itemType);
+                                    promptDelete(
+                                      itemId,
+                                      foundItem.title ?? "Item",
+                                      itemType
+                                    );
                                   }
                                 }
                               : undefined

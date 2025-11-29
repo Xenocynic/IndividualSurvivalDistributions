@@ -399,3 +399,74 @@ export async function getPredictorFullPredictionsData(
 ): Promise<FullPredictionsData> {
   return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
 }
+
+// --- Predictor Comparison Types ---
+
+export interface ComparablePredictor {
+  predictor_id: number;
+  name: string;
+  owner: string;
+  is_private: boolean;
+  model_id: string | null;
+  has_cv_stats: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComparablePredictorsResponse {
+  base_predictor: {
+    predictor_id: number;
+    name: string;
+    dataset_id: number;
+    dataset_name: string;
+  };
+  comparable_predictors: ComparablePredictor[];
+}
+
+export interface PredictorCvComparison {
+  predictor_id: number;
+  name: string;
+  owner: string;
+  model_id: string | null;
+  cv_stats: any | null;
+  ml_model_metrics: {
+    Cindex?: { mean: number; std: number };
+    IBS?: { mean: number; std: number };
+    MAE_Hinge?: { mean: number; std: number };
+    MAE_PO?: { mean: number; std: number };
+    KM_cal?: { mean: number; std: number };
+    xCal_stats?: { mean: number; std: number };
+    wsc_xCal_stats?: { mean: number; std: number };
+    dcal_p?: { mean: number; std: number };
+    dcal_Chi?: { mean: number; std: number };
+    train_times?: { mean: number; std: number };
+    infer_times?: { mean: number; std: number };
+    [key: string]: any;
+  } | null;
+  created_at?: string;
+  updated_at?: string;
+  error: string | null;
+}
+
+export interface CompareCvStatsResponse {
+  comparisons: PredictorCvComparison[];
+}
+
+// --- Predictor Comparison API Functions ---
+
+export async function getComparablePredictors(
+  predictorId: number
+): Promise<ComparablePredictorsResponse> {
+  return api.get<ComparablePredictorsResponse>(
+    `/api/predictors/${predictorId}/comparable-predictors/`
+  );
+}
+
+export async function comparePredictorsCvStats(
+  predictorIds: number[]
+): Promise<CompareCvStatsResponse> {
+  return api.post<CompareCvStatsResponse>(
+    '/api/predictors/compare-cv-stats/',
+    { predictor_ids: predictorIds }
+  );
+}
