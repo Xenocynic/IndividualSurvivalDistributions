@@ -2,76 +2,13 @@
 
 ## Overview
 
-This application is deployed at **https://isd.srv.ualberta.ca/** with the following architecture:
+This application will be deployed at **https://isd.srv.ualberta.ca/** and is currently deployed at **http://[2605:fd00:4:1001:f816:3eff:fec6:3fd9]** with the following architecture:
 
 - **Backend**: Django + Gunicorn + Nginx (API and admin)
 - **Frontend**: React/Vite (static build served by Nginx)
 - **ML API**: Python Flask service
 - **Database**: Supabase PostgreSQL
-- **Server**: Ubuntu VM at 10.2.14.245 / 2605:fd00:4:1001:f816:3eff:fec6:3fd9
-
-## Prerequisites
-
-### 1. DNS Configuration
-
-**IMPORTANT**: Before deploying, ensure DNS is configured correctly:
-
-The domain `isd.srv.ualberta.ca` must point to your server:
-
-- **IPv4 A Record**: `isd.srv.ualberta.ca` → `10.2.14.245`
-- **IPv6 AAAA Record**: `isd.srv.ualberta.ca` → `2605:fd00:4:1001:f816:3eff:fec6:3fd9`
-
-Contact your university IT department or DNS administrator to set this up.
-
-To verify DNS is working:
-```bash
-# Check IPv4
-dig isd.srv.ualberta.ca A
-
-# Check IPv6
-dig isd.srv.ualberta.ca AAAA
-
-# Should return your server's IP addresses
-```
-
-### 2. Firewall Configuration
-
-Ensure these ports are open:
-
-- **Port 80** (HTTP) - Required for Let's Encrypt validation and HTTP traffic
-- **Port 443** (HTTPS) - Required for secure traffic
-- **Port 22** (SSH) - For server access
-
-Check firewall status:
-```bash
-sudo ufw status
-```
-
-Open ports if needed:
-```bash
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw allow 22/tcp
-sudo ufw enable
-```
-
-### 3. Node.js Version
-
-The frontend requires Node.js v20 or higher. Current version check:
-```bash
-node --version  # Should show v20.x.x or higher
-```
-
-If you need to upgrade Node.js:
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-source ~/.bashrc
-nvm install 20
-nvm use 20
-nvm alias default 20
-```
-
-## Deployment Steps
+- **Server**: Ubuntu VM at `[2605:fd00:4:1001:f816:3eff:fec6:3fd9]`
 
 ### Quick Deployment
 
@@ -365,7 +302,8 @@ sudo systemctl status certbot.timer
 ```bash
 # Check if website is accessible
 curl -I http://localhost/admin/
-curl -I http://10.2.14.245/admin/
+curl -I http://199.116.235.132/admin/
+curl -I http://isd.srv.ualberta.ca/admin/
 
 # Check all services
 sudo systemctl status isd-django.service nginx isd-ml-api.service
@@ -392,19 +330,6 @@ du -sh /var/log/nginx/*
 # Clean old logs if needed
 sudo find /var/log/nginx -name "*.gz" -mtime +30 -delete
 ```
-
-## Security Checklist
-
-- [ ] DNS configured correctly
-- [ ] Firewall configured (only ports 22, 80, 443 open)
-- [ ] SSL/HTTPS enabled via Let's Encrypt
-- [ ] `DEBUG=False` in production
-- [ ] `SECRET_KEY` is unique and not committed to git
-- [ ] Database credentials in `.env` file (not in code)
-- [ ] `.env` file not committed to git (in `.gitignore`)
-- [ ] CORS properly configured for production domain
-- [ ] Regular backups of database
-- [ ] System updates applied regularly
 
 ## Support
 
