@@ -91,13 +91,25 @@ class FolderViewSet(viewsets.ModelViewSet):
         """
         Returns folders accessible to the user using the custom manager.
         Applies auto-hide logic for public folders.
+        Supports 'owned_only' query parameter to return only owned folders.
         """
         user = self.request.user
-        return (
-            Folder.objects.accessible_to_user(user)
-            .prefetch_related('folder_items', 'permissions')
-            .order_by('name')
-        )
+        owned_only = self.request.query_params.get('owned_only', '').lower() == 'true'
+        
+        if owned_only:
+            # Return only folders owned by the user
+            return (
+                Folder.objects.filter(owner=user)
+                .prefetch_related('folder_items', 'permissions')
+                .order_by('name')
+            )
+        else:
+            # Return all accessible folders (owned + shared + public)
+            return (
+                Folder.objects.accessible_to_user(user)
+                .prefetch_related('folder_items', 'permissions')
+                .order_by('name')
+            )
     
     def get_object(self):
         """

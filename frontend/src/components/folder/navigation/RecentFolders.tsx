@@ -5,10 +5,19 @@
  * - Quick access panel for recently accessed folders
  * - Stores recent folder access in localStorage
  * - Provides one-click navigation to recent folders
+ * - Only shows the top 3 most recently accessed folders when expanded
+ * - Stays collapsed by default; header/tab is always visible.
+ * ----------------------------------------------------------------------------------
  */
 
 import { useState, useEffect } from "react";
-import { Clock, Folder as FolderIcon, Lock } from "lucide-react";
+import {
+  Clock,
+  Folder as FolderIcon,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import type { Folder } from "../../../lib/folders";
 
 interface RecentFolder {
@@ -25,7 +34,7 @@ interface RecentFoldersProps {
 }
 
 const RECENT_FOLDERS_KEY = "kiro_recent_folders";
-const MAX_RECENT_FOLDERS = 5;
+const MAX_RECENT_FOLDERS = 5; // how many we store in localStorage (UI only shows 3)
 
 export default function RecentFolders({
   onFolderSelect,
@@ -33,7 +42,7 @@ export default function RecentFolders({
   className = "",
 }: RecentFoldersProps) {
   const [recentFolders, setRecentFolders] = useState<RecentFolder[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); // default: collapsed
 
   // Load recent folders from localStorage on mount
   useEffect(() => {
@@ -67,11 +76,8 @@ export default function RecentFolders({
     };
 
     setRecentFolders((prev) => {
-      // Remove if already exists
       const filtered = prev.filter((f) => f.folder_id !== folder.folder_id);
-      // Add to beginning
       const updated = [recentFolder, ...filtered];
-      // Keep only the most recent ones
       return updated.slice(0, MAX_RECENT_FOLDERS);
     });
   };
@@ -89,51 +95,68 @@ export default function RecentFolders({
   };
 
   if (recentFolders.length === 0) {
+    // No header at all if we've literally never had a recent folder
     return null;
   }
 
+  // Ensure we’re always showing the *most recent* ones, just in case order got weird
+  const sortedByRecency = [...recentFolders].sort((a, b) => {
+    const aTime = new Date(a.last_accessed).getTime();
+    const bTime = new Date(b.last_accessed).getTime();
+    return bTime - aTime;
+  });
+
+  // Only show the top 3 in the panel
+  const visibleFolders = sortedByRecency.slice(0, 3);
+
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+    <div
+      className={`bg-neutral-200 rounded-lg border border-gray-200 ${className}`}
+    >
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className='w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-t-lg'
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="w-full flex items-center justify-between p-3 text-left hover:border hover:border-neutral-400 hover:bg-neutral-100 rounded-t-lg"
       >
-        <div className='flex items-center gap-2'>
-          <Clock className='h-4 w-4 text-gray-500' />
-          <span className='text-sm font-medium text-gray-900'>
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-gray-700" />
+          <span className="text-sm font-medium text-gray-900">
             Recent Folders
           </span>
-          <span className='text-xs text-gray-500'>
-            ({recentFolders.length})
+          <span className="text-xs text-gray-600">
+            ({visibleFolders.length})
           </span>
         </div>
-        <span className='text-gray-400 text-sm'>{isExpanded ? "▼" : "▶"}</span>
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-gray-700" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-gray-700" />
+        )}
       </button>
 
       {isExpanded && (
-        <div className='border-t border-gray-200'>
-          {recentFolders.map((folder) => (
+        <div className="border-t border-neutral-400">
+          {visibleFolders.map((folder) => (
             <button
               key={folder.folder_id}
               onClick={() => handleFolderClick(folder.folder_id)}
-              className={`w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 transition-colors ${
+              className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${
                 currentFolderId === folder.folder_id
-                  ? "bg-blue-50 border-l-2 border-l-blue-500"
+                  ? "bg-black/5 border-l-2 border-l-black"
                   : ""
               }`}
             >
-              <div className='flex items-center gap-2 flex-1 min-w-0'>
-                <div className='flex items-center gap-1'>
-                  <FolderIcon className='h-4 w-4 text-gray-400' />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <FolderIcon className="h-4 w-4 text-gray-700" />
                   {folder.is_private && (
-                    <Lock className='h-3 w-3 text-gray-400' />
+                    <Lock className="h-3 w-3 text-gray-700" />
                   )}
                 </div>
-                <span className='text-sm text-gray-900 truncate'>
+                <span className="text-sm text-gray-900 truncate">
                   {folder.name}
                 </span>
               </div>
-              <span className='text-xs text-gray-500 whitespace-nowrap'>
+              <span className="text-xs text-gray-600 whitespace-nowrap">
                 {new Date(folder.last_accessed).toLocaleDateString()}
               </span>
             </button>
