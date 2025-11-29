@@ -37,6 +37,7 @@ import {
   type UserSuggestion,
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
+import { AlertModal } from "../components/AlertModal";
 
 type PermRow = {
   id: number;
@@ -124,6 +125,12 @@ export default function PredictorCreate() {
   const [checking, setChecking] = useState(false);
   const [nameTaken, setNameTaken] = useState<boolean | null>(null);
 
+  // alert modal
+  const [alertState, setAlertState] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
+
   // detection for the leave prompt
   const dirtyRef = useRef(false);
 
@@ -133,7 +140,7 @@ export default function PredictorCreate() {
 
     async function loadDraft() {
       try {
-        const p = await getPredictor(draftId);
+        const p = await getPredictor(Number(draftId));
         if (!p) return;
 
         setName(p.name);
@@ -341,7 +348,7 @@ export default function PredictorCreate() {
         is_private: !isPublic,
         model_id: trainingResult.model_id,
         ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
-        ml_training_status: "trained",
+        ml_training_status: "trained" as "trained",
         ml_model_metrics: trainingResult.metrics || {},
         ml_selected_features: parsedFeatures || null,
         num_time_points: validNumTimePoints,
@@ -374,7 +381,9 @@ export default function PredictorCreate() {
         if (!username) continue;
         let userId = row.userId;
         if (!userId) {
-          userId = await resolveUsernameToId(username);
+          const resolved = await resolveUsernameToId(username);
+          if (resolved == null) continue;
+          userId = resolved;
         }
         if (!userId) continue;
 
@@ -417,14 +426,38 @@ export default function PredictorCreate() {
 
   // Save as draft (no training)
   async function saveDraft() {
+    // If this came from the leave prompt, close that first so the alert
+    // appears on top and the user can only hit "OK".
+    setShowLeavePrompt(false);
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setAlertState({
+        title: "Name required",
+        message:
+          "Please add a name before saving this predictor as a draft. You can always rename it later.",
+      });
+      return;
+    }
+
+    if (!selectedDatasetId) {
+      setAlertState({
+        title: "Dataset required",
+        message:
+          "Please select a dataset before saving this predictor draft. The model needs data to train on.",
+      });
+      return;
+    }
+
     try {
       const payload: any = {
-        name: name.trim(),
+        name: trimmedName,
         description: notes.trim(),
-        dataset_id: selectedDatasetId ? Number(selectedDatasetId) : null,
+        dataset_id: Number(selectedDatasetId),
         folder_id: selectedFolderId || undefined,
         is_private: true,
-        ml_training_status: "not_trained",
+        ml_training_status: "not_trained" as "not_trained",
         ml_trained_at: null,
         ml_model_metrics: {},
         ml_selected_features: null,
@@ -440,7 +473,11 @@ export default function PredictorCreate() {
 
       navigate("/dashboard", { state: { tab: "predictors" } });
     } catch (e) {
-      alert("Failed to save draft");
+      setAlertState({
+        title: "Unable to save draft",
+        message:
+          "Something went wrong while saving this predictor draft. Please try again in a moment.",
+      });
     }
   }
 
@@ -821,6 +858,15 @@ export default function PredictorCreate() {
             navigate("/dashboard", { state: { tab: "predictors" } })
           }
           onSaveDraft={saveDraft}
+        />
+      )}
+
+      {alertState && (
+        <AlertModal
+          open={!!alertState}
+          title={alertState.title}
+          message={alertState.message}
+          onClose={() => setAlertState(null)}
         />
       )}
     </div>

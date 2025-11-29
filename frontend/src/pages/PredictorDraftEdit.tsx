@@ -18,7 +18,8 @@ import {
   type UserSuggestion,
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
-import AuthLoadingScreen from "../auth/AuthLoadingScreen"; 
+import AuthLoadingScreen from "../auth/AuthLoadingScreen";
+import { AlertModal } from "../components/AlertModal";
 
 type PermRow = {
   id: number;
@@ -75,6 +76,12 @@ export default function PredictorDraftEdit() {
   // name availability
   const [checking, setChecking] = useState(false);
   const [nameTaken, setNameTaken] = useState<boolean | null>(null);
+
+  // alerts
+  const [alertState, setAlertState] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
 
   // ---------------------------------------------
   // Load the Draft Predictor
@@ -195,16 +202,35 @@ export default function PredictorDraftEdit() {
   // Save as Draft
   // ---------------------------------------------
   async function saveDraft() {
+    // Any time the user clicks "Save as Draft" from the leave modal,
+    // hide that modal first so the alert becomes the only thing visible.
+    setShowLeavePrompt(false);
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setAlertState({
+        title: "Name required",
+        message:
+          "Please add a name before saving this predictor draft. You can always rename it later.",
+      });
+      return;
+    }
+
     if (!selectedDatasetId) {
-      alert("Please select a dataset before saving the draft.");
+      setAlertState({
+        title: "Dataset required",
+        message:
+          "Please select a dataset before saving this predictor draft. The model needs data to train on.",
+      });
       return;
     }
 
     try {
       const draft = await updatePredictor(draftId, {
-        name: name.trim(),
+        name: trimmedName,
         description: notes.trim(),
-        dataset_id: selectedDatasetId ? Number(selectedDatasetId) : null,
+        dataset_id: Number(selectedDatasetId),
         folder_id: selectedFolderId || undefined,
         is_private: true,
         ml_training_status: "not_trained",
@@ -231,7 +257,11 @@ export default function PredictorDraftEdit() {
 
       navigate("/dashboard", { state: { tab: "predictors" } });
     } catch (e) {
-      alert("Failed to save draft");
+      setAlertState({
+        title: "Unable to save draft",
+        message:
+          "Something went wrong while saving this predictor draft. Please try again in a moment.",
+      });
     }
   }
 
@@ -340,7 +370,7 @@ export default function PredictorDraftEdit() {
 
   return (
     <div className="min-h-[60vh] bg-neutral-100">
-      {/* Sticky sub-header (match PredictorCreate) */}
+      {/* Sticky sub-header */}
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <button
@@ -634,6 +664,7 @@ export default function PredictorDraftEdit() {
         />
       )}
 
+      {/* Leave Prompt */}
       {showLeavePrompt && (
         <ConfirmLeave
           onCancel={() => setShowLeavePrompt(false)}
@@ -643,13 +674,23 @@ export default function PredictorDraftEdit() {
           onSaveDraft={saveDraft}
         />
       )}
+
+      {/* Alert Modal */}
+      {alertState && (
+        <AlertModal
+          open={!!alertState}
+          title={alertState.title}
+          message={alertState.message}
+          onClose={() => setAlertState(null)}
+        />
+      )}
     </div>
   );
 }
 
-/* -----------------------------------------
-   Training Modal (styled like PredictorCreate)
------------------------------------------ */
+/* ----------------
+   Training Modal 
+------------------- */
 function TrainingModal({
   step,
   error,
@@ -734,9 +775,9 @@ function TrainingModal({
   );
 }
 
-/* -----------------------------------------
-   Leave Prompt (aligned with PredictorCreate)
------------------------------------------ */
+/* --------------
+   Leave Prompt 
+----------------- */
 function ConfirmLeave({
   onCancel,
   onContinue,
@@ -747,7 +788,7 @@ function ConfirmLeave({
   onSaveDraft: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-md bg-white p-4 shadow-lg">
         <h3 className="text-base font-semibold">Leave without saving?</h3>
         <p className="mt-1 text-sm text-neutral-600">

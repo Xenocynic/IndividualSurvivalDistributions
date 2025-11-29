@@ -7,7 +7,7 @@ const AuthLoadingScreen: React.FC = () => {
     <div className="flex w-full justify-center bg-neutral-100 pt-[var(--app-nav-h,3.7rem)] pb-10">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-neutral-200 bg-white/80 px-8 py-6 shadow-md backdrop-blur">
 
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+        <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
 
         <div className="flex items-center gap-0.5">
           {letters.map((ch, idx) => {
