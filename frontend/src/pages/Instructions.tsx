@@ -658,7 +658,7 @@ export default function Instructions(): JSX.Element {
             <span className="font-medium">Predictors</span> tab.
           </li>
           <li>
-            • Upload or enter input data using the prediction interface.
+            • blah blah blah first name backstory
           </li>
           <li>
             • Compare model predictions with baseline methods such as KM curves
