@@ -15,33 +15,22 @@ export default function Instructions(): JSX.Element {
     }
   };
 
-  // All subsection IDs in one list
   const sectionIds = [
-
-    // Getting Started
     "getting-started",
     "overview",
     "edit-profile",
     "dashboard-basics",
-
-    // Working with Datasets
     "datasets",
     "upload-dataset",
     "folder-management",
-
-    // Building Predictors
     "predictors",
     "save-draft",
     "train-predictor",
     "retrain-predictor",
     "predictor-detail",
-
-    // Using Predictors
     "using-predictors",
     "use-predictor",
     "filter-search",
-
-    // Help
     "help",
     "troubleshooting",
     "glossary",
@@ -63,9 +52,9 @@ export default function Instructions(): JSX.Element {
     window.addEventListener("scroll", handleScroll);
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sidebar structure
   const sidebarItems = [
     {
       title: "Getting Started",
@@ -113,275 +102,700 @@ export default function Instructions(): JSX.Element {
   ];
 
   return (
-    <div className="mx-auto flex min-h-screen">
-      {/* Sidebar */}
-      <div className="w-64 p-4">
-        <div className="bg-black text-white p-4 rounded-lg sticky top-20 h-fit">
-          <h2 className="text-sm font-semibold mb-3 tracking-wide uppercase">
-            Instructions
-          </h2>
+    <section className="w-full bg-neutral-100 pt-[var(--app-nav-h,2.7rem)] pb-10">
+      <div className="mx-auto flex max-w-6xl gap-6 px-4">
+        {/* Sidebar */}
+        <aside className="hidden w-64 shrink-0 lg:block">
+          <div className="sticky top-[calc(var(--app-nav-h,3.7rem)+1rem)] h-fit overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+            <div className="border-b border-black/10 bg-neutral-900 px-4 py-3 text-large font-semibold tracking-wide text-white">
+              Instructions
+            </div>
 
-          {sidebarItems.map((section) => (
-            <div key={section.id} className="mb-4">
-              {/* Main Section Title */}
-              <button
-                onClick={() => scrollToSection(section.id)}
-                className={`w-full text-left font-semibold text-sm mb-1 px-2 py-1 rounded ${section.children.some((c) => c.id === activeSection) ||
-                  activeSection === section.id
-                  ? "bg-gray-700 text-white"
-                  : "text-gray-200 hover:bg-gray-800"
-                  }`}
-              >
-                {section.title}
-              </button>
+            <div className="p-3 text-xs text-neutral-500">
+              Use this guide to set up your account, upload datasets, and build
+              predictors.
+            </div>
 
-              {/* Subsections */}
-              <div className="ml-3 space-y-1">
-                {section.children.map((child) => (
-                  <button
-                    key={child.id}
-                    onClick={() => scrollToSection(child.id)}
-                    className={`block w-full text-left text-xs px-2 py-1 rounded transition ${activeSection === child.id
-                      ? "bg-gray-600 text-white"
-                      : "text-gray-400 hover:bg-gray-700 hover:text-white"
+            <nav className="space-y-4 px-3 pb-4 text-sm">
+              {sidebarItems.map((section) => {
+                const sectionActive =
+                  section.children.some((c) => c.id === activeSection) ||
+                  activeSection === section.id;
+
+                return (
+                  <div key={section.id} className="space-y-1">
+                    <button
+                      onClick={() => scrollToSection(section.id)}
+                      className={`w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold tracking-wide transition ${
+                        sectionActive
+                          ? "bg-neutral-700 text-white"
+                          : "text-neutral-800 hover:bg-neutral-100"
                       }`}
-                  >
-                    {child.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+                    >
+                      {section.title}
+                    </button>
 
-      {/* Main Content */}
-      <div className="flex-1 p-4 pt-4">
-        <div className="w-full space-y-10">
-
-          {/* Overview Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h2 className="text-lg font-semibold text-blue-800 mb-2">
-              How to Use This Website
-            </h2>
-            <p className="text-blue-700 text-sm">
-              Please watch the overview video for a quick walkthrough or follow
-              the step-by-step sections below to set up your account, upload
-              datasets, train predictors, and make Survival Analysis Predictions.
-            </p>
+                    <div className="ml-2 space-y-0.5 border-l border-neutral-200 pl-2">
+                      {section.children.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => scrollToSection(child.id)}
+                          className={`block w-full rounded-md px-2 py-1 text-left text-xs transition ${
+                            activeSection === child.id
+                              ? "bg-neutral-200 text-neutral-900"
+                              : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                          }`}
+                        >
+                          {child.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </nav>
           </div>
+        </aside>
 
-          {/* Getting Started    */}
-          <section id="getting-started" className="scroll-mt-20">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Getting Started
-            </h1>
-            <p className="text-sm text-gray-600 mb-6">Basic introduction to using the website.</p>
-          </section>
-
-          {/* Subsections */}
-          <section id="overview" className="scroll-mt-20">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Video Walkthrough
-            </h2>
-
-            <p className="text-gray-600 text-sm mb-4">
-              Please begin with this short video walkthrough of the website. It covers
-              uploading datasets, training predictors, and running predictions.
-            </p>
-
-            <div className="w-full max-w-3xl aspect-video bg-black/80 rounded-xl flex items-center justify-center text-gray-200 text-sm mb-6">
-              <span>Embed tutorial video here.</span>
+        {/* Main Content */}
+        <main className="min-w-0 flex-1">
+          <div className="space-y-8 rounded-xl border border-black/5 bg-white p-6 shadow-sm">
+            {/* Overview Notice */}
+            <div className="rounded-lg border border-neutral-200 bg-neutral-200 p-4">
+              <h1 className="text-xl font-semibold text-neutral-900">
+                How to Use This Website  𓂃 ࣪˖ ִֶཐི༏ཋྀ
+              </h1>
+              <p className="mt-2 text-sm text-neutral-700">
+                Start with the overview video for a quick tour, or follow the
+                sections below to set up your account, upload datasets, train
+                predictors, and make survival analysis predictions.
+              </p>
             </div>
-          </section>
 
-          <section id="edit-profile" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold text-gray-900 mb-3">
-              Account Details
-            </h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li><Link to="/signup" className="text-blue-500 underline">
-                Sign Up
-              </Link> for an account.</li>
-              <li><Link to="/signup" className="text-blue-500 underline">
-                Sign in
-              </Link> using your account.</li>
-              <li>Please reach out to the <a href="mailto:rgreiner@ualberta.ca,asgarian@ualberta.ca" className="text-blue-500 underline">
-                administrators
-              </a> to recieve Superuser or Admin access beyond the general User access.</li>
-              <li>Click{" "}
-                <Link to="/reset" className="text-blue-500 underline">
-                  Forgot Password?
-                </Link> to reset your password if you cannot login.</li>
-              <li>Please use{" "}
-                <Link to="/settings" className="text-blue-500 underline">
-                  Settings
-                </Link> to edit your primary account details or change your password while logged in.</li>
-            </ul>
-          </section>
+{/* Getting Started */}
+<section id="getting-started" className="scroll-mt-24 space-y-4">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-3xl font-bold text-neutral-900">
+        Getting Started
+      </h2>
+      <p className="mt-1 text-base text-neutral-600">
+        A quick tour of the main things you need to do first: watch the
+        overview, set up your account, and explore the Dashboard.
+      </p>
+    </div>
+  </div>
 
-          <section id="dashboard-basics" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-2">Dashboard Basics</h2>
-            <p className="text-sm text-gray-600">
-              The Dashboard displays all predictors/datasets/folders that you have created. Learn how to navigate the dashboard.
-            </p><br />
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li> The <Link to="/dashboard" className="text-blue-500 underline">
-                Dashboard
-              </Link> displays all <Link to="/dashboard?tab=predictors" className="text-blue-500 underline">
-                  predictors
-                </Link>/<Link to="/dashboard?tab=datasets" className="text-blue-500 underline">
-                  datasets
-                </Link>/<Link to="/dashboard?tab=folders" className="text-blue-500 underline">
-                  folders
-                </Link> that you have created or have been granted access to.</li>
-              <li> You may drag and drop predictors, and datasets into the sidebar of folders to organize them.</li>
-              <li> Click on an item’s card to view, edit, or delete it using the action buttons that appear.</li>
-            </ul>
-          </section>
-
-          {/* Working with Datasets */}
-          <section id="datasets" className="scroll-mt-20">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Datasets and Folders
-            </h1>
-            <p className="text-sm text-gray-600">
-              Upload datasets, organize them into folders, and manage stored data.
-            </p>
-          </section>
-
-          <section id="upload-dataset" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Upload a Dataset</h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>You can <Link to="/datasets/new" className="text-blue-500 underline">
-                upload a dataset
-              </Link> using the Create button in the Dashboard</li>
-              <li>Customize the dataset name and description as needed.</li>
-              <li>Please ensure that your dataset file is in a supported format (e.g., .csv) and that there are no missing values.
-                Otherwise, the upload may fail or produce incorrect results.</li>
-              <li>After uploading, open the Datasets tab and click the dataset’s card to view or manage it.</li>
-            </ul>
-          </section>
-
-          <section id="folder-management" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Folder Management</h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>You may create new folders using the Create button in the Dashboard.</li>
-              <li>You may organize datasets and predictors into folders by drag-and-drop,
-                when uploading a dataset or even when creating a folder.</li>
-            </ul>
-          </section>
-
-          {/* Creating Predictors       */}
-          <section id="predictors" className="scroll-mt-20">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Building Predictors
-            </h1>
-            <p className="text-sm text-gray-600">
-              Learn how to train, retrain, and manage predictive models for survival prediction analyses.
-            </p>
-          </section>
-
-          <section id="save-draft" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Save Draft Predictor</h2>
-            <p className="text-sm text-gray-600">
-              When creating a new predictor, you can save it as a draft without training.
-              This allows you to set up the predictor configuration and return later to train it.
-            </p><br />
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>Proceed to create a predictor as you normally would but instead click the 'Back' button and choose to
-                'Save as Draft' when prompted.</li>
-              <li>However, if a dataset is not selected, you cannot save the predictor as a draft and will be prompted to choose one.</li>
-              <li>You may now return to the Predictors on the Dashboard tab to view, train or manage your draft predictors.</li>
-              <li>All draft predictors are private by default until trained after which the predictor can be made public</li>
-            </ul>
-          </section>
-
-          <section id="train-predictor" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Train a Predictor</h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>A predictor is trained on a selected dataset and can use multiple features depending on customised configuration.</li>
-              <li>A predictor can be trained and saved during creation or can be saved as a draft to train later.</li>
-              <li>The website currently supports the MTLR model. However, more models can be added with the discretion of the administrators.</li>
-            </ul>
-          </section>
-
-          <section id="retrain-predictor" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Retrain a Predictor</h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>A trained predictor can be retrained with a new configuration of features.</li>
-              <li>A newly retrained predictor may be saved as a new predictor or overwrite the existing one as requested during the retraining.</li>
-            </ul>
-          </section>
-
-          <section id="predictor-detail" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Predictor Detail Page</h2>
-            <p className="text-sm text-gray-600">
-              Includes metrics, training history, permissions, and prediction interface. You may view detailed information about each predictor on its detail page such as:
-            </p><br />
-            <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1">
-              <li>General Statistics of the dataset</li>
-              <li>Feature Correlations in the dataset</li>
-              <li>Event Time Histogram & Predicted Survival Histogram</li>
-              <li>Advanced Settings for training/retraining the predictor</li>
-              <li>Numerous Cross Validations</li>
-            </ol>
-          </section>
-
-          {/* Using Predictors          */}
-          <section id="using-predictors" className="scroll-mt-20">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Using Predictors
-            </h1>
-            <p className="text-sm text-gray-600">
-              Survival Analysis Predictions
-            </p>
-          </section>
-
-          <section id="use-predictor" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Make Predictions</h2>
-          </section>
-
-          <section id="filter-search" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Filtering & Search</h2>
-
-          </section>
-
-          {/* Help and Support */}
-          <section id="help" className="scroll-mt-20">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Help & Support
-            </h1>
-            <p className="text-sm text-gray-600">
-              Get answers to common issues and learn key terminology.
-            </p>
-          </section>
-
-          <section id="troubleshooting" className="scroll-mt-20">
-            <h2 className="text-xl font-semibold mb-3">Troubleshooting</h2>
-            <p className="text-sm">
-              Common issues and their solutions.
-            </p><br />
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li>Please ensure that your datasets do not have missing values. If they do, the dataset verification will fail.</li>
-              <li>Please reach out to the <a href="mailto:rgreiner@ualberta.ca,asgarian@ualberta.ca" className="text-blue-500 underline">
-                administrators
-              </a> for help in resolving any further issues.</li>
-            </ul>
-          </section>
-
-          <section id="glossary" className="scroll-mt-20 mb-10">
-            <h2 className="text-xl font-semibold mb-3">Glossary</h2>
-            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-              <li><strong>ISD</strong> - Individual Survival Distributions</li>
-              <li><strong>Uncensored Data</strong> – Survival time that fully captures a patient’s entire lifespan (i.e., complete data).</li>
-              <li><strong>Censored Data</strong> – Incomplete survival time information that represents only a lower bound of a patient’s lifespan. This is common in survival datasets and is a key challenge in the client’s research.</li>
-              <li><strong>KM Curve (Kaplan–Meier)</strong> – A standard estimator of the survival function used for comparison.</li>
-            </ul>
-          </section>
-
+  {/* Video Walkthrough */}
+  <section id="overview" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-neutral-50">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Video Walkthrough
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Short tour of the site, from upload to prediction.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md bg-neutral-900 px-2 py-0.5 text-xs font-semibold uppercase text-white">
+            RECOMMENDED
+          </span>
+          <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3 text-sm text-neutral-600">
+        <p>
+          Start with a short tour of the site. It shows how to upload datasets,
+          train predictors, and run predictions.
+        </p>
+        <div className="mt-3 flex aspect-video w-full max-w-3xl items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-100">
+          Embed tutorial video here.
         </div>
       </div>
+    </details>
+  </section>
+
+  {/* Account Details */}
+  <section id="edit-profile" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Account Details
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Step 1 - Create an account and manage your profile.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            <Link to="/signup" className="text-blue-600 underline">
+              Sign up
+            </Link>{" "}
+            and{" "}
+            <Link to="/signup" className="text-blue-600 underline">
+              sign in
+            </Link>{" "}
+            to access the Dashboard.
+          </li>
+          <li>• 
+            Use{" "}
+            <Link to="/settings" className="text-blue-600 underline">
+              Settings
+            </Link>{" "}
+            to edit your profile or change your password.
+          </li>
+          <li>
+            • Need elevated access? Email the{" "}
+            <a
+              href="mailto:rgreiner@ualberta.ca,asgarian@ualberta.ca"
+              className="text-blue-600 underline"
+            >
+              administrators
+            </a>{" "}
+            to request Superuser/Admin permissions.
+          </li>
+          <li>
+            • Locked out? Click{" "}
+            <Link to="/reset" className="text-blue-600 underline">
+              Forgot Password?
+            </Link>{" "}
+            on the sign-in page.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Dashboard Basics */}
+  <section id="dashboard-basics" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Dashboard Basics
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Step 2 - Find and manage your datasets, predictors, and folders.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <p className="mb-2 text-sm text-neutral-600">
+          The Dashboard is your home base for datasets, predictors, and folders.
+        </p>
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Open the{" "}
+            <Link to="/dashboard" className="text-blue-600 underline">
+              Dashboard
+            </Link>{" "}
+            to see all{" "}
+            <Link
+              to="/dashboard?tab=predictors"
+              className="text-blue-600 underline"
+            >
+              predictors
+            </Link>
+            ,{" "}
+            <Link
+              to="/dashboard?tab=datasets"
+              className="text-blue-600 underline"
+            >
+              datasets
+            </Link>
+            , and{" "}
+            <Link
+              to="/dashboard?tab=folders"
+              className="text-blue-600 underline"
+            >
+              folders
+            </Link>{" "}
+            you can access.
+          </li>
+          <li>• Drag and drop items into folders to keep things organized.</li>
+          <li>
+            • Click a card to reveal actions like{" "}
+            <span className="font-medium">View</span>,{" "}
+            <span className="font-medium">Edit</span>, or{" "}
+            <span className="font-medium">Delete</span>.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+</section>
+
+{/* Datasets & Folders */}
+<section id="datasets" className="scroll-mt-24 space-y-4">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-3xl font-bold text-neutral-900">
+        Datasets and Folders
+      </h2>
+      <p className="mt-1 text-base text-neutral-600">
+        Upload your data and organize it so you can find the
+        right dataset when you need it.
+      </p>
     </div>
-  );
-}
+  </div>
+
+  {/* Upload Dataset */}
+  <section id="upload-dataset" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Upload a Dataset
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Required - add your data before you can train a predictor.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold uppercase text-neutral-700">
+            Required
+          </span>
+          <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Use the <span className="font-medium">Create</span> menu on the{" "}
+            <Link to="/dashboard" className="text-blue-600 underline">
+              Dashboard
+            </Link>{" "}
+            or go directly to{" "}
+            <Link to="/datasets/new" className="text-blue-600 underline">
+              Upload Dataset
+            </Link>
+            .
+          </li>
+          <li>• Give your dataset a clear name and description.</li>
+          <li>
+            • Ensure the file is in a supported format (e.g.{" "}
+            <code className="rounded bg-neutral-100 px-1 text-xs">
+              .csv
+            </code>
+            ) and that missing values are handled before upload.
+          </li>
+          <li>
+            • After uploading, open the{" "}
+            <span className="font-medium">Datasets</span> tab to review or
+            manage it.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Folder Management */}
+  <section id="folder-management" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Folder Management
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Optional but recommended - keep related items together.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-semibold uppercase text-neutral-700">
+            Optional
+          </span>
+          <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </div>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Create new folders from the Dashboard using the{" "}
+            <span className="font-medium">Create &gt; Folder</span> option.
+          </li>
+          <li>
+            • Drag datasets and predictors onto folder cards or the folder
+            sidebar to move them.
+          </li>
+          <li>
+            • Use folders to group items by project, study, or experiment for
+            easier navigation.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+</section>
+
+{/* Building Predictors */}
+<section id="predictors" className="scroll-mt-24 space-y-4">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-3xl font-bold text-neutral-900">
+        Building Predictors
+      </h2>
+      <p className="mt-1 text-base text-neutral-600">
+        Configure, train, and retrain predictive models for survival
+        analysis.
+      </p>
+    </div>
+  </div>
+
+  {/* Save Draft */}
+  <section id="save-draft" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Save Draft Predictor
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Capture your configuration even if you aren’t ready to train yet.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Start creating a predictor, then click{" "}
+            <span className="font-medium">Back</span> and choose{" "}
+            <span className="font-medium">Save as Draft</span>.
+          </li>
+          <li>
+            • You must select a dataset before saving; otherwise you’ll be
+            prompted to pick one.
+          </li>
+          <li>
+            • Draft predictors appear on the{" "}
+            <span className="font-medium">Predictors</span> tab of the
+            Dashboard and are private by default.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Train Predictor */}
+  <section id="train-predictor" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Train a Predictor
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Turn your dataset into a working survival model.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            •  Choose a dataset, configure features and settings, then click{" "}
+            <span className="font-medium">Train &amp; Save</span>.
+          </li>
+          <li>
+            •  The current system supports the{" "}
+            <span className="font-medium">MTLR</span> model; additional
+            models may be added by administrators.
+          </li>
+          <li>
+            •  After training, the predictor’s status and metrics are shown on its
+            detail page.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Retrain Predictor */}
+  <section id="retrain-predictor" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Retrain a Predictor
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Update an existing model with new feature selections or settings.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Open a trained predictor and adjust its configuration (features,
+            time points, etc.).
+          </li>
+          <li>
+            • Retrain and either overwrite the existing predictor or save the
+            result as a new predictor.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Predictor Detail Page */}
+  <section id="predictor-detail" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-neutral-50">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Predictor Detail Page
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            See how a predictor was trained, how it performs, and how it can be
+            reused.
+          </span>
+        </div>
+        <span className="rounded-md bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-700 ">
+          Metrics • Settings • Permissions
+        </span>
+                <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ol className="grid gap-2 text-sm text-neutral-700 md:grid-cols-2">
+          <li className="rounded-md bg-white px-3 py-2 shadow-sm">
+            <span className="font-medium">Dataset statistics</span>
+            <p className="mt-1 text-xs text-neutral-600">
+              View high-level details about the dataset used to train the
+              predictor.
+            </p>
+          </li>
+          <li className="rounded-md bg-white px-3 py-2 shadow-sm">
+            <span className="font-medium">Feature correlations</span>
+            <p className="mt-1 text-xs text-neutral-600">
+              Inspect correlation plots to understand feature relationships.
+            </p>
+          </li>
+          <li className="rounded-md bg-white px-3 py-2 shadow-sm">
+            <span className="font-medium">
+              Event time &amp; predicted survival histograms
+            </span>
+            <p className="mt-1 text-xs text-neutral-600">
+              Compare observed event times with predicted survival outputs.
+            </p>
+          </li>
+          <li className="rounded-md bg-white px-3 py-2 shadow-sm">
+            <span className="font-medium">Advanced settings &amp; CV</span>
+            <p className="mt-1 text-xs text-neutral-600">
+              Review advanced training options and cross-validation results.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </details>
+  </section>
+</section>
+
+{/* Using Predictors */}
+<section id="using-predictors" className="scroll-mt-24 space-y-4">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-3xl font-bold text-neutral-900">
+        Using Predictors
+      </h2>
+      <p className="mt-1 text-base text-neutral-600">
+        Run survival predictions and quickly find the models you need.
+      </p>
+    </div>
+  </div>
+
+  {/* Make Predictions */}
+  <section id="use-predictor" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Make Predictions
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Use a trained predictor to generate survival predictions.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Open a predictor’s detail page from the{" "}
+            <span className="font-medium">Predictors</span> tab.
+          </li>
+          <li>
+            • Upload or enter input data using the prediction interface.
+          </li>
+          <li>
+            • Compare model predictions with baseline methods such as KM curves
+            when available.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Filtering & Search */}
+  <section id="filter-search" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Filtering &amp; Search
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Quickly find specific datasets, predictors, or folders.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Use the search bar on the Dashboard to match by title or notes.
+          </li>
+          <li>
+            • Apply filters (ownership, updated within, etc.) to narrow down large
+            collections.
+          </li>
+          <li>
+            • For folders, filter by type (predictors, datasets, mixed) and sort
+            by name or recency.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+</section>
+
+{/* Help & Support */}
+<section id="help" className="scroll-mt-24 space-y-4">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <h2 className="text-3xl font-bold text-neutral-900">
+        Help &amp; Support
+      </h2>
+      <p className="mt-1 text-base text-neutral-600">
+        Fix common issues and understand key survival analysis terms.
+      </p>
+    </div>
+  </div>
+
+  {/* Troubleshooting */}
+  <section id="troubleshooting" className="scroll-mt-24">
+    <details className="group rounded-lg border border-neutral-200 bg-white">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Troubleshooting
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Quick checks before you email for help.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            • Ensure your datasets do not contain missing values; otherwise
+            verification will fail.
+          </li>
+          <li>
+            • Double-check that your file format is supported and column names
+            match expectations.
+          </li>
+          <li>
+            • If issues persist, contact the{" "}
+            <a
+              href="mailto:rgreiner@ualberta.ca,asgarian@ualberta.ca"
+              className="text-blue-600 underline"
+            >
+              administrators
+            </a>{" "}
+            with a short description and (if possible) example data.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  {/* Glossary */}
+  <section id="glossary" className="scroll-mt-24 mb-10">
+    <details className="group rounded-lg border border-neutral-200 bg-neutral-50">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wide text-neutral-800">
+            Glossary
+          </span>
+          <span className="mt-0.5 text-xs text-neutral-600">
+            Key terms you’ll see throughout the site and documentation.
+          </span>
+        </div>
+        <span className="text-xl text-neutral-500 transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
+        <ul className="space-y-1.5 text-sm text-neutral-700">
+          <li>
+            <strong>ISD</strong> – Individual Survival Distributions.
+          </li>
+          <li>
+            <strong>Uncensored Data</strong> – Survival time that fully captures
+            a patient’s entire lifespan (complete data).
+          </li>
+          <li>
+            <strong>Censored Data</strong> – Incomplete survival information
+            that only provides a lower bound on lifespan; common in survival
+            datasets.
+          </li>
+          <li>
+            <strong>KM Curve (Kaplan–Meier)</strong> – A standard estimator of
+            the survival function used for comparison.
+          </li>
+        </ul>
+      </div>
+    </details>
+  </section>
+</section>
+
+ </div> </main> </div> </section> ); }
