@@ -272,26 +272,30 @@ export default function PredictorDetailPage() {
       >
         <div className="mx-auto max-w-6xl">
           <nav className="flex justify-center gap-2 px-3 py-3">
-            {(["meta", "dataset", "retrain", "cross-validation"] as Tab[]).map(
-              (tab) => {
-                const isActive = activeTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`rounded-md px-3.5 py-2 text-xs font-medium capitalize transition sm:text-sm ${
-                      isActive
-                        ? "border border-neutral-900 bg-neutral-900 text-white shadow-sm"
-                        : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-200"
-                    }`}
-                  >
-                    {tab === "retrain"
-                      ? "Predictor Settings / Retrain"
-                      : tab.replace("-", " ")}
-                  </button>
-                );
-              }
-            )}
+            {(
+              ["meta", "dataset", "retrain", "cross-validation"] as Tab[]
+            ).map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    // Smooth scroll to top on tab change
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`rounded-md px-3.5 py-2 text-xs sm:text-sm font-medium capitalize transition ${
+                    isActive
+                      ? "border border-neutral-900 bg-neutral-900 text-white shadow-sm"
+                      : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-200"
+                  }`}
+                >
+                  {tab === "retrain"
+                    ? "Predictor Settings / Retrain"
+                    : tab.replace("-", " ")}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </div>

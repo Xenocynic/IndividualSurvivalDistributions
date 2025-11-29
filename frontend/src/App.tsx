@@ -19,11 +19,14 @@ import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
 import PredictorDraftEdit from "./pages/PredictorDraftEdit";
+import ScrollToTop from "./components/ScrollToTop";
 
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route element={<AppLayout />}>
         {/* Public for everyone */}
         <Route index element={<Landing />} />
@@ -60,5 +63,6 @@ export default function App() {
         <Route path='*' element={<Navigate to='/' replace />} />
       </Route>
     </Routes>
+    </>
   );
 }

@@ -143,6 +143,8 @@ export default function Dashboard() {
       { replace: true }
     ); // avoid history spam
     clearSelection();
+    // Smooth scroll to top on tab change
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // --- TANSTACK QUERY INTEGRATION ---
@@ -839,31 +841,25 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* loading indicator or skeleton - only show if loading AND no data */}
-        {isLoading &&
-        ((activeTab === "predictors" && predictors.length === 0) ||
-          (activeTab === "datasets" && datasets.length === 0) ||
-          (activeTab === "folders" && folders.length === 0)) ? (
-          <div className="mx-auto flex max-w-6xl gap-4 px-3 py-6">
-            {/* Left: folder sidebar skeleton to mirror layout */}
-            <aside className="w-64 shrink-0">
-              <div className="overflow-hidden rounded-md border border-black bg-white p-3 shadow-sm">
-                <div className="h-4 w-24 animate-pulse rounded bg-neutral-100" />
-                <div className="mt-3 space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-md border border-neutral-100 bg-neutral-50 px-3 py-2"
-                    >
-                      <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
-                      <div className="h-3 w-6 animate-pulse rounded bg-neutral-200" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </aside>
+        {/* Main Content Area */}
+        <div className="mx-auto flex max-w-6xl gap-4 px-3 pb-6">
+          {/* Folder sidebar - always rendered for predictors/datasets tabs */}
+          <FolderSidebar
+            onItemMoved={async (_itemId, _folderId) => {
+              queryClient.invalidateQueries({ queryKey: ["folders"] });
+            }}
+            className={
+              activeTab === "folders"
+                ? "hidden"
+                : "w-64 shrink-0 overflow-hidden rounded-md border border-black bg-white shadow-sm"
+            }
+          />
 
-            {/* Right: main grid skeleton */}
+          {/* Loading skeleton - shown when loading with no data */}
+          {isLoading &&
+          ((activeTab === "predictors" && predictors.length === 0) ||
+            (activeTab === "datasets" && datasets.length === 0) ||
+            (activeTab === "folders" && folders.length === 0)) ? (
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
                 <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
@@ -871,7 +867,7 @@ export default function Dashboard() {
                   Loading {activeTab}...
                 </div>
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={`mt-4 grid gap-4 ${activeTab === "folders" ? "sm:grid-cols-1 lg:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
@@ -884,21 +880,7 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-          </div>
-        ) : null}
-
-        {/* Main Content Area */}
-        <div className="mx-auto flex max-w-6xl gap-4 px-3 pb-6">
-          <FolderSidebar
-            onItemMoved={async (_itemId, _folderId) => {
-              queryClient.invalidateQueries({ queryKey: ["folders"] });
-            }}
-            className={
-              activeTab === "folders"
-                ? "hidden"
-                : "w-64 shrink-0 overflow-hidden rounded-md border border-black bg-white shadow-sm"
-            }
-          />
+          ) : (
 
           <div className="min-w-0 flex-1 transition-all duration-300">
             {activeTab === "folders" ? (
@@ -1200,6 +1182,7 @@ export default function Dashboard() {
               />
             )}
           </div>
+          )}
         </div>
       </section>
     </DragDropProvider>
