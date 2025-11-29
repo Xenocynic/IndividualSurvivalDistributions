@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Final Documentaion - Fall 2025 EZ Survival Project</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Final Documentaion";
+        var mkdocs_page_input_path = "final.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Fall 2025 EZ Survival Project
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../requirements/">Project Requirements</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../design/">Software Design</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../management/">Project Management</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../teamwork/">Teamwork</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Final Documentaion</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#deployment-instructions">Deployment Instructions</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#user-manual">User Manual</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-getting-started">1. Getting Started</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#11-creating-an-account">1.1 Creating an Account</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#12-logging-in-and-resetting-your-password">1.2 Logging In and Resetting Your Password</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#13-updating-your-account-information">1.3 Updating Your Account Information</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-managing-data">2. Managing Data</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#21-preparing-your-dataset">2.1 Preparing Your Dataset</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#22-uploading-a-dataset">2.2 Uploading a Dataset</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#23-organizing-data-with-folders">2.3 Organizing Data with Folders</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-building-predictive-models">3. Building Predictive Models</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#31-creating-a-new-predictor">3.1 Creating a New Predictor</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#32-saving-a-predictor-as-a-draft">3.2 Saving a Predictor as a Draft</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#33-training-a-predictor">3.3 Training a Predictor</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#34-retraining-an-existing-predictor">3.4 Retraining an Existing Predictor</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-making-predictions">4. Making Predictions</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#41-performing-survival-analysis-predictions">4.1 Performing Survival Analysis Predictions</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#42-viewing-predictor-details">4.2 Viewing Predictor Details</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#43-searching-and-filtering-predictors">4.3 Searching and Filtering Predictors</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#5-help-and-support">5. Help and Support</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#51-troubleshooting-common-issues">5.1 Troubleshooting Common Issues</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#52-glossary-of-key-terms">5.2 Glossary of Key Terms</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#job-description">Job description</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#full-stack-developer-ez-survival-prediction-platform">Full-Stack Developer — EZ Survival Prediction Platform</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#responsibilities">Responsibilities</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#required-skills">Required Skills</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#nice-to-have-skills">Nice-to-Have Skills</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#personal-qualities">Personal Qualities</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Fall 2025 EZ Survival Project</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Final Documentaion</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="project-management"><strong>Project Management</strong></h1>
+<h2 id="deployment-instructions">Deployment Instructions</h2>
+<p><br><br><br></p>
+<h2 id="user-manual">User Manual</h2>
+<p>This user manual is designed for clinicians, medical researchers, engineers, analysts, and other professionals who work with spreadsheets but may not have programming experience. The goal is to provide clear, task-oriented steps to help you upload survival datasets, build predictive models, and generate Individual Survival Distributions (ISDs) using the EZ Survival Prediction platform.</p>
+<p>If you need assistance beyond what is covered here, contact the system administrators or refer to the support section.</p>
+<hr />
+<h3 id="1-getting-started">1. Getting Started</h3>
+<h4 id="11-creating-an-account">1.1 Creating an Account</h4>
+<p>To begin using the system, you must create a user account.</p>
+<p><strong>How to Sign Up?</strong></p>
+<ol>
+<li>Open the website in your browser.  </li>
+<li>Select the <strong>Sign Up</strong> option.  </li>
+<li>Enter your name, email address, and a password.  </li>
+<li>Submit the form.  </li>
+<li>Log in using the credentials you just created.</li>
+</ol>
+<p>If you require higher-level access (such as superuser or admin privileges), please contact the system administrators.</p>
+<h4 id="12-logging-in-and-resetting-your-password">1.2 Logging In and Resetting Your Password</h4>
+<p>If you already have an account:</p>
+<p><strong>How to log in?</strong></p>
+<ol>
+<li>Open the website.  </li>
+<li>Select <strong>Log In</strong> and enter your username and password.  </li>
+</ol>
+<p><strong>Oops! I forgot my password.</strong></p>
+<ol>
+<li>Select <strong>Forgot Password?</strong>  </li>
+<li>Enter your registered email address.  </li>
+<li>Check your inbox for a reset link.  </li>
+<li>Choose a new password and log in again.</li>
+</ol>
+<h4 id="13-updating-your-account-information">1.3 Updating Your Account Information</h4>
+<p>You can change your name, email, or password while logged in.</p>
+<p><strong>How to update personal details?</strong></p>
+<ol>
+<li>Navigate to your <strong>Settings</strong> page.  </li>
+<li>Update any field you wish to change.  </li>
+<li>Save your changes before leaving the page.</li>
+</ol>
+<hr />
+<h3 id="2-managing-data">2. Managing Data</h3>
+<p>EZ Survival Prediction is built around survival datasets that you upload. The system supports spreadsheets in CSV format and is designed for users familiar with typical spreadsheet tools.</p>
+<h4 id="21-preparing-your-dataset">2.1 Preparing Your Dataset</h4>
+<p>Before uploading, ensure your dataset includes:
+- A survival time column<br />
+- An event indicator (e.g., 0 for censored, 1 for event)<br />
+- Predictor features (age, treatment type, lab results, etc.)  </p>
+<p>Avoid missing values. They may prevent the model from training properly.</p>
+<h4 id="22-uploading-a-dataset">2.2 Uploading a Dataset</h4>
+<p><strong>How to add data to the system?</strong></p>
+<ol>
+<li>Go to the <strong>Datasets</strong> section.  </li>
+<li>Select the option to <strong>Create a New Dataset</strong>.  </li>
+<li>Provide a name and (optionally) a description.  </li>
+<li>Choose the correct time unit (e.g., years, months).  </li>
+<li>Select your CSV file.  </li>
+<li>Choose who can view the dataset:<br></li>
+<li><strong>Private:</strong> only you and users you grant access to  </li>
+<li><strong>Public:</strong> all users  </li>
+<li>Save the dataset.</li>
+</ol>
+<p>Once uploaded, the dataset becomes available for training predictors.</p>
+<h4 id="23-organizing-data-with-folders">2.3 Organizing Data with Folders</h4>
+<p>You can group datasets into folders to keep large projects organized.</p>
+<p><strong>How to use the Folder System?</strong></p>
+<ol>
+<li>Create a new folder if needed.  </li>
+<li>Drag datasets into the folder or assign them when creating or editing.  </li>
+</ol>
+<p>Folders do not affect the behavior of datasets. They simply help you stay organized.</p>
+<hr />
+<h3 id="3-building-predictive-models">3. Building Predictive Models</h3>
+<p>The system allows you to create <strong>predictors</strong>, which are machine-learning models trained on your datasets.</p>
+<h4 id="31-creating-a-new-predictor">3.1 Creating a New Predictor</h4>
+<p><strong>How to create a predictor?</strong></p>
+<ol>
+<li>Navigate to the <strong>Predictors</strong> section.  </li>
+<li>Select <strong>Create Predictor</strong>.  </li>
+<li>Enter a name and optional notes.  </li>
+<li>Choose which dataset the predictor will use.  </li>
+<li>Choose whether the predictor should be public or private.  </li>
+</ol>
+<p>At this point, you may train the model or save your work as a draft for later.</p>
+<h4 id="32-saving-a-predictor-as-a-draft">3.2 Saving a Predictor as a Draft</h4>
+<p>A draft predictor allows you to set up model configuration without training it immediately.</p>
+<p><strong>How to save a draft?</strong></p>
+<ol>
+<li>Begin creating a predictor.  </li>
+<li>Instead of training, click <strong>Back</strong> and then choose the option to <strong>Save as Draft</strong>.  </li>
+<li>Return to drafts later to complete training or edit the details or dataset selected.</li>
+</ol>
+<p>Drafts are always private until they have been trained.</p>
+<h4 id="33-training-a-predictor">3.3 Training a Predictor</h4>
+<p>Training builds the model using the dataset and selected parameters.</p>
+<p><strong>How to train a predictor?</strong></p>
+<ol>
+<li>Choose <strong>Train &amp; Save</strong> while creating a predictor, <strong>or</strong> open a draft predictor and select <strong>Train</strong>.  </li>
+<li>Adjust training settings if required (e.g., which features to include).  </li>
+<li>Start the training process.  </li>
+</ol>
+<p>The platform currently supports the <strong>MTLR (Multi-Task Logistic Regression)</strong> survival model. Administrators may add more model types later.</p>
+<p>After training completes, the predictor becomes fully usable.</p>
+<h4 id="34-retraining-an-existing-predictor">3.4 Retraining an Existing Predictor</h4>
+<p>You can improve or update a predictor by retraining it.</p>
+<p><strong>How to retrain a predictor?</strong></p>
+<ol>
+<li>Open the predictor you wish to retrain.  </li>
+<li>Update any settings or parameters.  </li>
+<li>Start retraining.  </li>
+<li>Choose whether to replace the existing predictor or save the retrained version as a new one.</li>
+</ol>
+<p>You may not change the dataset while retraining, only the paginated features.</p>
+<hr />
+<h3 id="4-making-predictions">4. Making Predictions</h3>
+<p>Predictors allow you to generate <strong>Individual Survival Distributions (ISDs)</strong> for new individuals.</p>
+<h4 id="41-performing-survival-analysis-predictions">4.1 Performing Survival Analysis Predictions</h4>
+<ol>
+<li>You may now use your trained model on labelled and unlabelled datasets to perform survival analysis predictions.</li>
+<li>The results will be saved for further research. </li>
+</ol>
+<h4 id="42-viewing-predictor-details">4.2 Viewing Predictor Details</h4>
+<p>Every predictor includes:<br>
+- Dataset summary<br />
+- Feature correlations<br />
+- Event time and survival histograms<br />
+- Cross-validation metrics<br />
+- Training configurations  </p>
+<p>Review these details to understand model performance.</p>
+<h4 id="43-searching-and-filtering-predictors">4.3 Searching and Filtering Predictors</h4>
+<p>If you work with many predictors or datasets, use:<br>
+- The search bar to find items by name<br />
+- Filters to view items you own or items shared with you  </p>
+<p>These tools make it easier to manage large research projects.</p>
+<hr />
+<h3 id="5-help-and-support">5. Help and Support</h3>
+<h4 id="51-troubleshooting-common-issues">5.1 Troubleshooting Common Issues</h4>
+<p><strong>Dataset upload fails</strong><br />
+- Check for missing values or unsupported formats.<br />
+- Ensure all required columns exist.</p>
+<p><strong>Predictor training fails</strong><br />
+- Verify that your dataset contains only valid numeric values.<br />
+- Try simplifying the model configuration.<br />
+- The ML service may be temporarily unavailable. Please try again later.</p>
+<p><strong>Prediction fails</strong><br />
+- Ensure all required feature fields are filled in properly.</p>
+<h4 id="52-glossary-of-key-terms">5.2 Glossary of Key Terms</h4>
+<p><strong>ISD (Individual Survival Distribution):</strong><br />
+A probability curve showing the likelihood of survival over time for a specific individual.</p>
+<p><strong>Censored Data:</strong><br />
+Data where the complete survival time is unknown. Common when patients are lost to follow-up.</p>
+<p><strong>Uncensored Data:</strong><br />
+Data where the full survival time is observed.</p>
+<p><strong>Kaplan–Meier Curve:</strong><br />
+A statistical method used to estimate survival probability from observed data.<br><br><br></p>
+<h2 id="job-description">Job description</h2>
+<h3 id="full-stack-developer-ez-survival-prediction-platform">Full-Stack Developer — EZ Survival Prediction Platform</h3>
+<p><strong>Position:</strong> Full-Stack Developer<br />
+<strong>Project:</strong> EZ Survival Prediction / ISD Web Application<br />
+<strong>Type:</strong> Full-time or Part-time Contract<br />
+<strong>Location:</strong> Remote or On-site  </p>
+<hr />
+<h4 id="overview">Overview</h4>
+<p>EZ Survival Prediction is a modern, full-stack platform that enables researchers and professionals to upload survival datasets, train machine-learning survival models, evaluate results, and generate Individual Survival Distributions (ISDs).</p>
+<p>The system replaces the older PSSP site and consists of:</p>
+<ul>
+<li>A <strong>React / TypeScript / Vite</strong> frontend  </li>
+<li>A <strong>Django REST Framework</strong> backend  </li>
+<li>A <strong>Python / Flask</strong> machine-learning microservice  </li>
+</ul>
+<p>We are seeking a developer to support, maintain, and extend this system after its initial release. The ideal candidate is comfortable working across the stack, deploying applications, and communicating with non-technical stakeholders.</p>
+<hr />
+<h4 id="responsibilities">Responsibilities</h4>
+<ul>
+<li>Deploy, configure, and maintain the full system (frontend, backend, ML service) on Linux servers or cloud environments.  </li>
+<li>Monitor system health, troubleshoot issues, and resolve bugs to ensure stability.  </li>
+<li>Manage datasets, models, user permissions, authentication flows, and backend components.  </li>
+<li>Implement new features, model types, and UI improvements based on client and research needs.  </li>
+<li>Improve usability and accessibility for non-technical users.  </li>
+<li>Collaborate with machine-learning researchers to integrate new survival analysis tools or datasets.  </li>
+<li>Maintain security practices, including handling private datasets, JWT authentication, and CORS settings.  </li>
+<li>Update technical documentation and contribute to long-term maintainability.</li>
+</ul>
+<hr />
+<h4 id="required-skills">Required Skills</h4>
+<ul>
+<li>Strong proficiency in <strong>Python</strong>, including <strong>Django</strong> and <strong>Django REST Framework</strong>.  </li>
+<li>Experience with <strong>React</strong>, <strong>TypeScript</strong>, <strong>Vite</strong>, and component-based frontend development.  </li>
+<li>Knowledge of relational databases (PostgreSQL preferred).  </li>
+<li>Experience building and consuming REST APIs.  </li>
+<li>Understanding of <strong>JWT authentication</strong> and modern web security.  </li>
+<li>Ability to deploy applications using:</li>
+<li>Linux servers  </li>
+<li>Nginx / Gunicorn / Uvicorn  </li>
+<li>Docker (preferred but not required)  </li>
+<li>Familiarity with machine-learning workflows; survival analysis experience is an asset.  </li>
+<li>Experience with Python ML libraries (pandas, NumPy, scikit-learn; PyTorch optional).</li>
+</ul>
+<hr />
+<h4 id="nice-to-have-skills">Nice-to-Have Skills</h4>
+<ul>
+<li>Knowledge of survival analysis models (MTLR, Cox, DeepSurv).  </li>
+<li>Experience designing or maintaining microservices.  </li>
+<li>CI/CD experience using <strong>GitHub Actions</strong>.  </li>
+<li>Testing experience (pytest, Selenium, Django tests).  </li>
+<li>UI/UX experience, especially for research-focused tools.</li>
+</ul>
+<hr />
+<h4 id="personal-qualities">Personal Qualities</h4>
+<ul>
+<li>Strong communication skills when working with non-technical users.  </li>
+<li>Ability to work independently, prioritize tasks, and explain technical decisions clearly.  </li>
+<li>Organized, reliable, and committed to long-term system stability.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../teamwork/" class="btn btn-neutral float-left" title="Teamwork"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../teamwork/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
