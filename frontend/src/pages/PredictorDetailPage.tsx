@@ -269,7 +269,11 @@ export default function PredictorDetailPage() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    // Smooth scroll to top on tab change
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                   className={`rounded-md px-3.5 py-2 text-xs sm:text-sm font-medium capitalize transition ${
                     isActive
                       ? "border border-neutral-900 bg-neutral-900 text-white shadow-sm"
