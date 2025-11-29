@@ -133,6 +133,8 @@ export default function Browse() {
       );
       setSelectedPredictorId(null);
       setSelectedDatasetId(null);
+      // Smooth scroll to top on tab change
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [setSearchParams]
   );
