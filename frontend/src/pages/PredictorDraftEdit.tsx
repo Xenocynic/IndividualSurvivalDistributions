@@ -18,6 +18,7 @@ import {
   type UserSuggestion,
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
+import AuthLoadingScreen from "../auth/AuthLoadingScreen"; 
 
 type PermRow = {
   id: number;
@@ -326,23 +327,15 @@ export default function PredictorDraftEdit() {
     setRows((r) => r.filter((x) => x.id !== id));
   }
   function updateRow(id: number, patch: Partial<PermRow>) {
-    setRows((r) => (r.map((x) => (x.id === id ? { ...x, ...patch } : x))));
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
   function handleUserSelect(id: number, user: UserSuggestion) {
     updateRow(id, { username: user.username, userId: user.id });
   }
 
+  // 🔄 use the shared fancy loading screen here
   if (loading) {
-    return (
-      <div className="min-h-[60vh] bg-neutral-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-700 mx-auto" />
-          <div className="mt-2 text-sm text-gray-600">
-            Loading predictor draft...
-          </div>
-        </div>
-      </div>
-    );
+    return <AuthLoadingScreen />;
   }
 
   return (
