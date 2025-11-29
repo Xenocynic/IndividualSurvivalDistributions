@@ -98,9 +98,9 @@ export default function Signup() {
 
         .signup-cta span.label {
           padding-bottom: 6px;
-          letter-spacing: 3px;
-          font-size: 11px;
-          text-transform: uppercase;
+          letter-spacing: 1px;
+          font-size: 13px;
+          text-transform: none;
         }
 
         .signup-cta svg.arrow {

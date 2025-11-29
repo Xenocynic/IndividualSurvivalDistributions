@@ -168,7 +168,7 @@ export default function DatasetView() {
           <div className="text-neutral-900 text-base font-semibold">{error}</div>
           <button
             onClick={() => navigate("/dashboard", { state: { tab: "datasets" } })}
-            className="mt-4 rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+            className="mt-4 rounded-md border px-4 py-2 text-sm hover:bg-neutral-50 cursor-pointer shadow-lg shadow-neutral-500/20 transition active:scale-[.95]"
           >
             Back to Dashboard
           </button>
@@ -185,24 +185,18 @@ export default function DatasetView() {
       <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-3 py-2.5">
           <button
-  type="button"
-  onClick={handleBack}
-  className="group flex h-10 w-24 items-center justify-center rounded-[3px] bg-white text-sm font-medium text-black tracking-[0.05em] transition-all duration-200 border-0 hover:-translate-y-0.5"
->
-  <svg
-    height="16"
-    width="16"
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 1024 1024"
-    className="ml-1 mr-1 h-4 w-4 transition-all duration-300 group-hover:-translate-x-1 group-hover:scale-110"
-  >
-    <path
-      fill="currentColor"
-      d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"
-    />
-  </svg>
-  <span>Go Back</span>
-</button>
+            type="button"
+            onClick={handleBack}
+            className="
+              inline-flex items-center justify-center
+              rounded-md bg-neutral-600
+              px-3 py-1.5 text-sm font-medium text-white
+              shadow-lg shadow-neutral-500/20
+              transition hover:bg-neutral-500 active:scale-95
+            "
+          >
+            Back
+          </button>
 
           <div className="text-sm font-semibold tracking-wide">View Dataset</div>
           <div className="w-[76px]" />
@@ -362,7 +356,7 @@ export default function DatasetView() {
               <button
                 onClick={handleRefreshStats}
                 disabled={isRefreshing}
-                className="rounded-md border bg-white px-3 py-1 text-xs text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-md border bg-white px-3 py-1 text-xs text-neutral-700 shadow-sm transition hover:bg-neutral-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
               >
                 {isRefreshing ? "Refreshing…" : "Refresh metrics"}
               </button>

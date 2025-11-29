@@ -377,7 +377,7 @@ export default function FolderCreationModal({
             <button
               type="submit"
               disabled={!folderName.trim() || Boolean(nameError) || isLoading}
-              className="relative overflow-hidden rounded-md bg-blue-600 px-5 py-2.5 text-sm text-white duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed [transition-timing-function:cubic-bezier(0.175,0.885,0.32,1.275)] active:translate-y-1 active:scale-x-110 active:scale-y-90"
+              className="relative overflow-hidden rounded-md bg-blue-600 px-5 py-2.5 text-sm text-white duration-300 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[.95]"
             >
               {isLoading ? "Creating..." : "Create Folder"}
             </button>

@@ -35,14 +35,22 @@ export function DeletePredictor({
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="
+              rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50
+              cursor-pointer shadow-lg shadow-neutral-500/20 transition active:scale-95
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+            "
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="
+              rounded-md bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700
+              cursor-pointer shadow-lg shadow-red-500/30 transition active:scale-95
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+            "
           >
             {isLoading ? "Deleting..." : "Delete"}
           </button>

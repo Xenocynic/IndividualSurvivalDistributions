@@ -375,7 +375,9 @@ export default function PredictorEdit() {
         <div className='mx-auto flex max-w-4xl items-center justify-between px-3 py-3'>
           <button
             onClick={onBack}
-            className='rounded border border-black/10 bg-white px-3 py-1.5 text-sm hover:bg-gray-100'
+            className="rounded border border-black/10 bg-white px-3 py-1.5 text-sm cursor-pointer
+                      shadow-lg shadow-neutral-500/20 transition
+                      hover:bg-gray-100 active:scale-95"
           >
             Back
           </button>
@@ -385,7 +387,7 @@ export default function PredictorEdit() {
           <button
             onClick={onSave}
             disabled={!canSave || saving}
-            className='rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50'
+            className="cursor-pointer rounded bg-black px-3 py-1.5 text-sm text-white shadow-lg shadow-neutral-500/20 transition active:scale-[.95] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -576,13 +578,11 @@ export default function PredictorEdit() {
                   >
                     <div className='flex items-center gap-2'>
                       <button
-                        className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
-                        title='Remove'
+                        className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 transition shadow-lg shadow-neutral-500/20 active:scale-[.95] disabled:opacity-50 disabled:active:scale-100"
+                        title="Remove"
                         onClick={() => removeShareRow(row)}
                         disabled={saving || row.isProcessing}
-                      >
-                        ✕
-                      </button>
+                      >✕</button>
                       {row.permissionId ? (
                         <div>
                           <div className='text-sm font-medium'>
@@ -637,11 +637,10 @@ export default function PredictorEdit() {
             <div className='flex items-center justify-between border-t bg-gray-100 px-3 py-2'>
               <button
                 onClick={addShareRow}
-                className='rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50'
                 disabled={saving}
-              >
-                + Add
-              </button>
+                className="rounded border border-black/10 px-2 py-1 text-xs hover:bg-gray-100 transition shadow-lg shadow-neutral-500/20 active:scale-[.95] disabled:opacity-50 disabled:active:scale-100"
+              >+ Add</button>
+
               <div className='text-[11px] text-gray-600'>
                 Owners can edit & retrain. Viewers can run predictions only.
               </div>
@@ -681,16 +680,12 @@ function ConfirmLeave({
         <div className='mt-4 flex justify-end gap-2'>
           <button
             onClick={onCancel}
-            className='rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50'
-          >
-            Cancel
-          </button>
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 transition shadow-lg shadow-neutral-500/20 active:scale-[.95]"
+          >Cancel</button>
           <button
             onClick={onContinue}
-            className='rounded-md bg-black px-3 py-1.5 text-sm text-white'
-          >
-            Continue
-          </button>
+            className="rounded-md bg-black px-3 py-1.5 text-sm text-white transition shadow-lg shadow-neutral-500/20 active:scale-[.95]"
+          >Continue</button>
         </div>
       </div>
     </div>

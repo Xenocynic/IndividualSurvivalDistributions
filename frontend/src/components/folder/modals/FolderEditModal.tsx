@@ -192,17 +192,13 @@ export default function FolderEditModal({
                 type="button"
                 onClick={handleClose}
                 disabled={isLoading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md shadow-lg shadow-neutral-500/20 hover:bg-gray-50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >Cancel</button>
               <button
                 type="submit"
                 disabled={isLoading || !name.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Saving..." : "Save Changes"}
-              </button>
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md shadow-lg shadow-neutral-500/20 hover:bg-blue-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >{isLoading ? "Saving..." : "Save Changes"}</button>
             </div>
           </form>
         </div>
