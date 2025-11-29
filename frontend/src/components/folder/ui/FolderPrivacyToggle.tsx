@@ -122,11 +122,11 @@ export default function FolderPrivacyToggle({
               <div className={`font-medium ${classes.text} ${isPrivate ? 'text-gray-700' : 'text-green-700'}`}>
                 {isPrivate ? (
                   <span className="flex items-center gap-1">
-                    🔒 Private
+                    Private
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
-                    🌐 Public
+                    Public
                   </span>
                 )}
               </div>

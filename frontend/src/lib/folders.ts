@@ -133,6 +133,10 @@ export async function listMyFolders(): Promise<Folder[]> {
   return api.get<Folder[]>("/api/folders/");
 }
 
+export async function listMyOwnedFolders(): Promise<Folder[]> {
+  return api.get<Folder[]>("/api/folders/?owned_only=true");
+}
+
 export async function createFolder(request: CreateFolderRequest): Promise<Folder> {
   return api.post<Folder>("/api/folders/", request);
 }
@@ -326,6 +330,22 @@ export function canAccessFolder(folder: Folder, currentUserId?: number): boolean
  */
 export function canManageFolder(folder: Folder, currentUserId?: number): boolean {
   return currentUserId ? folder.owner.id === currentUserId : false;
+}
+
+/**
+ * Helper to determine if the folder is owned by the user or explicitly shared with them.
+ * This excludes purely public visibility so Dashboard views don't pull in public folders.
+ */
+export function isOwnedOrSharedFolder(
+  folder: Folder,
+  currentUserId?: number
+): boolean {
+  if (!currentUserId) return false;
+  if (folder.owner.id === currentUserId) return true;
+
+  return (
+    folder.permissions?.some((perm) => perm.user.id === currentUserId) ?? false
+  );
 }
 
 /**

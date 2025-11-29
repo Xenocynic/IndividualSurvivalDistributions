@@ -14,11 +14,11 @@ export default function AppLayout(): JSX.Element {
   return (
     <div
       className={`min-h-dvh flex flex-col ${
-        useGray ? "bg-gray-100" : "bg-white"
+        useGray ? "bg-gray-100" : "bg-gray-100"
       } text-gray-900`}
     >
       <Navbar />
-      <main className='container mx-auto w-full max-w-6xl px-4 md:px-6 py-8'>
+      <main className='mx-auto w-full'>
         <Outlet />
       </main>
     </div>

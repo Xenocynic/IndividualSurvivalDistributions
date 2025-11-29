@@ -784,6 +784,118 @@ def ml_retrain_model(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+def ml_retrain_model_async(request):
+    """
+    Triggers ASYNCHRONOUS retraining job on the ML API with progress tracking.
+    Returns immediately with task_id, then retraining continues in background.
+
+    Request body:
+    {
+        "predictor_id": 123,  // REQUIRED - the predictor to retrain
+        "model_id": "model_xyz",  // REQUIRED - existing model to retrain from
+        "selected_features": [...],  // Optional feature list
+        "parameters": {       // Optional training parameters
+            "n_epochs": 100,
+            "dropout": 0.2,
+            "neurons": [64, 64],
+            "n_exp": 10
+        }
+    }
+
+    Response:
+    {
+        "message": "Retraining started",
+        "predictor_id": 123,
+        "task_id": "abc-123-def-456"
+    }
+
+    Use GET /api/predictors/{predictor_id}/training-status/ to poll for progress.
+    """
+    try:
+        from .models import Predictor
+        from .training_tasks import train_model_task
+
+        predictor_id = request.data.get('predictor_id')
+        model_id = request.data.get('model_id')
+
+        if not predictor_id:
+            return Response(
+                {"error": "predictor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not model_id:
+            return Response(
+                {"error": "model_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify predictor exists and user has access
+        try:
+            predictor = Predictor.objects.get(predictor_id=predictor_id)
+            if predictor.owner != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "Access denied"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Predictor.DoesNotExist:
+            return Response(
+                {"error": f"Predictor {predictor_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get dataset path from predictor
+        dataset = predictor.dataset
+        if not dataset or not dataset.file_path:
+            return Response(
+                {"error": "Dataset has no associated file."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+        if not os.path.exists(full_file_path):
+            return Response(
+                {"error": f"Dataset file not found at path: {full_file_path}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get parameters
+        parameters = request.data.get('parameters', {})
+        selected_features = request.data.get('selected_features', None)
+
+        # Add selected features to parameters if provided
+        if selected_features:
+            parameters['selected_features'] = selected_features
+
+        # Mark predictor as training
+        predictor.ml_training_status = 'training'
+        predictor.save()
+
+        # Dispatch Celery task
+        task = train_model_task.delay(predictor_id, full_file_path, parameters)
+
+        # Store task ID in predictor for tracking
+        predictor.ml_training_progress = {"task_id": task.id, "status": "queued"}
+        predictor.save()
+
+        return Response({
+            "message": "Retraining started",
+            "predictor_id": predictor_id,
+            "task_id": task.id,
+            "status": "training"
+        }, status=status.HTTP_202_ACCEPTED)
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to start async retraining: {str(e)}")
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
 def ml_predict(request):
     """
     Make predictions using a trained model
@@ -1034,5 +1146,229 @@ def predict_with_predictor(request, predictor_id):
     except Exception as e:
         return Response(
             {'error': f'Prediction failed: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_training_status(request, predictor_id):
+    """
+    Get the current training status and progress for a predictor.
+    GET /api/predictors/{predictor_id}/training-status/
+
+    Returns:
+        {
+            'status': 'training' | 'trained' | 'failed' | 'not_trained',
+            'progress': {
+                'current_epoch': 45,
+                'total_epochs': 100,
+                'current_experiment': 3,
+                'total_experiments': 10,
+                'status': 'training',
+                'message': 'Training model...',
+                'estimated_progress': 45
+            },
+            'error': 'error message if failed',
+            'model_id': 'mtlr_20231103_abc123',
+            'metrics': {...}
+        }
+    """
+    try:
+        predictor = Predictor.objects.get(predictor_id=predictor_id)
+
+        # Check if user has access to this predictor
+        if predictor.is_private:
+            if predictor.owner != request.user and not PredictorPermission.objects.filter(
+                predictor=predictor, user=request.user
+            ).exists():
+                return Response(
+                    {'error': 'Access denied'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        return Response({
+            'status': predictor.ml_training_status,
+            'progress': predictor.ml_training_progress,
+            'error': predictor.ml_training_error,
+            'model_id': predictor.model_id,
+            'metrics': predictor.ml_model_metrics,
+            'trained_at': predictor.ml_trained_at,
+        }, status=status.HTTP_200_OK)
+
+    except Predictor.DoesNotExist:
+        return Response(
+            {'error': 'Predictor not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to get training status: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_comparable_predictors(request, predictor_id):
+    """
+    Get all predictors that can be compared with the given predictor.
+    Returns predictors that:
+    - Are on the same dataset
+    - The user has access to (owned, shared, or public)
+    - Have CV statistics available (trained models)
+    """
+    try:
+        # Get the base predictor
+        base_predictor = Predictor.objects.get(pk=predictor_id)
+
+        # Check if user has access to the base predictor
+        if not (base_predictor.owner == request.user or
+                request.user.is_superuser or
+                not base_predictor.is_private or
+                PredictorPermission.objects.filter(predictor=base_predictor, user=request.user).exists()):
+            return Response(
+                {'error': 'You do not have permission to access this predictor'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Get all predictors on the same dataset that the user has access to
+        user = request.user
+        dataset_id = base_predictor.dataset_id
+
+        if user.is_superuser:
+            comparable_predictors = Predictor.objects.filter(
+                dataset_id=dataset_id
+            ).exclude(predictor_id=predictor_id)
+        else:
+            comparable_predictors = Predictor.objects.filter(
+                Q(dataset_id=dataset_id) &
+                (Q(owner=user) | Q(permissions__user=user) | Q(is_private=False))
+            ).exclude(predictor_id=predictor_id).distinct()
+
+        # Build response with basic info and CV stats availability
+        results = []
+        for pred in comparable_predictors:
+            pred_data = {
+                'predictor_id': pred.predictor_id,
+                'name': pred.name,
+                'owner': pred.owner.username,
+                'is_private': pred.is_private,
+                'model_id': pred.model_id,
+                'has_cv_stats': False,
+                'created_at': pred.created_at,
+                'updated_at': pred.updated_at,
+            }
+
+            # Check if CV statistics are available (prioritize ml_model_metrics)
+            if pred.ml_model_metrics:
+                pred_data['has_cv_stats'] = True
+            elif pred.model_id:
+                # Fallback: check if CV predictions file exists
+                cv_file = os.path.join(settings.MEDIA_ROOT, 'models', pred.model_id, 'cv_predictions.json')
+                if os.path.exists(cv_file):
+                    pred_data['has_cv_stats'] = True
+
+            results.append(pred_data)
+
+        return Response({
+            'base_predictor': {
+                'predictor_id': base_predictor.predictor_id,
+                'name': base_predictor.name,
+                'dataset_id': base_predictor.dataset_id,
+                'dataset_name': base_predictor.dataset.dataset_name,
+            },
+            'comparable_predictors': results
+        })
+
+    except Predictor.DoesNotExist:
+        return Response(
+            {'error': 'Predictor not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Failed to fetch comparable predictors: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def compare_predictors_cv_stats(request):
+    """
+    Compare CV statistics for multiple predictors.
+    Request body: { "predictor_ids": [1, 2, 3] }
+    Returns CV statistics for each predictor.
+    """
+    try:
+        predictor_ids = request.data.get('predictor_ids', [])
+
+        if not predictor_ids or len(predictor_ids) < 2:
+            return Response(
+                {'error': 'At least 2 predictor IDs are required for comparison'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = request.user
+        results = []
+
+        for pred_id in predictor_ids:
+            try:
+                predictor = Predictor.objects.get(pk=pred_id)
+
+                # Check access permission
+                if not (predictor.owner == user or
+                        user.is_superuser or
+                        not predictor.is_private or
+                        PredictorPermission.objects.filter(predictor=predictor, user=user).exists()):
+                    results.append({
+                        'predictor_id': pred_id,
+                        'name': 'Access Denied',
+                        'error': 'You do not have permission to access this predictor'
+                    })
+                    continue
+
+                pred_result = {
+                    'predictor_id': predictor.predictor_id,
+                    'name': predictor.name,
+                    'owner': predictor.owner.username,
+                    'model_id': predictor.model_id,
+                    'cv_stats': None,
+                    'ml_model_metrics': None,
+                    'created_at': predictor.created_at.isoformat() if predictor.created_at else None,
+                    'updated_at': predictor.updated_at.isoformat() if predictor.updated_at else None,
+                    'error': None
+                }
+
+                # Use ml_model_metrics from the predictor model (new approach)
+                if predictor.ml_model_metrics:
+                    pred_result['ml_model_metrics'] = predictor.ml_model_metrics
+                elif predictor.model_id:
+                    # Fallback: try to load CV statistics from file
+                    cv_file = os.path.join(settings.MEDIA_ROOT, 'models', predictor.model_id, 'cv_predictions.json')
+                    if os.path.exists(cv_file):
+                        with open(cv_file, 'r') as f:
+                            cv_data = json.load(f)
+                            pred_result['cv_stats'] = cv_data
+                    else:
+                        pred_result['error'] = 'No CV statistics available'
+                else:
+                    pred_result['error'] = 'Predictor has not been trained'
+
+                results.append(pred_result)
+
+            except Predictor.DoesNotExist:
+                results.append({
+                    'predictor_id': pred_id,
+                    'name': 'Not Found',
+                    'error': f'Predictor {pred_id} does not exist'
+                })
+
+        return Response({'comparisons': results})
+
+    except Exception as e:
+        return Response(
+            {'error': f'Comparison failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

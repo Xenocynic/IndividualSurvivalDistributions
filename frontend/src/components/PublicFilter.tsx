@@ -25,7 +25,7 @@ export default function PublicFilter({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-black/10 bg-white px-3 text-sm hover:bg-gray-50"
+        className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-black/10 bg-white px-2 text-sm hover:bg-gray-50"
       >
         {value === "all" ? "Filter" : value[0].toUpperCase() + value.slice(1)}
       </button>
