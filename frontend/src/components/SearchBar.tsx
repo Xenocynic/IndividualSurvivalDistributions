@@ -44,7 +44,7 @@ export default function SearchBar({
         }}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-8 text-sm shadow-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10 disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="w-full rounded-md border border-black bg-white px-3 py-2 pr-8 text-sm focus:border-black/30 focus:ring-2 focus:ring-black/10 disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
       {value && (
         <button

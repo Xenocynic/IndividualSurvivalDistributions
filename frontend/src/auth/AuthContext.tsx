@@ -22,6 +22,7 @@
  */
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api, setTokens, loadTokensFromStorage } from "../lib/apiClient";
 
 type User = {
@@ -62,6 +63,7 @@ const AUTH = "/api/auth";
 const ACCOUNTS = "/api/accounts";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { }
     setTokens(null);
     setUser(null);
+    queryClient.removeQueries();
   };
 
   const refreshProfile = async () => {

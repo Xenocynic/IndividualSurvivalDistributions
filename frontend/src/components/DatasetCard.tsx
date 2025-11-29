@@ -2,20 +2,20 @@
  * ----------------------------------------------------------------------------------
  * DatasetCard (thin)
  * ----------------------------------------------------------------------------------
- * - Composes CardShell to render a dataset.
- * - Reuses a similar shape to PredictorCard for search/filter consistency.
- * - Shows rows / size metadata in the right side of the footer (if provided).
- * - Owner sees Edit / Delete; Viewer sees View (only when selected).
+ * - Composes CardShell to render a dataset, styled to match Browse cards.
+ * - Shows owner tag in the eyebrow row and rows/size/file icon in footer.
+ * - Owner sees View / Edit / Download / Delete; viewer sees View / Download.
+ * - Buttons appear with a staggered, “bubbly” animation when the card is selected.
  * - Supports drag and drop functionality for folder organization.
- *
- * Styling updates:
- * - Neutral greys to match Create/Upload pages.
- * - Replaced emoji 📄 with Unicode ▦.
+ * - Can optionally show a pin button (for Browse) and hide owner actions.
+ * ----------------------------------------------------------------------------------
  */
 
 import CardShell from "./CardShell";
 import DraggableCard from "./DraggableCard";
+import UsernameTag from "./UsernameTag";
 import type { DragItem } from "../types/dragDrop";
+import { Eye, Pencil, Trash2, Download as DownloadIcon } from "lucide-react";
 
 export interface DatasetItem {
   id: string;
@@ -24,6 +24,7 @@ export interface DatasetItem {
   ownerId?: number | null;
   ownerName?: string | null;
   updatedAt?: string;
+  updatedAtRaw?: string;
   notes?: string;
   rows?: number;
   sizeMB?: number;
@@ -31,8 +32,31 @@ export interface DatasetItem {
   originalFilename?: string;
   folderId?: string;
   folderName?: string;
+  allow_admin_access?: boolean;
+  isPublic?: boolean;
   __raw?: any;
 }
+
+type DatasetCardProps = {
+  item: DatasetItem;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onView?: (id: string) => void;
+  onDownload?: (id: string, allowAdminAccess?: boolean) => void;
+  onDrop?: (item: DragItem, folderId?: string) => void;
+  isLoading?: boolean;
+
+  /** If false, hide owner-only Edit/Delete (used by Browse). Defaults to true. */
+  showOwnerActions?: boolean;
+  /** If true, show the pin star button (used by Browse). Defaults to false. */
+  showPin?: boolean;
+  /** Optional explicit pinned state. */
+  isPinned?: boolean;
+  /** Called when the pin star is toggled. */
+  onTogglePin?: (id: string, nextPinned?: boolean) => void;
+};
 
 export default function DatasetCard({
   item,
@@ -44,100 +68,270 @@ export default function DatasetCard({
   onDownload,
   onDrop,
   isLoading = false,
-}: {
-  item: DatasetItem;
-  selected?: boolean;
-  onToggleSelect?: (id: string) => void;
-  onEdit?: (id: string) => void;
-  onDelete?: (id: string) => void;
-  onView?: (id: string) => void;
-  onDownload?: (id: string) => void;
-  onDrop?: (item: DragItem, folderId?: string) => void;
-  isLoading?: boolean;
-}) {
+  showOwnerActions = true,
+  showPin = false,
+  isPinned: isPinnedProp,
+  onTogglePin,
+}: DatasetCardProps) {
   const dragItem: DragItem = {
     id: item.id,
-    type: 'dataset',
+    type: "dataset",
     title: item.title,
     owner: Boolean(item.owner),
     folderId: item.folderId,
   };
 
-  const cardContent = (
-    <CardShell
-      actionVisibility="selected"
-      title={item.title}
-      description={item.notes}
-      footerLeft={item.updatedAt ? <>Updated {item.updatedAt}</> : null}
-      footerRight={
-        <div className="flex items-center gap-2 text-xs text-neutral-600">
-          {item.rows !== undefined && <span>{item.rows.toLocaleString()} rows</span>}
-          {item.sizeMB !== undefined && <span>{item.sizeMB} MB</span>}
-          {item.hasFile && item.originalFilename && (
-            <span className="text-neutral-600" title={`File: ${item.originalFilename}`}>▦</span>
-          )}
-        </div>
-      }
-      selected={selected}
-      onSelect={() => onToggleSelect?.(item.id)}
-      onActionAreaClick={(e) => e.stopPropagation()}
-    >
-      {selected &&
-        (item.owner ? (
-          <>
-            <button
-              onClick={() => onView?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-            >
-              View
-            </button>
-            <button
-              onClick={() => onEdit?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => onDelete?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-            >
-              Delete
-            </button>
-            {item.hasFile && onDownload && (
-              <button
-                onClick={() => onDownload(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                title="Download file"
-              >
-                Download
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => onView?.(item.id)}
-              className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-            >
-              View
-            </button>
-            {item.hasFile && onDownload && (
-              <button
-                onClick={() => onDownload(item.id)}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50"
-                title="Download file"
-              >
-                Download
-              </button>
-            )}
-          </>
-        ))}
-    </CardShell>
-  );
+  const ownerLabel =
+    item.ownerName ?? (item.owner ? "You" : "Owner unknown");
+
+  const visibilityLabel =
+    typeof item.isPublic === "boolean"
+      ? item.isPublic
+        ? "Public"
+        : "Private"
+      : undefined;
+
+  const isPinned = typeof isPinnedProp === "boolean" ? isPinnedProp : false;
+
+  // Delays: keep Dashboard behaviour when showPin=false,
+  // and insert pin between View and the other actions when showPin=true.
+  const viewDelay = 0;
+  const pinDelay = 60;
+  const editDelay = showPin ? 120 : 60;
+
+  // For download/delete we branch a bit depending on whether owner actions are shown.
+  const ownerDownloadDelay = showPin
+    ? showOwnerActions
+      ? 180
+      : 120
+    : showOwnerActions
+    ? 120
+    : 60;
+
+  const deleteDelay = showPin ? 240 : 180;
+
+  const viewerDownloadDelay = showPin ? 120 : 60;
+
+  const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
 
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
-      {cardContent}
+      <CardShell
+        eyebrowLeft={
+          <div className="inline-flex items-center gap-2 text-xs font-medium text-neutral-800">
+            <UsernameTag name={ownerLabel} />
+          </div>
+        }
+        title={
+          <div className="truncate text-sm font-semibold text-neutral-900">
+            {item.title}
+          </div>
+        }
+        description={
+          item.notes ? (
+            <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
+              {item.notes}
+            </div>
+          ) : (
+            <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs italic text-neutral-400">
+              No description provided.
+            </div>
+          )
+        }
+        footerLeft={
+          displayUpdated ? (
+            <span className="text-[11px] text-neutral-500">
+              Updated {displayUpdated}
+            </span>
+          ) : null
+        }
+        footerRight={
+          <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
+            {/* Top row: rows / size / filename */}
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              {typeof item.rows === "number" && (
+                <span>{item.rows.toLocaleString()} rows</span>
+              )}
+
+              {typeof item.sizeMB === "number" && (
+                <span>{item.sizeMB} MB</span>
+              )}
+
+              {item.hasFile && item.originalFilename && (
+                <span
+                  className="inline-flex max-w-[9rem] items-center rounded-md border bg-neutral-50 px-2 py-[1px]"
+                  title={`File: ${item.originalFilename}`}
+                >
+                  ▦
+                  <span className="ml-1 truncate">
+                    {item.originalFilename}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Bottom row: visibility pill under the size/file row */}
+            {visibilityLabel && (
+              <div className="mt-0.5">
+                <span
+                  className={`rounded-full border px-2 py-[2px] text-[10px] ${
+                    item.isPublic
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-neutral-900 bg-neutral-900 text-white"
+                  }`}
+                >
+                  {visibilityLabel}
+                </span>
+              </div>
+            )}
+          </div>
+        }
+        selected={selected}
+        onSelect={() => onToggleSelect?.(item.id)}
+        onActionAreaClick={(e) => {
+          e.stopPropagation();
+        }}
+        // Keep header row space always reserved; buttons control their own visibility
+        actionVisibility="always"
+      >
+        {/* View button (everyone) */}
+        <button
+          type="button"
+          onClick={() => onView?.(item.id)}
+          className={bubbleButtonClass(selected)}
+          style={bubbleDelayStyle(selected, viewDelay)}
+        >
+          <Eye className="h-5 w-3" />
+        </button>
+
+        {/* Pin button (Browse etc.) */}
+        {showPin && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const next = !isPinned;
+              onTogglePin?.(item.id, next);
+            }}
+            className={[
+              bubbleButtonClass(selected),
+              isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
+            ].join(" ")}
+            style={bubbleDelayStyle(selected, pinDelay)}
+            title={isPinned ? "Unpin" : "Pin"}
+            aria-label={isPinned ? "Unpin dataset" : "Pin dataset"}
+          >
+            <span className="text-sm" aria-hidden="true">
+              {isPinned ? "★" : "☆"}
+            </span>
+          </button>
+        )}
+
+        {/* Owner-only controls */}
+        {item.owner && showOwnerActions && (
+          <>
+            <button
+              type="button"
+              onClick={() => onEdit?.(item.id)}
+              className={bubbleButtonClass(selected)}
+              style={bubbleDelayStyle(selected, editDelay)}
+            >
+              <Pencil className="h-5 w-3" />
+            </button>
+
+            {item.hasFile && onDownload && (
+              <button
+                type="button"
+                onClick={() =>
+                  onDownload(item.id, item.allow_admin_access ?? true)
+                }
+                className={bubbleButtonClass(selected)}
+                style={bubbleDelayStyle(selected, ownerDownloadDelay)}
+                title="Download file"
+              >
+                <DownloadIcon className="h-5 w-3" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onDelete?.(item.id)}
+              className={bubbleDeleteButtonClass(selected)}
+              style={bubbleDelayStyle(selected, deleteDelay)}
+            >
+              <Trash2 className="h-5 w-3" />
+            </button>
+          </>
+        )}
+
+        {/* Viewer-only controls */}
+        {!item.owner && item.hasFile && onDownload && (
+          <button
+            type="button"
+            onClick={() =>
+              onDownload(item.id, item.allow_admin_access ?? true)
+            }
+            className={bubbleButtonClass(selected)}
+            style={bubbleDelayStyle(selected, viewerDownloadDelay)}
+            title="Download file"
+          >
+            <DownloadIcon className="h-3 w-3" />
+          </button>
+        )}
+      </CardShell>
     </DraggableCard>
   );
+}
+
+function bubbleButtonClass(selected: boolean) {
+  return [
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
+    "text-[11px] font-medium text-neutral-700 bg-white shadow-sm hover:bg-neutral-200",
+    "transform-gpu origin-left transition-all duration-200 ease-out",
+    selected
+      ? "opacity-100 translate-y-0 scale-100"
+      : "pointer-events-none opacity-0 -translate-y-1 scale-90",
+  ].join(" ");
+}
+
+function bubbleDeleteButtonClass(selected: boolean) {
+  return [
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
+    "text-[11px] font-medium text-red-700 bg-red-50 border-red-200 shadow-sm",
+    "hover:bg-red-100 hover:border-red-300 hover:text-red-800",
+    "transform-gpu origin-left transition-all duration-200 ease-out",
+    selected
+      ? "opacity-100 translate-y-0 scale-100"
+      : "pointer-events-none opacity-0 -translate-y-1 scale-90",
+  ].join(" ");
+}
+
+function bubbleDelayStyle(selected: boolean, delayMs: number) {
+  return selected
+    ? { transitionDelay: `${delayMs}ms` }
+    : { transitionDelay: "0ms" };
+}
+
+/**
+ * Use raw ISO if available, otherwise fall back to updatedAt.
+ * Always try to format as `Jan 1, 2025` when parseable.
+ */
+function getDisplayDate(
+  updatedAt?: string,
+  updatedAtRaw?: string
+): string | undefined {
+  const source = updatedAtRaw ?? updatedAt;
+  if (!source) return undefined;
+
+  const millis = Date.parse(source);
+  if (Number.isNaN(millis)) {
+    // assume updatedAt is already user-facing text
+    return updatedAt;
+  }
+
+  return new Date(millis).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

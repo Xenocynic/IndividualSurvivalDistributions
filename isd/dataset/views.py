@@ -312,6 +312,16 @@ class DatasetViewSet(viewsets.ModelViewSet):
         try:
             # Get the dataset instance (this will check permissions via get_object)
             dataset = self.get_object()
+
+            # Check security: only owner or users with permission can download
+            is_owner = dataset.owner == request.user
+            is_allowed_access = dataset.allow_admin_access
+
+            if not is_owner and not is_allowed_access:
+                return Response(
+                    {'detail': 'External access to this dataset has been disabled by the owner.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             
             # Check if dataset has a file
             if not dataset.file_path:

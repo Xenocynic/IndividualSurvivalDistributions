@@ -22,6 +22,9 @@ from .views import (
     train_predictor_model,
     predict_with_predictor,
     get_training_status,
+    # Predictor comparison views
+    get_comparable_predictors,
+    compare_predictors_cv_stats,
 )
 
 router = DefaultRouter()
@@ -36,6 +39,10 @@ urlpatterns = [
     path("<int:predictor_id>/cv-predictions/", predictor_cv_predictions, name="predictor-cv-predictions"),
     path("<int:predictor_id>/full-predictions/", predictor_full_predictions, name="predictor-full-predictions"),
     path("<int:predictor_id>/training-status/", get_training_status, name="predictor-training-status"),
+
+    # Predictor comparison routes
+    path("<int:predictor_id>/comparable-predictors/", get_comparable_predictors, name="comparable-predictors"),
+    path("compare-cv-stats/", compare_predictors_cv_stats, name="compare-cv-stats"),
 
     # ===================================
     # NEW: ML API Integration Routes
