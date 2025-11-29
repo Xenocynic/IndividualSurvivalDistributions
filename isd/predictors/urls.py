@@ -15,11 +15,13 @@ from .views import (
     # ML API views
     ml_health_check,
     ml_retrain_model,
+    ml_retrain_model_async,
     ml_predict,
     ml_list_models,
     # Predictor-specific ML views
     train_predictor_model,
     predict_with_predictor,
+    get_training_status,
     # Predictor comparison views
     get_comparable_predictors,
     compare_predictors_cv_stats,
@@ -36,6 +38,7 @@ urlpatterns = [
     path("resolve-username/", resolve_username, name="resolve-username"),
     path("<int:predictor_id>/cv-predictions/", predictor_cv_predictions, name="predictor-cv-predictions"),
     path("<int:predictor_id>/full-predictions/", predictor_full_predictions, name="predictor-full-predictions"),
+    path("<int:predictor_id>/training-status/", get_training_status, name="predictor-training-status"),
 
     # Predictor comparison routes
     path("<int:predictor_id>/comparable-predictors/", get_comparable_predictors, name="comparable-predictors"),
@@ -46,6 +49,7 @@ urlpatterns = [
     # ===================================
     path("ml/health/", ml_health_check, name="ml-health"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
+    path("ml/retrain-async/", ml_retrain_model_async, name="ml-retrain-async"),
     path("ml/predict/", ml_predict, name="ml-predict"),
     path("ml/models/", ml_list_models, name="ml-list-models"),
 ] + router.urls

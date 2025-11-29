@@ -29,13 +29,14 @@ import {
   createPredictor,
   listMyPredictors,
   grantPredictorViewer,
-  trainPredictor,
+  trainPredictorAsync,
 } from "../lib/predictors";
 import {
   UserSearchInput,
   type UserSuggestion,
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
+import TrainingModal from "../components/TrainingModal";
 
 type PermRow = {
   id: number;
@@ -78,9 +79,8 @@ export default function PredictorCreate() {
   // training state
   const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(
-    null
-  );
+  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(null);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
 
   // advanced settings state
   const [numTimePoints, setNumTimePoints] = useState<string | number>("");
@@ -221,25 +221,70 @@ export default function PredictorCreate() {
   const canSave =
     !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === "idle";
 
-  // Try to train the dataset first
+  // Create predictor and start async training
   async function onTrainAndSave() {
     if (!canSave) return;
 
-    setTrainingStep("training");
+    setTrainingStep('creating');
     setTrainingError(null);
 
     try {
       const datasetId = Number(selectedDatasetId);
-      // Step 1: Train first (no predictor yet)
-      const trainingResult = await trainPredictor(datasetId, {
+
+      // Step 1: Create predictor first (without model_id, in 'not_trained' state)
+      const created = await createPredictor({
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: datasetId,
+        folder_id: selectedFolderId || undefined,
+        is_private: !isPublic,
+        ml_training_status: 'not_trained',
+        // Advanced settings
+        num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0
+          ? Number(numTimePoints)
+          : undefined,
+        regularization,
+        objective_function: objectiveFunction,
+        marginal_loss_type: marginalLossType,
+        c_param_search_scope: cParamSearchScope,
+        cox_feature_selection: coxFeatureSelection,
+        mrmr_feature_selection: mrmrFeatureSelection,
+        mtlr_predictor: mtlrPredictor,
+        tune_parameters: tuneParameters,
+        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+        use_predefined_folds: usePredefinedFolds,
+        run_cross_validation: runCrossValidation,
+        standardize_features: standardizeFeatures,
+      });
+
+      setCreatedPredictorId(created.predictor_id);
+
+      // Step 2: Grant permissions
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
+        let userId = row.userId;
+        if (!userId) {
+          const resolvedId = await resolveUsernameToId(username);
+          if (!resolvedId) continue;
+          userId = resolvedId;
+        }
+        await grantPredictorViewer(created.predictor_id, userId, row.role);
+      }
+
+      // Step 3: Start async training
+      setTrainingStep('training');
+      setShowTrainingModal(true);
+
+      await trainPredictorAsync(datasetId, created.predictor_id, {
         parameters: {
           n_epochs: 100,
           dropout: 0.2,
           neurons: [64, 64],
           n_exp: 10,
-          // Advanced settings - only send num_time_points if it's a valid positive number
-          num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0 
-            ? Number(numTimePoints) 
+          // Advanced settings
+          num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0
+            ? Number(numTimePoints)
             : undefined,
           regularization,
           objective_function: objectiveFunction,
@@ -258,97 +303,10 @@ export default function PredictorCreate() {
         },
       });
 
-      // Validate training result
-      if (!trainingResult || !trainingResult.model_id) {
-        throw new Error("Training did not return a valid model_id");
-      }
-
-      // Step 2: Create predictor with ML metadata
-      setTrainingStep("creating");
-
-      // Parse selected_features if it's a string
-      let parsedFeatures = trainingResult.selected_features;
-      if (typeof parsedFeatures === 'string') {
-        try {
-          parsedFeatures = JSON.parse(parsedFeatures);
-        } catch (e) {
-          console.warn("Could not parse selected_features as JSON, using as-is");
-        }
-      }
-
-      const created = await createPredictor({
-        name: name.trim(),
-        description: notes.trim(),
-        dataset_id: Number(selectedDatasetId),
-        folder_id: selectedFolderId || undefined,
-        is_private: !isPublic,
-        model_id: trainingResult.model_id,
-        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
-        ml_training_status: "trained",
-        ml_model_metrics: trainingResult.metrics || {},
-        ml_selected_features: parsedFeatures || null,
-        // Advanced settings - only send num_time_points if it's a valid positive number
-        num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0 
-          ? Number(numTimePoints) 
-          : undefined,
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      });
-
-      setCreatedPredictorId(created.predictor_id);
-
-      // Step 3: Grant permissions
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          userId = await resolveUsernameToId(username);
-        }
-        if (!userId) continue;
-
-        try {
-          await grantPredictorViewer(created.predictor_id, userId, row.role);
-        } catch (e) {
-          console.error("Grant failed", e);
-        }
-      }
-
-      // Step 4: Complete!
-      setTrainingStep("complete");
-
-      setTimeout(() => {
-        navigate(`/predictors/${created.predictor_id}`);
-      }, 2000);
     } catch (error: any) {
-      setTrainingStep("error");
-      console.error("Training/Creation error:", error);
-      console.error("Error details:", error.details);
-      
-      // Try to extract meaningful error message
-      let errorMessage = "Failed to train and create predictor!";
-      if (error.details) {
-        // If it's a validation error from the backend
-        if (typeof error.details === 'object') {
-          errorMessage = JSON.stringify(error.details, null, 2);
-        } else {
-          errorMessage = String(error.details);
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setTrainingError(errorMessage);
+      setTrainingStep('error');
+      setTrainingError(error.message || 'Failed to create predictor and start training!');
+      console.error('Training error:', error);
     }
   }
 
@@ -701,107 +659,63 @@ export default function PredictorCreate() {
         </div>
       </div>
 
-      {/* Training Modal */}
-      {isProcessing && (
+      {/* Creating Predictor Modal */}
+      {trainingStep === 'creating' && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900"></div>
+              <h3 className="text-lg font-semibold">Creating Predictor...</h3>
+              <p className="mt-2 text-sm text-neutral-600">Setting up your predictor in the database.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Training Modal with close button */}
+      {showTrainingModal && createdPredictorId && (
         <TrainingModal
-          step={trainingStep}
-          error={trainingError}
-          onRetry={() => {
-            setTrainingStep("idle");
-            setTrainingError(null);
+          predictorId={createdPredictorId}
+          onClose={() => {
+            setShowTrainingModal(false);
+            navigate("/dashboard", { state: { tab: "predictors" } });
           }}
-          onViewPredictor={() => {
-            if (createdPredictorId) {
-              navigate(`/predictors/${createdPredictorId}`);
-            }
-          }}
+          autoNavigateOnComplete={false}
         />
+      )}
+
+      {/* Error Modal */}
+      {trainingStep === 'error' && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
+                ✕
+              </div>
+              <h3 className="text-lg font-semibold">Training Failed</h3>
+              <p className="mt-2 text-sm text-red-600">{trainingError}</p>
+              <div className="mt-4 flex gap-2 justify-center">
+                <button
+                  onClick={() => {
+                    setTrainingStep('idle');
+                    setTrainingError(null);
+                  }}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showLeavePrompt && (
         <ConfirmLeave
           onCancel={() => setShowLeavePrompt(false)}
-          onContinue={() =>
-            navigate("/dashboard", { state: { tab: "predictors" } })
-          }
+          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })}
         />
       )}
-    </div>
-  );
-}
-
-function TrainingModal({
-  step,
-  error,
-  onRetry,
-  onViewPredictor,
-}: {
-  step: TrainingStep;
-  error: string | null;
-  onRetry: () => void;
-  onViewPredictor: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        {step === "creating" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
-            <h3 className="text-lg font-semibold">Creating Predictor...</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Setting up your predictor in the database.
-            </p>
-          </div>
-        )}
-
-        {step === "training" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <h3 className="text-lg font-semibold">Training ML Model...</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              This may take several minutes depending on dataset size. Please
-              don't close this page.
-            </p>
-            <div className="mt-4 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-              🛠 Training in progress... The model is learning from your
-              dataset.
-            </div>
-          </div>
-        )}
-
-        {step === "complete" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-              ✓
-            </div>
-            <h3 className="text-lg font-semibold">Training Complete!</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Your predictor has been created and trained successfully.
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
-              Redirecting to predictor details...
-            </p>
-          </div>
-        )}
-
-        {step === "error" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-              ✕
-            </div>
-            <h3 className="text-lg font-semibold">Training Failed</h3>
-            <p className="mt-2 text-sm text-red-600">{error}</p>
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                onClick={onRetry}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 active:translate-y-[0.5px]"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

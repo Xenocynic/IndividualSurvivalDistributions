@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script starts the backend, frontend, and ML API services in a single terminal.
+# This script starts the backend, frontend, ML API, and Celery worker services in a single terminal.
 # It runs all services concurrently and provides unified logging with color-coded output.
 
 # Exit on error
@@ -13,6 +13,7 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
+WHITE='\033[0;37m'
 NC='\033[0m' # No Color
 
 # Project root directory
@@ -27,11 +28,13 @@ mkdir -p "$LOGS_DIR"
 BACKEND_LOG="$LOGS_DIR/backend.log"
 FRONTEND_LOG="$LOGS_DIR/frontend.log"
 ML_API_LOG="$LOGS_DIR/ml_api.log"
+CELERY_LOG="$LOGS_DIR/celery.log"
 
 # PID files for tracking processes
 BACKEND_PID_FILE="$LOGS_DIR/backend.pid"
 FRONTEND_PID_FILE="$LOGS_DIR/frontend.pid"
 ML_API_PID_FILE="$LOGS_DIR/ml_api.pid"
+CELERY_PID_FILE="$LOGS_DIR/celery.pid"
 
 # Cleanup function to kill all processes on exit
 cleanup() {
@@ -62,6 +65,15 @@ cleanup() {
             kill "$ML_API_PID" 2>/dev/null || true
         fi
         rm -f "$ML_API_PID_FILE"
+    fi
+
+    if [ -f "$CELERY_PID_FILE" ]; then
+        CELERY_PID=$(cat "$CELERY_PID_FILE")
+        if kill -0 "$CELERY_PID" 2>/dev/null; then
+            echo -e "${MAGENTA}Stopping Celery worker (PID: $CELERY_PID)...${NC}"
+            kill "$CELERY_PID" 2>/dev/null || true
+        fi
+        rm -f "$CELERY_PID_FILE"
     fi
 
     # Kill any remaining child processes
@@ -107,13 +119,51 @@ rm -f "$LOGS_DIR"/*.log "$LOGS_DIR"/*.pid
 > "$BACKEND_LOG"
 > "$FRONTEND_LOG"
 > "$ML_API_LOG"
+> "$CELERY_LOG"
 
 echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}Celery Setup & Service Startup${NC}"
+echo -e "${CYAN}========================================${NC}"
+
+# Check if Redis is running
+echo -e "\n${MAGENTA}Checking Redis...${NC}"
+if ! command -v redis-cli &> /dev/null; then
+    echo -e "${RED}❌ Redis is not installed.${NC}"
+    echo -e "${YELLOW}Please install Redis:${NC}"
+    echo -e "  Ubuntu/Debian: sudo apt-get install redis-server"
+    echo -e "  macOS: brew install redis"
+    exit 1
+fi
+
+if ! redis-cli ping &> /dev/null; then
+    echo -e "${RED}❌ Redis is not running.${NC}"
+    echo -e "${YELLOW}Please start Redis:${NC}"
+    echo -e "  Ubuntu/Debian: sudo systemctl start redis"
+    echo -e "  macOS: brew services start redis"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Redis is running${NC}"
+
+# Run Celery migrations (dependencies installed via requirements.txt)
+echo -e "\n${MAGENTA}Running Celery migrations...${NC}"
+check_and_setup_venv "$PROJECT_ROOT/venv" "Backend"
+
+cd "$PROJECT_ROOT/isd"
+source ../venv/bin/activate
+
+python manage.py migrate django_celery_results --noinput >> "$CELERY_LOG" 2>&1 || true
+python manage.py migrate django_celery_beat --noinput >> "$CELERY_LOG" 2>&1 || true
+
+echo -e "${GREEN}✅ Celery migrations complete${NC}"
+cd "$PROJECT_ROOT"
+
+echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}Starting All Services${NC}"
 echo -e "${CYAN}========================================${NC}"
 
 # Start Backend
-echo -e "\n${RED}[1/3] Starting Backend...${NC}"
+echo -e "\n${RED}[1/4] Starting Backend...${NC}"
 check_and_setup_venv "$PROJECT_ROOT/venv" "Backend"
 (
     cd "$PROJECT_ROOT"
@@ -127,7 +177,7 @@ echo $BACKEND_PID > "$BACKEND_PID_FILE"
 echo -e "${RED}Backend started with PID: $BACKEND_PID${NC}"
 
 # Start Frontend
-echo -e "\n${GREEN}[2/3] Starting Frontend...${NC}"
+echo -e "\n${GREEN}[2/4] Starting Frontend...${NC}"
 (
     cd "$PROJECT_ROOT/frontend"
     npm install > "$FRONTEND_LOG" 2>&1
@@ -138,7 +188,7 @@ echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
 echo -e "${GREEN}Frontend started with PID: $FRONTEND_PID${NC}"
 
 # Start ML API
-echo -e "\n${BLUE}[3/3] Starting ML API...${NC}"
+echo -e "\n${BLUE}[3/4] Starting ML API...${NC}"
 if [ -d "$ML_API_DIR" ]; then
     check_and_setup_venv "$ML_API_DIR/venv" "ML API"
     (
@@ -154,18 +204,31 @@ else
     echo -e "${YELLOW}Warning: ML API directory not found at $ML_API_DIR${NC}"
 fi
 
+# Start Celery Worker
+echo -e "\n${MAGENTA}[4/4] Starting Celery Worker...${NC}"
+(
+    cd "$PROJECT_ROOT"
+    source venv/bin/activate
+    cd isd
+    celery -A isd worker --loglevel=info >> "$CELERY_LOG" 2>&1
+) &
+CELERY_PID=$!
+echo $CELERY_PID > "$CELERY_PID_FILE"
+echo -e "${MAGENTA}Celery worker started with PID: $CELERY_PID${NC}"
+
 echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}All Services Started!${NC}"
 echo -e "${CYAN}========================================${NC}"
 echo -e "${RED}Backend:${NC}  http://0.0.0.0:8000 (Log: .logs/backend.log)"
 echo -e "${GREEN}Frontend:${NC} Check .logs/frontend.log for URL"
 echo -e "${BLUE}ML API:${NC}   Check .logs/ml_api.log for URL"
+echo -e "${MAGENTA}Celery:${NC}   Worker running (Log: .logs/celery.log)"
 echo -e "\n${YELLOW}Press Ctrl+C to stop all services${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
 # Function to tail logs with color coding
 tail_logs() {
-    tail -f "$BACKEND_LOG" "$FRONTEND_LOG" "$ML_API_LOG" 2>/dev/null | while read -r line; do
+    tail -f "$BACKEND_LOG" "$FRONTEND_LOG" "$ML_API_LOG" "$CELERY_LOG" 2>/dev/null | while read -r line; do
         case "$line" in
             *backend.log*)
                 echo -e "${RED}[BACKEND]${NC} $line"
@@ -176,6 +239,9 @@ tail_logs() {
             *ml_api.log*)
                 echo -e "${BLUE}[ML-API]${NC} $line"
                 ;;
+            *celery.log*)
+                echo -e "${MAGENTA}[CELERY]${NC} $line"
+                ;;
             *)
                 echo "$line"
                 ;;
@@ -184,7 +250,7 @@ tail_logs() {
 }
 
 # Show combined logs
-echo -e "${MAGENTA}Combined service logs (press Ctrl+C to stop):${NC}\n"
+echo -e "${WHITE}Combined service logs (press Ctrl+C to stop):${NC}\n"
 tail_logs &
 TAIL_PID=$!
 
