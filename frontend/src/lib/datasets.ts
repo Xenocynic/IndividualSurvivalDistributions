@@ -289,19 +289,34 @@ export function mapApiDatasetToUi(
     ? Math.round((item.file_size / (1024 * 1024)) * 10) / 10
     : undefined;
 
+  // Choose a single "raw" updated timestamp from the API payload.
+  // Prefer uploaded_at, then fall back to any other updated fields.
+  const rawUpdated =
+    item.uploaded_at ??
+    item.updated_at ??
+    item.updatedAt ??
+    item.modified ??
+    undefined;
+
   return {
     id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
     title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
+
     // If API returns owner as an id, compare with current user id to produce boolean
     owner:
       typeof item.owner === "number" && currentUserId !== undefined
         ? item.owner === currentUserId
         : Boolean(item.owner),
+
     ownerId: item.owner ?? null,
     ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.uploaded_at
-      ? formatDate(item.uploaded_at)
-      : item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
+
+    // Human-readable date for display
+    updatedAt: rawUpdated ? formatDate(rawUpdated) : undefined,
+
+    // Raw timestamp for filtering/sorting
+    updatedAtRaw: rawUpdated,
+
     notes: item.notes ?? item.description ?? "",
     sizeMB: fileSizeMB,
     hasFile: item.has_file ?? Boolean(item.file_path),

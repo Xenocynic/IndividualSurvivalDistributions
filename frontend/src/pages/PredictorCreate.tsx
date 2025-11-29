@@ -10,23 +10,32 @@
  * - Visibility: public / private toggle (matches datasets)
  * - Manage permissions table:
  *   - Add usernames and choose role (Owner / Viewer)
- * 
+ *
  * Flow:
  * 1. Fill out form → Click "Train & Save"
- * 2. Creates predictor in database
- * 3. Shows training modal
- * 4. Trains ML model
- * 5. Navigates to predictor detail page
+ * 2. Trains ML model
+ * 3. Creates or updates predictor in database (draft / final)
+ * 4. Navigates to predictor detail page
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
-import { listMyDatasets } from "../lib/datasets";
+import { listMyDatasets, getDatasetStats } from "../lib/datasets";
 import { toDatasetItem } from "../lib/mappers";
-import { createPredictor, listMyPredictors, getPredictor, updatePredictor, grantPredictorViewer, trainPredictor } from "../lib/predictors";
-import { UserSearchInput, type UserSuggestion } from "../components/UserSearchInput";
+import {
+  createPredictor,
+  listMyPredictors,
+  getPredictor,
+  updatePredictor,
+  grantPredictorViewer,
+  trainPredictor,
+} from "../lib/predictors";
+import {
+  UserSearchInput,
+  type UserSuggestion,
+} from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 
 type PermRow = {
@@ -36,15 +45,15 @@ type PermRow = {
   userId?: number;
 };
 
-type TrainingStep = 'idle' | 'creating' | 'training' | 'complete' | 'error';
+type TrainingStep = "idle" | "creating" | "training" | "complete" | "error";
 
 export default function PredictorCreate() {
   const navigate = useNavigate();
+  const { id: draftId } = useParams();
+  const isDraftMode = Boolean(draftId);
 
   // form state
   const [name, setName] = useState("");
-  const { id: draftId } = useParams();
-  const isDraftMode = Boolean(draftId);
   const [notes, setNotes] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -52,9 +61,17 @@ export default function PredictorCreate() {
   // dataset selection
   const [query, setQuery] = useState("");
   const [datasets, setDatasets] = useState<
-    { id: string; title: string; notes?: string; owner: boolean; isPublic?: boolean }[]
+    {
+      id: string;
+      title: string;
+      notes?: string;
+      owner: boolean;
+      isPublic?: boolean;
+    }[]
   >([]);
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
+    null
+  );
 
   // permissions rows
   const [rows, setRows] = useState<PermRow[]>([
@@ -62,9 +79,43 @@ export default function PredictorCreate() {
   ]);
 
   // training state
-  const [trainingStep, setTrainingStep] = useState<TrainingStep>('idle');
+  const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(null);
+  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(
+    null
+  );
+
+  // advanced settings state
+  const [numTimePoints, setNumTimePoints] = useState<string | number>("");
+  const [regularization, setRegularization] = useState<"l1" | "l2">("l2");
+  const [objectiveFunction, setObjectiveFunction] = useState<
+    "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
+  >("log-likelihood");
+  const [marginalLossType, setMarginalLossType] = useState<
+    "weighted" | "unweighted"
+  >("weighted");
+  const [cParamSearchScope, setCParamSearchScope] = useState<
+    "basic" | "fine" | "extremely fine"
+  >("basic");
+  const [coxFeatureSelection, setCoxFeatureSelection] = useState(false);
+  const [mrmrFeatureSelection, setMrmrFeatureSelection] = useState(false);
+  const [mtlrPredictor, setMtlrPredictor] = useState<"stable" | "testing1">(
+    "stable"
+  );
+  const [tuneParameters, setTuneParameters] = useState(false);
+  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] =
+    useState(false);
+  const [usePredefinedFolds, setUsePredefinedFolds] = useState(false);
+  const [runCrossValidation, setRunCrossValidation] = useState(true);
+  const [standardizeFeatures, setStandardizeFeatures] = useState(true);
+
+  // feature selection state
+  const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
+    new Set()
+  );
+  const [featuresLoading, setFeaturesLoading] = useState(false);
+  const [featuresError, setFeaturesError] = useState<string | null>(null);
 
   // meta state
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
@@ -76,32 +127,38 @@ export default function PredictorCreate() {
   // detection for the leave prompt
   const dirtyRef = useRef(false);
 
+  // Load draft if in draft mode
   useEffect(() => {
     if (!draftId) return;
 
     async function loadDraft() {
-      const p = await getPredictor(draftId);
-      if (!p) return;
+      try {
+        const p = await getPredictor(draftId);
+        if (!p) return;
 
-      setName(p.name);
-      setNotes(p.description);
-      setSelectedDatasetId(String(p.dataset_id));
-      setSelectedFolderId(p.folder_id ? String(p.folder_id) : null);
-      setIsPublic(!p.is_private);
+        setName(p.name);
+        setNotes(p.description);
+        setSelectedDatasetId(String(p.dataset_id));
+        setSelectedFolderId(p.folder_id ? String(p.folder_id) : null);
+        setIsPublic(!p.is_private);
 
-      setRows(
-        p.permissions.map((perm) => ({
-          id: perm.user.id,
-          username: perm.user.username,
-          role: perm.role,
-          userId: perm.user.id
-        }))
-      );
+        setRows(
+          (p.permissions ?? []).map((perm: any) => ({
+            id: perm.user.id,
+            username: perm.user.username,
+            role: perm.role,
+            userId: perm.user.id,
+          }))
+        );
+      } catch (e) {
+        console.error("Failed to load draft predictor:", e);
+      }
     }
 
-    loadDraft();
+    void loadDraft();
   }, [draftId]);
 
+  // mark as dirty if any fields changed
   useEffect(() => {
     dirtyRef.current =
       !!name.trim() ||
@@ -112,6 +169,7 @@ export default function PredictorCreate() {
       rows.some((r) => r.username.trim());
   }, [name, notes, selectedDatasetId, isPublic, selectedFolderId, rows]);
 
+  // name availability check
   useEffect(() => {
     let cancelled = false;
     async function run() {
@@ -123,7 +181,11 @@ export default function PredictorCreate() {
       setChecking(true);
       try {
         const mine = await listMyPredictors();
-        const exists = mine.some((p: any) => ((p.name ?? p.predictor_name ?? "") + "").toLowerCase() === trimmed.toLowerCase());
+        const exists = mine.some(
+          (p: any) =>
+            ((p.name ?? p.predictor_name ?? "") + "").toLowerCase() ===
+            trimmed.toLowerCase()
+        );
         if (!cancelled) setNameTaken(exists);
       } catch {
         if (!cancelled) setNameTaken(null);
@@ -132,9 +194,13 @@ export default function PredictorCreate() {
       }
     }
     const t = setTimeout(run, 250);
-    return () => { cancelled = true; clearTimeout(t); };
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [name]);
 
+  // load datasets
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -147,77 +213,157 @@ export default function PredictorCreate() {
         });
         setDatasets(ui);
       } catch {
-        setDatasets([]);
+        if (!cancelled) setDatasets([]);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Fetch features when dataset is selected
+  useEffect(() => {
+    if (!selectedDatasetId) {
+      setAvailableFeatures([]);
+      setSelectedFeatures(new Set());
+      setFeaturesError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setFeaturesLoading(true);
+    setFeaturesError(null);
+
+    (async () => {
+      try {
+        const stats = await getDatasetStats(Number(selectedDatasetId));
+        if (cancelled) return;
+
+        const features =
+          stats.feature_correlations?.map((fc: any) => fc.feature) ?? [];
+        setAvailableFeatures(features);
+        setSelectedFeatures(new Set(features)); // default: all selected
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to load dataset features:", err);
+        setFeaturesError(
+          "Failed to load features. You can still proceed with training."
+        );
+        setAvailableFeatures([]);
+        setSelectedFeatures(new Set());
+      } finally {
+        if (!cancelled) setFeaturesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDatasetId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return datasets.filter((d) => (q ? d.title.toLowerCase().includes(q) : true));
+    return datasets.filter((d) =>
+      q ? d.title.toLowerCase().includes(q) : true
+    );
   }, [datasets, query]);
 
-  const canSave = !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === 'idle';
+  const canSave =
+    !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === "idle";
 
-
-  // Try to train the dataset first 
+  // Train-and-save flow (supports draft + advanced settings)
   async function onTrainAndSave() {
     if (!canSave) return;
 
-    setTrainingStep('training');
+    setTrainingStep("training");
     setTrainingError(null);
 
     try {
-      const datasetId = Number(selectedDatasetId)
+      const datasetId = Number(selectedDatasetId);
+
+      const validNumTimePoints =
+        numTimePoints !== "" &&
+        !Number.isNaN(Number(numTimePoints)) &&
+        Number(numTimePoints) > 0
+          ? Number(numTimePoints)
+          : undefined;
+
       // Step 1: Train first (no predictor yet)
       const trainingResult = await trainPredictor(datasetId, {
         parameters: {
           n_epochs: 100,
           dropout: 0.2,
           neurons: [64, 64],
-          n_exp: 10
+          n_exp: 10,
+          num_time_points: validNumTimePoints,
+          regularization,
+          objective_function: objectiveFunction,
+          marginal_loss_type: marginalLossType,
+          c_param_search_scope: cParamSearchScope,
+          cox_feature_selection: coxFeatureSelection,
+          mrmr_feature_selection: mrmrFeatureSelection,
+          mtlr_predictor: mtlrPredictor,
+          tune_parameters: tuneParameters,
+          use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+          use_predefined_folds: usePredefinedFolds,
+          run_cross_validation: runCrossValidation,
+          standardize_features: standardizeFeatures,
+          selected_features:
+            selectedFeatures.size > 0
+              ? Array.from(selectedFeatures)
+              : undefined,
         },
       });
 
-      // Validate training result
       if (!trainingResult || !trainingResult.model_id) {
-        throw new Error('Training did not return a valid model_id');
+        throw new Error("Training did not return a valid model_id");
       }
 
-      // Step 2: Create predictor with ML metadata
-      setTrainingStep('creating');
+      setTrainingStep("creating");
 
-      let finalPredictor;
+      // Parse selected_features if it's a string
+      let parsedFeatures = trainingResult.selected_features;
+      if (typeof parsedFeatures === "string") {
+        try {
+          parsedFeatures = JSON.parse(parsedFeatures);
+        } catch {
+          console.warn(
+            "Could not parse selected_features as JSON, using as-is"
+          );
+        }
+      }
 
-      if (isDraftMode) {
-        // Update existing draft and convert to final
-        finalPredictor = await updatePredictor(Number(draftId), {
-          name: name.trim(),
-          description: notes.trim(),
-          dataset_id: datasetId,
-          folder_id: selectedFolderId || undefined,
-          is_private: !isPublic,
-          ml_training_status: "trained",
-          ml_model_metrics: trainingResult.metrics || {},
-          ml_selected_features: trainingResult.selected_features,
-          model_id: trainingResult.model_id,
-          ml_trained_at: trainingResult.trained_at
-        });
+      const commonPayload = {
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: datasetId,
+        folder_id: selectedFolderId || undefined,
+        is_private: !isPublic,
+        model_id: trainingResult.model_id,
+        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
+        ml_training_status: "trained",
+        ml_model_metrics: trainingResult.metrics || {},
+        ml_selected_features: parsedFeatures || null,
+        num_time_points: validNumTimePoints,
+        regularization,
+        objective_function: objectiveFunction,
+        marginal_loss_type: marginalLossType,
+        c_param_search_scope: cParamSearchScope,
+        cox_feature_selection: coxFeatureSelection,
+        mrmr_feature_selection: mrmrFeatureSelection,
+        mtlr_predictor: mtlrPredictor,
+        tune_parameters: tuneParameters,
+        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+        use_predefined_folds: usePredefinedFolds,
+        run_cross_validation: runCrossValidation,
+        standardize_features: standardizeFeatures,
+      };
+
+      let finalPredictor: any;
+      if (isDraftMode && draftId) {
+        finalPredictor = await updatePredictor(Number(draftId), commonPayload);
       } else {
-        // Create fresh predictor
-        finalPredictor = await createPredictor({
-          name: name.trim(),
-          description: notes.trim(),
-          dataset_id: datasetId,
-          folder_id: selectedFolderId || undefined,
-          is_private: !isPublic,
-          ml_training_status: "trained",
-          ml_model_metrics: trainingResult.metrics || {},
-          ml_selected_features: trainingResult.selected_features,
-          model_id: trainingResult.model_id,
-          ml_trained_at: trainingResult.trained_at
-        });
+        finalPredictor = await createPredictor(commonPayload);
       }
 
       setCreatedPredictorId(finalPredictor.predictor_id);
@@ -233,74 +379,73 @@ export default function PredictorCreate() {
         if (!userId) continue;
 
         try {
-          await grantPredictorViewer(finalPredictor.predictor_id, userId, row.role);
+          await grantPredictorViewer(
+            finalPredictor.predictor_id,
+            userId,
+            row.role
+          );
         } catch (e) {
           console.error("Grant failed", e);
         }
       }
 
       // Step 4: Complete!
-      setTrainingStep('complete');
+      setTrainingStep("complete");
 
       setTimeout(() => {
         navigate(`/predictors/${finalPredictor.predictor_id}`);
       }, 2000);
-
     } catch (error: any) {
-      // Update ML training status for error scenario
-      setTrainingStep('error');
-      setTrainingError(error.message || 'Failed to train and create predictor!');
-      console.error('Training error:', error);
+      setTrainingStep("error");
+      console.error("Training/Creation error:", error);
+      console.error("Error details:", error?.details);
 
-      // Optionally, you could create a predictor in "failed" state if needed
-      // await createPredictor({ name, ... , ml_training_status: 'failed' });
+      let errorMessage = "Failed to train and create predictor!";
+      if (error?.details) {
+        if (typeof error.details === "object") {
+          errorMessage = JSON.stringify(error.details, null, 2);
+        } else {
+          errorMessage = String(error.details);
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      setTrainingError(errorMessage);
     }
   }
 
-
+  // Save as draft (no training)
   async function saveDraft() {
     try {
-      let draft;
+      const payload: any = {
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: selectedDatasetId ? Number(selectedDatasetId) : null,
+        folder_id: selectedFolderId || undefined,
+        is_private: true,
+        ml_training_status: "not_trained",
+        ml_trained_at: null,
+        ml_model_metrics: {},
+        ml_selected_features: null,
+        model_id: null,
+      };
 
-      if (isDraftMode) {
-        // Update existing draft
-        draft = await updatePredictor(Number(draftId), {
-          name: name.trim(),
-          description: notes.trim(),
-          dataset_id: selectedDatasetId ? Number(selectedDatasetId) : null,
-          folder_id: selectedFolderId || undefined,
-          is_private: true,
-          ml_training_status: "not_trained",
-          ml_trained_at: null,
-          ml_model_metrics: {},
-          ml_selected_features: null,
-          model_id: null,
-        });
+      let draft;
+      if (isDraftMode && draftId) {
+        draft = await updatePredictor(Number(draftId), payload);
       } else {
-        // Create new draft
-        draft = await createPredictor({
-          name: name.trim(),
-          description: notes.trim(),
-          dataset_id: selectedDatasetId ? Number(selectedDatasetId) : null,
-          folder_id: selectedFolderId || undefined,
-          is_private: true,
-          ml_training_status: "not_trained",
-          ml_trained_at: null,
-          ml_model_metrics: {},
-          ml_selected_features: null,
-          model_id: null,
-        });
+        draft = await createPredictor(payload);
       }
 
-      navigate("/dashboard", { state: { tab: "predictors" } })
+      navigate("/dashboard", { state: { tab: "predictors" } });
     } catch (e) {
       alert("Failed to save draft");
     }
   }
 
-
   function onBack() {
-    if (trainingStep !== 'idle') {
+    if (trainingStep !== "idle") {
       // Don't allow navigation during training
       return;
     }
@@ -309,229 +454,347 @@ export default function PredictorCreate() {
   }
 
   function addRow() {
-    setRows((r) => [...r, { id: (r.at(-1)?.id ?? 0) + 1, username: "", role: "viewer" }]);
+    setRows((r) => [
+      ...r,
+      { id: (r.at(-1)?.id ?? 0) + 1, username: "", role: "viewer" },
+    ]);
   }
+
   function removeRow(id: number) {
     setRows((r) => r.filter((x) => x.id !== id));
   }
+
   function updateRow(id: number, patch: Partial<PermRow>) {
     setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
+
   function handleUserSelect(id: number, user: UserSuggestion) {
     updateRow(id, { username: user.username, userId: user.id });
   }
 
-  const isProcessing = trainingStep !== 'idle';
+  const isProcessing = trainingStep !== "idle";
 
   return (
-    <div className="min-h-[60vh] bg-white">
+    <div className="min-h-[60vh] bg-neutral-100">
       {/* Sticky sub-header */}
-      <div className="sticky top-[var(--app-nav-h,3.5rem)] z-40 w-full border-b bg-neutral-700 text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-3 py-2.5">
+      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <button
             onClick={onBack}
             disabled={isProcessing}
-            className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center rounded-md border border-white/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium shadow-sm transition hover:bg-neutral-500 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Back
           </button>
-          <div className="text-sm font-semibold tracking-wide">Create New Predictor</div>
+          <div className="text-lg font-semibold tracking-wide">
+            {isDraftMode ? "Edit Predictor Draft" : "Create New Predictor"}
+          </div>
           <button
             onClick={onTrainAndSave}
             disabled={!canSave}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center rounded-md border border-black/10 bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {trainingStep === 'creating' ? 'Creating…' :
-              trainingStep === 'training' ? 'Training…' :
-                'Train & Save'}
+            {trainingStep === "creating"
+              ? "Creating…"
+              : trainingStep === "training"
+              ? "Training…"
+              : "Train & Save"}
           </button>
         </div>
         <div className="h-1 w-full bg-neutral-600" />
       </div>
 
       {/* Body */}
-      <div className="mx-auto max-w-3xl space-y-8 p-4">
-        {/* Name */}
-        <section className="space-y-2">
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Name</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isProcessing}
-            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            placeholder="A concise predictor name"
-          />
-          <div className="min-h-[1.25rem] text-xs">
-            {name ? (
-              checking ? (
-                <span className="text-neutral-500">Checking availability…</span>
-              ) : nameTaken === true ? (
-                <span className="text-red-600">This name is already taken.</span>
-              ) : nameTaken === false ? (
-                <span className="text-green-600">Name is available. Proceed!</span>
-              ) : (
-                <span className="text-neutral-500">Could not verify name; you can still proceed.</span>
-              )
-            ) : (
-              <span className="text-neutral-500">
-                This maps to <code>name</code>.
-              </span>
-            )}
-          </div>
-        </section>
+      <div className="mx-auto max-w-3xl px-4 py-6">
+        <div className="space-y-8 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+          {/* Page heading */}
+          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-200 p-4">
+            <header className="space-y-1">
+              <p className="text-sm text-neutral-600">
+                Name your predictor, choose a dataset, then configure who can
+                see and use it.
+              </p>
+            </header>
+          </section>
 
-        {/* Notes */}
-        <section className="space-y-2">
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            disabled={isProcessing}
-            rows={4}
-            className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            placeholder="Optional description (maps to backend 'description')."
-          />
-        </section>
-
-        {/* Folder Selection */}
-        <section className="space-y-2">
-          <label className="block text-xs font-medium text-gray-700">Organization</label>
-          <FolderSelector
-            selectedFolderId={selectedFolderId}
-            onFolderSelect={setSelectedFolderId}
-            disabled={isProcessing}
-            placeholder="Select a folder (optional)"
-          />
-          <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-700">
-            Organize your predictor by adding it to a folder. You can create a new folder or select an existing one.
-          </div>
-        </section>
-
-        {/* Dataset picker */}
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-              Choose a dataset
+          {/* Name */}
+          <section className="space-y-2">
+            <label className="block text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              Name
             </label>
-            <div className="w-64">
-              <SearchBar
-                value={query}
-                onChange={setQuery}
-                placeholder="Search datasets…"
-                onClear={() => setQuery("")}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-
-          <div className="max-h-60 overflow-auto rounded-md border bg-white">
-            {filtered.length === 0 ? (
-              <div className="p-3 text-sm text-neutral-500">No datasets match your search.</div>
-            ) : (
-              <ul className="divide-y">
-                {filtered.map((ds) => {
-                  const selected = selectedDatasetId === ds.id;
-                  return (
-                    <li key={ds.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDatasetId(ds.id)}
-                        disabled={isProcessing}
-                        className={`block w-full px-3 py-2 text-left text-sm hover:bg-neutral-50 disabled:cursor-not-allowed ${selected ? "bg-neutral-100" : ""
-                          }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{ds.title}</div>
-                          <div className="text-[11px] text-neutral-600">{ds.owner ? "Owner" : "Viewer"}</div>
-                        </div>
-                        {ds.notes && <div className="mt-0.5 line-clamp-2 text-xs text-neutral-600">{ds.notes}</div>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <div className="text-xs text-neutral-500">You must select one dataset to train/use this predictor.</div>
-        </section>
-
-        {/* Visibility */}
-        <section className="space-y-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Visibility</div>
-          <label className="flex items-center gap-3">
             <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               disabled={isProcessing}
-              className="h-4 w-4 accent-neutral-900 disabled:opacity-50"
+              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+              placeholder="A concise predictor name"
             />
-            <span className="text-sm">Make Predictor Public</span>
-          </label>
-          <div className="rounded-md border bg-neutral-50 p-2 text-xs text-neutral-700">
-            By enabling this, all users will be able to discover and use this predictor. Disable to keep it private to you
-            (and the users you share with).
-          </div>
-        </section>
-
-        {/* Manage permissions */}
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-neutral-800">Customize visibility and permissions</h3>
-          <div className="rounded-md border">
-            <div className="grid grid-cols-2 border-b bg-neutral-100 px-3 py-2 text-xs font-semibold">
-              <div>Users</div>
-              <div>Permissions</div>
-            </div>
-
-            <div className="divide-y">
-              {rows.map((r) => (
-                <div key={r.id} className="grid grid-cols-2 items-center gap-2 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
-                      title="Remove"
-                      onClick={() => removeRow(r.id)}
-                      disabled={isProcessing}
-                    >
-                      ✕
-                    </button>
-                    <UserSearchInput
-                      value={r.username}
-                      onValueChange={(val) => updateRow(r.id, { username: val, userId: undefined })}
-                      onSelect={(user) => handleUserSelect(r.id, user)}
-                      placeholder="Search username"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <div>
-                    <select
-                      value={r.role}
-                      onChange={(e) => updateRow(r.id, { role: e.target.value as PermRow["role"] })}
-                      disabled={isProcessing}
-                      className="w-40 rounded-md border px-2 py-1 text-sm disabled:bg-gray-100"
-                    >
-                      <option value="owner">Owner</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between border-t bg-neutral-100 px-3 py-2">
-              <button
-                onClick={addRow}
-                disabled={isProcessing}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-neutral-50 disabled:opacity-50"
-              >
-                + Add
-              </button>
-              <div className="text-[11px] text-neutral-600">
-                Owners can edit & retrain. Viewers can use the predictor only.
+            <div className="flex min-h-[1.25rem] items-start justify-between text-xs">
+              <div>
+                {name ? (
+                  checking ? (
+                    <span className="text-neutral-500">
+                      Checking availability…
+                    </span>
+                  ) : nameTaken === true ? (
+                    <span className="text-red-600">
+                      This name is already taken.
+                    </span>
+                  ) : nameTaken === false ? (
+                    <span className="text-green-600">
+                      Name is available. Proceed!
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">
+                      Could not verify name; you can still proceed.
+                    </span>
+                  )
+                ) : (
+                  <span className="text-neutral-500">
+                    This maps to <code>name</code>.
+                  </span>
+                )}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {/* Notes */}
+          <section className="space-y-2">
+            <label className="block text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isProcessing}
+              rows={4}
+              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+              placeholder="Optional description (maps to backend 'description')."
+            />
+          </section>
+
+          {/* Folder Selection */}
+          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+            <h2 className="block text-sm font-semibold uppercase text-neutral-900">
+              Organization
+            </h2>
+            <FolderSelector
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={setSelectedFolderId}
+              disabled={isProcessing}
+              placeholder="Select a folder (optional)"
+              ownedOnly={true}
+            />
+            <div className="rounded-md bg-neutral-50 p-2 text-xs text-neutral-700">
+              Organize your predictor by adding it to a folder. You can create a
+              new folder or select an existing one.
+            </div>
+          </section>
+
+          {/* Dataset picker */}
+          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="block pl-1 text-sm font-semibold uppercase text-neutral-900">
+                Choose a dataset
+              </label>
+              <div className="w-64">
+                <SearchBar
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search datasets…"
+                  onClear={() => setQuery("")}
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+
+            <div className="max-h-60 overflow-auto rounded-md border border-black/10 bg-white">
+              {filtered.length === 0 ? (
+                <div className="p-3 text-sm text-neutral-500">
+                  No datasets match your search.
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {filtered.map((ds) => {
+                    const selected = selectedDatasetId === ds.id;
+                    return (
+                      <li key={ds.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDatasetId(ds.id)}
+                          disabled={isProcessing}
+                          className={`block w-full px-3 py-2 text-left text-sm transition hover:bg-neutral-200 disabled:cursor-not-allowed ${
+                            selected ? "bg-neutral-200" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">{ds.title}</div>
+                            <div className="text-[11px] text-neutral-600">
+                              {ds.owner ? "Owner" : "Viewer"}
+                            </div>
+                          </div>
+                          {ds.notes && (
+                            <div className="mt-0.5 line-clamp-2 text-xs text-neutral-600">
+                              {ds.notes}
+                            </div>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="text-xs text-neutral-500">
+              You must select one dataset to train/use this predictor.
+            </div>
+          </section>
+
+          {/* Feature Selection (Collapsible) - only show when dataset is selected */}
+          {selectedDatasetId && (
+            <FeatureSelectionSection
+              disabled={isProcessing}
+              availableFeatures={availableFeatures}
+              selectedFeatures={selectedFeatures}
+              setSelectedFeatures={setSelectedFeatures}
+              isLoading={featuresLoading}
+              error={featuresError}
+            />
+          )}
+
+          {/* Advanced Settings (Collapsible) */}
+          <AdvancedSettingsSection
+            disabled={isProcessing}
+            numTimePoints={numTimePoints}
+            setNumTimePoints={setNumTimePoints}
+            regularization={regularization}
+            setRegularization={setRegularization}
+            objectiveFunction={objectiveFunction}
+            setObjectiveFunction={setObjectiveFunction}
+            marginalLossType={marginalLossType}
+            setMarginalLossType={setMarginalLossType}
+            cParamSearchScope={cParamSearchScope}
+            setCParamSearchScope={setCParamSearchScope}
+            coxFeatureSelection={coxFeatureSelection}
+            setCoxFeatureSelection={setCoxFeatureSelection}
+            mrmrFeatureSelection={mrmrFeatureSelection}
+            setMrmrFeatureSelection={setMrmrFeatureSelection}
+            mtlrPredictor={mtlrPredictor}
+            setMtlrPredictor={setMtlrPredictor}
+            tuneParameters={tuneParameters}
+            setTuneParameters={setTuneParameters}
+            useSmoothedLogLikelihood={useSmoothedLogLikelihood}
+            setUseSmoothedLogLikelihood={setUseSmoothedLogLikelihood}
+            usePredefinedFolds={usePredefinedFolds}
+            setUsePredefinedFolds={setUsePredefinedFolds}
+            runCrossValidation={runCrossValidation}
+            setRunCrossValidation={setRunCrossValidation}
+            standardizeFeatures={standardizeFeatures}
+            setStandardizeFeatures={setStandardizeFeatures}
+          />
+
+          {/* Visibility + Permissions grouped */}
+          <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50/80 p-4">
+            <h2 className="block text-sm font-semibold uppercase text-neutral-900">
+              Visibility &amp; sharing
+            </h2>
+
+            {/* Visibility */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  disabled={isProcessing}
+                  className="h-4 w-4 accent-neutral-900 disabled:opacity-50"
+                />
+                <span className="text-xs font-medium text-neutral-800">
+                  Make Predictor Public
+                </span>
+              </label>
+              <div className="rounded-md border border-dashed border-neutral-200 bg-neutral-200 p-2 text-xs text-neutral-700">
+                By enabling this, all users will be able to discover and use
+                this predictor. Disable to keep it private to you (and the users
+                you share with).
+              </div>
+            </div>
+
+            {/* Manage permissions */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-600">
+                Customize visibility and permissions
+              </h3>
+              <div className="rounded-md border border-neutral-200 bg-white">
+                <div className="grid grid-cols-2 border-b bg-neutral-100 px-3 py-2 text-xs font-semibold text-neutral-800">
+                  <div>Users</div>
+                  <div>Permissions</div>
+                </div>
+
+                <div className="divide-y">
+                  {rows.map((r) => (
+                    <div
+                      key={r.id}
+                      className="grid grid-cols-2 items-center gap-2 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs transition hover:bg-neutral-50 disabled:opacity-50"
+                          title="Remove"
+                          onClick={() => removeRow(r.id)}
+                          disabled={isProcessing}
+                        >
+                          ✕
+                        </button>
+                        <UserSearchInput
+                          value={r.username}
+                          onValueChange={(val) =>
+                            updateRow(r.id, {
+                              username: val,
+                              userId: undefined,
+                            })
+                          }
+                          onSelect={(user) => handleUserSelect(r.id, user)}
+                          placeholder="Search username"
+                          disabled={isProcessing}
+                        />
+                      </div>
+                      <div>
+                        <select
+                          value={r.role}
+                          onChange={(e) =>
+                            updateRow(r.id, {
+                              role: e.target.value as PermRow["role"],
+                            })
+                          }
+                          disabled={isProcessing}
+                          className="w-40 rounded-md border border-neutral-300 px-2 py-1 text-sm disabled:bg-gray-100"
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between border-t bg-neutral-100 px-3 py-2">
+                  <button
+                    onClick={addRow}
+                    disabled={isProcessing}
+                    className="rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium transition hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    + Add
+                  </button>
+                  <div className="text-[11px] text-neutral-600">
+                    Owners can edit &amp; retrain. Viewers can only use the
+                    predictor.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Training Modal */}
@@ -540,7 +803,7 @@ export default function PredictorCreate() {
           step={trainingStep}
           error={trainingError}
           onRetry={() => {
-            setTrainingStep('idle');
+            setTrainingStep("idle");
             setTrainingError(null);
           }}
           onViewPredictor={() => {
@@ -554,7 +817,9 @@ export default function PredictorCreate() {
       {showLeavePrompt && (
         <ConfirmLeave
           onCancel={() => setShowLeavePrompt(false)}
-          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })}
+          onContinue={() =>
+            navigate("/dashboard", { state: { tab: "predictors" } })
+          }
           onSaveDraft={saveDraft}
         />
       )}
@@ -566,7 +831,7 @@ function TrainingModal({
   step,
   error,
   onRetry,
-  onViewPredictor
+  onViewPredictor,
 }: {
   step: TrainingStep;
   error: string | null;
@@ -576,88 +841,613 @@ function TrainingModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        {step === 'creating' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900"></div>
-              <h3 className="text-lg font-semibold">Creating Predictor...</h3>
-              <p className="mt-2 text-sm text-neutral-600">Setting up your predictor in the database.</p>
-            </div>
-          </>
+        {step === "creating" && (
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+            <h3 className="text-lg font-semibold">Creating Predictor...</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              Setting up your predictor in the database.
+            </p>
+          </div>
         )}
 
-        {step === 'training' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-              <h3 className="text-lg font-semibold">Training ML Model...</h3>
-              <p className="mt-2 text-sm text-neutral-600">
-                This may take several minutes depending on dataset size. Please don't close this page.
-              </p>
-              <div className="mt-4 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-                🔄 Training in progress... The model is learning from your dataset.
-              </div>
+        {step === "training" && (
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+            <h3 className="text-lg font-semibold">Training ML Model...</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              This may take several minutes depending on dataset size. Please
+              don't close this page.
+            </p>
+            <div className="mt-4 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
+              🛠 Training in progress... The model is learning from your
+              dataset.
             </div>
-          </>
+          </div>
         )}
 
-        {step === 'complete' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-                ✓
-              </div>
-              <h3 className="text-lg font-semibold">Training Complete!</h3>
-              <p className="mt-2 text-sm text-neutral-600">
-                Your predictor has been created and trained successfully.
-              </p>
-              <p className="mt-1 text-xs text-neutral-500">Redirecting to predictor details...</p>
+        {step === "complete" && (
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
+              ✓
             </div>
-          </>
+            <h3 className="text-lg font-semibold">Training Complete!</h3>
+            <p className="mt-2 text-sm text-neutral-600">
+              Your predictor has been created and trained successfully.
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Redirecting to predictor details...
+            </p>
+          </div>
         )}
 
-        {step === 'error' && (
-          <>
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-                ✕
-              </div>
-              <h3 className="text-lg font-semibold">Training Failed</h3>
-              <p className="mt-2 text-sm text-red-600">{error}</p>
-              <div className="mt-4 flex gap-2 justify-center">
-                <button
-                  onClick={onRetry}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-                >
-                  Try Again
-                </button>
-              </div>
+        {step === "error" && (
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
+              ✕
             </div>
-          </>
+            <h3 className="text-lg font-semibold">Training Failed</h3>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-red-600">
+              {error}
+            </p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button
+                onClick={onRetry}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 active:translate-y-[0.5px]"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={onViewPredictor}
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
+              >
+                View Predictor (if created)
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function ConfirmLeave({ onCancel, onContinue, onSaveDraft }: { onCancel: () => void; onContinue: () => void; onSaveDraft: () => void }) {
+function ConfirmLeave({
+  onCancel,
+  onContinue,
+  onSaveDraft,
+}: {
+  onCancel: () => void;
+  onContinue: () => void;
+  onSaveDraft: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-md bg-white p-4 shadow-lg">
         <h3 className="text-base font-semibold">Leave without saving?</h3>
-        <p className="mt-1 text-sm text-neutral-600">Your data will not be saved if you continue to dashboard.</p>
+        <p className="mt-1 text-sm text-neutral-600">
+          Your data will not be saved if you return to the Dashboard.
+        </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm transition hover:bg-neutral-50"
+          >
             Cancel
           </button>
-          <button onClick={onContinue} className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50">
-            Continue
-          </button>
-          <button onClick={onSaveDraft} className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white">
+          <button
+            onClick={onSaveDraft}
+            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+          >
             Save as Draft
+          </button>
+          <button
+            onClick={onContinue}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 transition hover:bg-neutral-50"
+          >
+            Continue
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+interface AdvancedSettingsProps {
+  disabled: boolean;
+  numTimePoints: string | number;
+  setNumTimePoints: (v: string | number) => void;
+  regularization: "l1" | "l2";
+  setRegularization: (v: "l1" | "l2") => void;
+  objectiveFunction:
+    | "log-likelihood"
+    | "l2 marginal loss"
+    | "log-likelihood & L2ML";
+  setObjectiveFunction: (
+    v: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
+  ) => void;
+  marginalLossType: "weighted" | "unweighted";
+  setMarginalLossType: (v: "weighted" | "unweighted") => void;
+  cParamSearchScope: "basic" | "fine" | "extremely fine";
+  setCParamSearchScope: (v: "basic" | "fine" | "extremely fine") => void;
+  coxFeatureSelection: boolean;
+  setCoxFeatureSelection: (v: boolean) => void;
+  mrmrFeatureSelection: boolean;
+  setMrmrFeatureSelection: (v: boolean) => void;
+  mtlrPredictor: "stable" | "testing1";
+  setMtlrPredictor: (v: "stable" | "testing1") => void;
+  tuneParameters: boolean;
+  setTuneParameters: (v: boolean) => void;
+  useSmoothedLogLikelihood: boolean;
+  setUseSmoothedLogLikelihood: (v: boolean) => void;
+  usePredefinedFolds: boolean;
+  setUsePredefinedFolds: (v: boolean) => void;
+  runCrossValidation: boolean;
+  setRunCrossValidation: (v: boolean) => void;
+  standardizeFeatures: boolean;
+  setStandardizeFeatures: (v: boolean) => void;
+}
+
+function AdvancedSettingsSection({
+  disabled,
+  numTimePoints,
+  setNumTimePoints,
+  regularization,
+  setRegularization,
+  objectiveFunction,
+  setObjectiveFunction,
+  marginalLossType,
+  setMarginalLossType,
+  cParamSearchScope,
+  setCParamSearchScope,
+  coxFeatureSelection,
+  setCoxFeatureSelection,
+  mrmrFeatureSelection,
+  setMrmrFeatureSelection,
+  mtlrPredictor,
+  setMtlrPredictor,
+  tuneParameters,
+  setTuneParameters,
+  useSmoothedLogLikelihood,
+  setUseSmoothedLogLikelihood,
+  usePredefinedFolds,
+  setUsePredefinedFolds,
+  runCrossValidation,
+  setRunCrossValidation,
+  standardizeFeatures,
+  setStandardizeFeatures,
+}: AdvancedSettingsProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  return (
+    <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        disabled={disabled}
+        className="flex w-full items-center justify-between text-left disabled:opacity-60"
+      >
+        <h2 className="block text-sm font-semibold uppercase text-neutral-900">
+          Advanced Settings
+        </h2>
+        <span
+          className={`transform text-neutral-600 transition-transform ${
+            showAdvanced ? "rotate-180" : ""
+          }`}
+        >
+          ▼
+        </span>
+      </button>
+
+      {showAdvanced && (
+        <div className="grid grid-cols-1 gap-6 pt-2 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="num_time_points"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              Number of Time Points
+            </label>
+            <input
+              type="number"
+              id="num_time_points"
+              value={numTimePoints}
+              onChange={(e) => setNumTimePoints(e.target.value)}
+              disabled={disabled}
+              placeholder="Optional"
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              Leave blank to use default (sqrt of sample size).
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="regularization"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              Regularization
+            </label>
+            <select
+              id="regularization"
+              value={regularization}
+              onChange={(e) =>
+                setRegularization(e.target.value as "l1" | "l2")
+              }
+              disabled={disabled}
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="l1">L1</option>
+              <option value="l2">L2</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="objective_function"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              Objective Function
+            </label>
+            <select
+              id="objective_function"
+              value={objectiveFunction}
+              onChange={(e) =>
+                setObjectiveFunction(
+                  e.target.value as
+                    | "log-likelihood"
+                    | "l2 marginal loss"
+                    | "log-likelihood & L2ML"
+                )
+              }
+              disabled={disabled}
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="log-likelihood">Log-Likelihood</option>
+              <option value="l2 marginal loss">L2 Marginal Loss</option>
+              <option value="log-likelihood & L2ML">
+                Log-Likelihood &amp; L2ML
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="marginal_loss_type"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              Marginal Loss Type
+            </label>
+            <select
+              id="marginal_loss_type"
+              value={marginalLossType}
+              onChange={(e) =>
+                setMarginalLossType(e.target.value as "weighted" | "unweighted")
+              }
+              disabled={disabled}
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="weighted">Weighted</option>
+              <option value="unweighted">Unweighted</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="c_param_search_scope"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              C-Param Search Scope
+            </label>
+            <select
+              id="c_param_search_scope"
+              value={cParamSearchScope}
+              onChange={(e) =>
+                setCParamSearchScope(
+                  e.target.value as "basic" | "fine" | "extremely fine"
+                )
+              }
+              disabled={disabled}
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="basic">Basic</option>
+              <option value="fine">Fine</option>
+              <option value="extremely fine">Extremely Fine</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="mtlr_predictor"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              MTLR Predictor
+            </label>
+            <select
+              id="mtlr_predictor"
+              value={mtlrPredictor}
+              onChange={(e) =>
+                setMtlrPredictor(e.target.value as "stable" | "testing1")
+              }
+              disabled={disabled}
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="stable">Stable</option>
+              <option value="testing1">Testing1</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
+            {[
+              {
+                state: coxFeatureSelection,
+                setState: setCoxFeatureSelection,
+                label: "Use Cox Feature Selection",
+                id: "cox_feature_selection_create",
+              },
+              {
+                state: mrmrFeatureSelection,
+                setState: setMrmrFeatureSelection,
+                label: "Use MRMR Feature Selection",
+                id: "mrmr_feature_selection_create",
+              },
+              {
+                state: tuneParameters,
+                setState: setTuneParameters,
+                label: "Tune Parameters",
+                id: "tune_parameters_create",
+              },
+              {
+                state: useSmoothedLogLikelihood,
+                setState: setUseSmoothedLogLikelihood,
+                label: "Use Smoothed Log-Likelihood",
+                id: "use_smoothed_log_likelihood_create",
+              },
+              {
+                state: usePredefinedFolds,
+                setState: setUsePredefinedFolds,
+                label: "Use Predefined Folds",
+                id: "use_predefined_folds_create",
+              },
+              {
+                state: runCrossValidation,
+                setState: setRunCrossValidation,
+                label: "Run Cross Validation",
+                id: "run_cross_validation_create",
+              },
+              {
+                state: standardizeFeatures,
+                setState: setStandardizeFeatures,
+                label: "Standardize Features",
+                id: "standardize_features_create",
+              },
+            ].map((cb) => (
+              <div className="flex items-center" key={cb.id}>
+                <input
+                  type="checkbox"
+                  id={cb.id}
+                  checked={cb.state}
+                  onChange={(e) => cb.setState(e.target.checked)}
+                  disabled={disabled}
+                  className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
+                />
+                <label
+                  htmlFor={cb.id}
+                  className="ml-2 block text-sm text-neutral-900"
+                >
+                  {cb.label}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface FeatureSelectionProps {
+  disabled: boolean;
+  availableFeatures: string[];
+  selectedFeatures: Set<string>;
+  setSelectedFeatures: (features: Set<string>) => void;
+  isLoading: boolean;
+  error: string | null;
+}
+
+function FeatureSelectionSection({
+  disabled,
+  availableFeatures,
+  selectedFeatures,
+  setSelectedFeatures,
+  isLoading,
+  error,
+}: FeatureSelectionProps) {
+  const [showFeatures, setShowFeatures] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+
+  const filteredFeatures = useMemo(() => {
+    if (!searchQuery) return availableFeatures;
+    return availableFeatures.filter((f) =>
+      f.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, availableFeatures]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredFeatures.length / pageSize)),
+    [filteredFeatures.length, pageSize]
+  );
+
+  const currentFeatures = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredFeatures.slice(start, start + pageSize);
+  }, [filteredFeatures, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [page, totalPages]);
+
+  const handleToggleFeature = (feature: string) => {
+    const newSelected = new Set(selectedFeatures);
+    if (newSelected.has(feature)) newSelected.delete(feature);
+    else newSelected.add(feature);
+    setSelectedFeatures(newSelected);
+  };
+
+  const handleSelectAll = () =>
+    setSelectedFeatures(new Set(availableFeatures));
+  const handleDeselectAll = () => setSelectedFeatures(new Set());
+
+  return (
+    <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
+      <button
+        type="button"
+        onClick={() => setShowFeatures(!showFeatures)}
+        disabled={disabled}
+        className="flex w-full items-center justify-between text-left disabled:opacity-60"
+      >
+        <div>
+          <h2 className="block text-sm font-semibold uppercase text-neutral-900">
+            Feature Selection
+          </h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            {selectedFeatures.size} / {availableFeatures.length} features
+            selected
+          </p>
+        </div>
+        <span
+          className={`transform text-neutral-600 transition-transform ${
+            showFeatures ? "rotate-180" : ""
+          }`}
+        >
+          ▼
+        </span>
+      </button>
+
+      {showFeatures && (
+        <div className="pt-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+              <span className="ml-2 text-sm text-neutral-500">
+                Loading features...
+              </span>
+            </div>
+          ) : error ? (
+            <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+              {error}
+            </div>
+          ) : availableFeatures.length === 0 ? (
+            <div className="rounded-md bg-neutral-100 p-3 text-center text-sm text-neutral-500">
+              No features available for this dataset.
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              {/* Search and actions bar */}
+              <div className="flex items-center gap-2 border-b bg-neutral-50 p-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  disabled={disabled}
+                  className="flex-1 rounded-md border border-neutral-300 p-2 text-sm disabled:bg-gray-100"
+                  placeholder="Search for features..."
+                />
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  disabled={disabled}
+                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeselectAll}
+                  disabled={disabled}
+                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                >
+                  Deselect All
+                </button>
+              </div>
+
+              {/* Feature list */}
+              <div className="max-h-72 overflow-y-auto bg-white">
+                {currentFeatures.map((feature) => (
+                  <label
+                    key={feature}
+                    className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-neutral-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFeatures.has(feature)}
+                      onChange={() => handleToggleFeature(feature)}
+                      disabled={disabled}
+                      className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
+                    />
+                    <span className="font-mono text-sm">{feature}</span>
+                  </label>
+                ))}
+                {currentFeatures.length === 0 && (
+                  <p className="p-4 text-center text-sm text-neutral-500">
+                    No features found.
+                  </p>
+                )}
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between border-t p-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <span>Entries per page:</span>
+                  <select
+                    className="rounded-md border border-neutral-300 p-1 text-sm disabled:bg-gray-100"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    disabled={disabled}
+                  >
+                    {[5, 10, 20, 50].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1">
+                  {page > 1 && (
+                    <button
+                      type="button"
+                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={disabled}
+                    >
+                      PREV
+                    </button>
+                  )}
+                  <span className="px-2 text-sm text-neutral-600">
+                    Page {page} of {totalPages}
+                  </span>
+                  {page < totalPages && (
+                    <button
+                      type="button"
+                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={disabled}
+                    >
+                      NEXT
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

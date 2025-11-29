@@ -16,7 +16,14 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Settings() {
-  const { user, loading, updateProfile, updatePassword, refreshProfile, logout } = useAuth();
+  const {
+    user,
+    loading,
+    updateProfile,
+    updatePassword,
+    refreshProfile,
+    logout,
+  } = useAuth();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -50,7 +57,11 @@ export default function Settings() {
       await updateProfile({ first_name: firstName, last_name: lastName, email });
       setMsg("Profile updated.");
     } catch (err: any) {
-      setMsg(err?.details ? JSON.stringify(err.details) : "Failed to update profile.");
+      setMsg(
+        err?.details
+          ? JSON.stringify(err.details)
+          : "Failed to update profile."
+      );
     } finally {
       setSaving(false);
     }
@@ -59,6 +70,7 @@ export default function Settings() {
   const onChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     setPwMsg(null);
+
     if (pwd1.length < 8) {
       setPwMsg("Password must be at least 8 characters.");
       return;
@@ -67,120 +79,222 @@ export default function Settings() {
       setPwMsg("Passwords do not match.");
       return;
     }
+
     setPwSaving(true);
     try {
       await updatePassword(pwd1);
       setPwMsg("Password updated.");
       setPwd1("");
       setPwd2("");
-      // Optional: log out to enforce re-login
-      // await logout();
     } catch (err: any) {
-      setPwMsg(err?.details ? JSON.stringify(err.details) : "Failed to update password.");
+      setPwMsg(
+        err?.details
+          ? JSON.stringify(err.details)
+          : "Failed to update password."
+      );
     } finally {
       setPwSaving(false);
     }
   };
 
   if (loading && !user) {
-    return <div className="p-6">Loading…</div>;
+    return (
+      <div className="min-h-[60vh] bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-700" />
+          <div className="mt-2 text-sm text-slate-700">
+            Loading settings…
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  // helper styles for status messages
+  const profileMsgClass =
+    msg === "Profile updated."
+      ? "text-xs font-medium text-emerald-700"
+      : "text-xs font-medium text-rose-700";
+
+  const pwMsgClass =
+    pwMsg === "Password updated."
+      ? "text-xs font-medium text-emerald-700"
+      : "text-xs font-medium text-rose-700";
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-10">
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Profile</h2>
-        <form onSubmit={onSaveProfile} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block text-xs font-medium text-gray-700">
-              First name
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                autoComplete="given-name"
-                className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-              />
-            </label>
-            <label className="block text-xs font-medium text-gray-700">
-              Last name
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                autoComplete="family-name"
-                className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-              />
-            </label>
+    <div className="min-h-[60vh] bg-slate-200">
+      {/* Sticky sub-header (matches create/upload pages) */}
+      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full bg-slate-900 text-slate-50">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold tracking-wide">
+              Account Settings
+            </span>
           </div>
 
-          <label className="block text-xs font-medium text-gray-700">
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            />
-          </label>
+          {/* tiny butterfly animation LOL */}
+          <div className="flex items-center gap-2 pt-1 text-xs text-slate-200">
+            <span className="hidden sm:inline">
+              Welcome back! Hopefully it's not another password reset 
+            </span>
+            <span className="text-xl animate-bounce">𓂃 ࣪˖ ִֶཐི༏ཋྀ</span>
+          </div>
+        </div>
+        <div className="h-1 w-full bg-slate-700" />
+      </div>
 
-          <div className="flex items-center gap-3">
+      {/* Body — single centered column, matching PredictorCreate / DatasetUpload */}
+      <div className="mx-auto max-w-3xl px-4 py-6">
+        <div className="space-y-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          {/* Page heading card */}
+          <section className="space-y-2 rounded-lg border border-slate-200 bg-purple-100 p-4">
+            <p className="text-sm text-slate-800">
+              Update your profile details and password. Changes apply to your
+              current account only.
+            </p>
+          </section>
+
+          {/* Profile section */}
+          <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+            <header className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900">
+                  Profile
+                </h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  Keep your name and contact email up to date.
+                </p>
+              </div>
+            </header>
+
+            <form onSubmit={onSaveProfile} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    autoComplete="given-name"
+                    className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
+                    Last name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    autoComplete="family-name"
+                    className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  This is used for account contact (for instance, if you forget your password.)
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center rounded-md border border-sky-800 bg-sky-800 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-900 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+                {msg && <p className={profileMsgClass}>{msg}</p>}
+              </div>
+            </form>
+          </section>
+
+          {/* Password section */}
+          <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+            <header>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900">
+                Change password
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Use a strong, unique password to keep your account secure.
+              </p>
+            </header>
+
+            <form onSubmit={onChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
+                  New password
+                </label>
+                <input
+                  type="password"
+                  value={pwd1}
+                  onChange={(e) => setPwd1(e.target.value)}
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Minimum 8 characters. Avoid reusing passwords from other
+                  sites.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-900">
+                  Confirm new password
+                </label>
+                <input
+                  type="password"
+                  value={pwd2}
+                  onChange={(e) => setPwd2(e.target.value)}
+                  className="mt-1 w-full rounded-md border bg-white border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={pwSaving}
+                  className="inline-flex items-center rounded-md border border-sky-800 bg-sky-800 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-900 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {pwSaving ? "Updating…" : "Update password"}
+                </button>
+                {pwMsg && <p className={pwMsgClass}>{pwMsg}</p>}
+              </div>
+            </form>
+          </section>
+
+          {/* Logout section */}
+          <section className="flex items-center justify-between rounded-lg border border-slate-300 bg-purple-100 px-4 py-3 text-sm text-slate-900">
+            <div>
+              <p className="font-semibold">Log out</p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                You’ll need to sign in again to access your datasets and
+                predictors.
+              </p>
+            </div>
             <button
-              type="submit"
-              disabled={saving}
-              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
+              onClick={() => logout()}
+              className="inline-flex items-center rounded-md border border-slate-400 bg-slate-800 px-3 py-1.5 text-sm text-white font-medium text-slate-900 shadow-sm transition hover:bg-slate-600 active:translate-y-[0.5px]"
             >
-              {saving ? "Saving…" : "Save changes"}
+              Log out?
             </button>
-            {msg && <p className="text-sm">{msg}</p>}
-          </div>
-        </form>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Change password</h2>
-        <form onSubmit={onChangePassword} className="space-y-4">
-          <label className="block text-xs font-medium text-gray-700">
-            New password
-            <input
-              type="password"
-              value={pwd1}
-              onChange={(e) => setPwd1(e.target.value)}
-              className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            />
-          </label>
-          <label className="block text-xs font-medium text-gray-700">
-            Confirm new password
-            <input
-              type="password"
-              value={pwd2}
-              onChange={(e) => setPwd2(e.target.value)}
-              className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
-            />
-          </label>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={pwSaving}
-              className="rounded-md px-4 py-2 bg-neutral-700 text-white border border-black/10 shadow-sm disabled:opacity-60"
-            >
-              {pwSaving ? "Updating…" : "Update password"}
-            </button>
-            {pwMsg && <p className="text-sm">{pwMsg}</p>}
-          </div>
-        </form>
-      </section>
-
-      <section className="space-y-2">
-        <button
-          onClick={() => logout()}
-          className="rounded-md px-4 py-2 bg-black text-white border border-black/10 shadow-sm"
-        >
-          Log out
-        </button>
-      </section>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

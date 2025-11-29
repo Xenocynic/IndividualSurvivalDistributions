@@ -54,7 +54,7 @@ export default function Instructions(): JSX.Element {
       id: "make-predictions",
       label: "Make Predictions using an Existing Predictor",
     },
-    { id: "pssp-tutorial", label: "PSSP Tutorial" },
+    { id: "pssp-tutorial", label: "ISD Tutorial" },
   ];
 
   return (
@@ -84,14 +84,14 @@ export default function Instructions(): JSX.Element {
       <div className='flex-1 p-4 pt-4'>
         <div className='w-full space-y-6'>
           {/* Page Status Notice */}
-          <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6'>
-            <h2 className='text-lg font-semibold text-blue-800 mb-2'>
-              📚 Instructions Page - In Development
+          <div className='bg-neutral-200 border border-neutral-400 rounded-lg p-4 mb-6'>
+            <h2 className='text-lg font-semibold text-neutral-1000 mb-2'>
+              ✎𓂃 Instructions Page - In Development
             </h2>
-            <p className='text-blue-700 text-sm'>
+            <p className='text-neutral-700 text-sm'>
               This page is currently in progress and will be updated with
               comprehensive instructions once the full website functionality is
-              implemented. Check back soon for detailed guides on using all PSSP
+              implemented. Check back soon for detailed guides on using all ISD
               features.
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function Instructions(): JSX.Element {
             </p>
           </section>
 
-          {/* PSSP Tutorial Section */}
+          {/* ISD Tutorial Section */}
           <section id='pssp-tutorial' className='scroll-mt-4'>
             <h2 className='text-2xl font-bold text-gray-900 mb-4'>
               PSSP Tutorial
