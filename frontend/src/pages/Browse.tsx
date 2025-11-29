@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import SearchBar from "../components/SearchBar";
-import PublicFilter, { type Visibility } from "../components/PublicFilter";
+import { type Visibility } from "../components/PublicFilter";
 import DragDropProvider from "../components/DragDropProvider";
 
 import {
@@ -1104,8 +1104,6 @@ type AdvancedFilterMenuProps = {
 };
 
 function AdvancedFilterMenu({
-  visibility,
-  onVisibilityChange,
   keywordTarget,
   onKeywordTargetChange,
   updatedWithin,

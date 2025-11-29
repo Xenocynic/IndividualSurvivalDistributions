@@ -41,7 +41,7 @@ export function UserSearchInput({
       try {
         setIsSearching(true);
         const res = await searchUsers(value.trim(), 8);
-        setSuggestions(res);
+        setSuggestions(res.map(u => ({ ...u, email: u.email || '' })));
         setOpen(true);
       } catch (err: any) {
         console.error("User search failed", err);
