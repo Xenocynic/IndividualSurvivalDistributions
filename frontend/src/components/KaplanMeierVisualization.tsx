@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import type { FullPredictionsData } from "../lib/predictors";
 import { getPredictorFullPredictionsData } from "../lib/predictors";
-import { Download } from "lucide-react";
+import { Download, FileDown } from "lucide-react";
 
 interface KaplanMeierVisualizationProps {
   predictorId: number;
@@ -53,7 +53,7 @@ export default function KaplanMeierVisualization({
   const [error, setError] = useState<string | null>(null);
 
   const kmChartRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const histogramRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!predictorId) return;
@@ -220,6 +220,7 @@ export default function KaplanMeierVisualization({
 
   const handleDownloadKmPng = (
     ref: MutableRefObject<HTMLDivElement | null>,
+    filenamePrefix: string,
   ) => {
     if (!ref.current) return;
 
@@ -248,7 +249,7 @@ export default function KaplanMeierVisualization({
       canvas.toBlob((blob) => {
         if (!blob) return;
         const link = document.createElement("a");
-        link.download = `kaplan-meier-groups-${Date.now()}.png`;
+        link.download = `${filenamePrefix}-${Date.now()}.png`;
         link.href = URL.createObjectURL(blob);
         link.click();
       });
@@ -257,8 +258,26 @@ export default function KaplanMeierVisualization({
     img.src = url;
   };
 
+  const handleDownloadLogRankCsv = () => {
+    const header = "Group 1,Group 2,Z,Q\n";
+    const rows = logRankResults
+      .map(
+        (r: { g1: number; g2: number; z: number; q: number }) =>
+          `${r.g1},${r.g2},${r.z},${r.q}`,
+      )
+      .join("\n");
+    const csv = header + rows;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `log-rank-results-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div ref={containerRef} className="space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-xl font-semibold text-neutral-800">
           Kaplan Meier Visualization for Predictor &quot;{predictorName}&quot;
@@ -315,7 +334,7 @@ export default function KaplanMeierVisualization({
           </h3>
           <button
             type="button"
-            onClick={() => handleDownloadKmPng(kmChartRef)}
+            onClick={() => handleDownloadKmPng(kmChartRef, "kaplan-meier")}
             title="Download Kaplan-Meier chart as PNG"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm transition hover:bg-neutral-50"
           >
@@ -380,9 +399,19 @@ export default function KaplanMeierVisualization({
       </div>
 
       <div className="rounded-md border bg-white p-4">
-        <h3 className="mb-4 text-center text-sm font-semibold text-neutral-700">
-          Log-rank test
-        </h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-neutral-700">
+            Log-rank test
+          </h3>
+          <button
+            type="button"
+            onClick={handleDownloadLogRankCsv}
+            title="Download log-rank results as CSV"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-neutral-300 bg-white px-2 text-xs font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+          >
+            <FileDown className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </div>
         <LogRankTable results={logRankResults} groups={groups} />
         <p className="mt-4 text-xs text-neutral-500">
           For above graph, patients were separated into groups based on the{" "}
@@ -398,29 +427,42 @@ export default function KaplanMeierVisualization({
         </p>
       </div>
 
-      <div className="rounded-md border bg-white p-4">
+      <div ref={histogramRef} className="rounded-md border bg-white p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-neutral-700">
             Subject Histogram
           </h3>
-          <label className="flex items-center gap-2 text-sm text-neutral-700">
-            Number of Histogram Bins:
-            <input
-              type="number"
-              min={5}
-              max={30}
-              value={numHistogramBins}
-              onChange={(e) =>
-                setNumHistogramBins(
-                  Math.max(
-                    5,
-                    Math.min(30, parseInt(e.target.value, 10) || 15),
-                  ),
-                )
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-neutral-700">
+              Number of Histogram Bins:
+              <input
+                type="number"
+                min={5}
+                max={30}
+                value={numHistogramBins}
+                onChange={(e) =>
+                  setNumHistogramBins(
+                    Math.max(
+                      5,
+                      Math.min(30, parseInt(e.target.value, 10) || 15),
+                    ),
+                  )
+                }
+                className="w-20 rounded-md border border-neutral-300 px-2 py-1"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                handleDownloadKmPng(histogramRef, "kaplan-meier-histogram")
               }
-              className="w-20 rounded-md border border-neutral-300 px-2 py-1"
-            />
-          </label>
+              title="Download histogram as PNG"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Download histogram as PNG</span>
+            </button>
+          </div>
         </div>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
