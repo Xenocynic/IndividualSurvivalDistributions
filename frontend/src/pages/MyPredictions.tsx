@@ -9,10 +9,7 @@
  * - Search functionality across name, dataset, and model
  * - Filter by labeled status (all/labeled/unlabeled)
  * - Sort by name, created date, or model name (asc/desc)
- * - View modal with tabbed interface for labeled predictions
  * - Delete confirmation with error handling
- * - Click-outside-to-close modal functionality
- * - Automatic data transformation for visualizations
  */
 
 import { useState, useEffect, useMemo } from "react";
@@ -31,31 +28,21 @@ import {
   deletePrediction,
   type Prediction,
 } from "../lib/predictions";
-import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
-import DCalibrationHistogram from "../components/DCalibrationHistogram";
-import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
-import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
+import { Eye, Trash2 } from "lucide-react";
 
 export default function MyPredictions() {
   const navigate = useNavigate();
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewingPrediction, setViewingPrediction] =
-    useState<Prediction | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "individual" | "dcalibration" | "kaplan-meier"
-  >("individual");
 
-  // Filter state
   const [labeledFilter, setLabeledFilter] = useState<
     "all" | "labeled" | "unlabeled"
   >("all");
   const [sortBy, setSortBy] = useState<"name" | "created" | "model">("created");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Load predictions
   useEffect(() => {
     loadPredictions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,7 +60,6 @@ export default function MyPredictions() {
     }
   };
 
-  // Search handler with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       loadPredictions();
@@ -96,40 +82,12 @@ export default function MyPredictions() {
   };
 
   const handleView = (prediction: Prediction) => {
-    setViewingPrediction(prediction);
-    setActiveTab("individual");
-  };
-
-  // Transform prediction data for visualization
-  const getSurvivalCurvesData = (
-    prediction: Prediction,
-  ): SurvivalCurvesData | null => {
-    const predData = prediction.prediction_data;
-    if (
-      !predData?.predictions?.survival_curves ||
-      !predData?.predictions?.time_points
-    ) {
-      return null;
-    }
-
-    const curves: Record<string, SurvivalCurve> = {};
-    const survivalCurves = predData.predictions.survival_curves;
-    const timePoints = predData.predictions.time_points;
-
-    survivalCurves.forEach((probabilities: number[], index: number) => {
-      curves[String(index)] = {
-        times: timePoints,
-        survival_probabilities: probabilities.map((p: number) =>
-          Math.min(100, p * 100),
-        ),
-      };
+    // Go to read-only view page, passing the whole prediction
+    navigate(`/predictions/${prediction.prediction_id}`, {
+      state: {
+        prediction,
+      },
     });
-
-    return {
-      quantile_levels: timePoints,
-      survival_probabilities: [],
-      curves,
-    };
   };
 
   const formatDate = (dateString: string) => {
@@ -138,7 +96,6 @@ export default function MyPredictions() {
     return d.toLocaleString();
   };
 
-  // Filter and sort predictions
   const filteredAndSortedPredictions = useMemo(() => {
     let filtered = [...predictions];
 
@@ -169,7 +126,6 @@ export default function MyPredictions() {
 
   return (
     <div className="min-h-[60vh] bg-neutral-100">
-      {/* Sticky sub-header, matching Use Predictor / Dataset pages */}
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-3">
           <div className="text-lg font-semibold tracking-wide text-center">
@@ -179,10 +135,8 @@ export default function MyPredictions() {
         <div className="h-1 w-full bg-neutral-600" />
       </div>
 
-      {/* Main content panel */}
       <div className="mx-auto max-w-6xl px-4 py-6">
         <div className="space-y-6 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
-          {/* Header row inside panel */}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold text-neutral-900">
@@ -201,10 +155,8 @@ export default function MyPredictions() {
             </Button>
           </div>
 
-          {/* Search & filters toolbar */}
           <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              {/* Search */}
               <div className="flex-1">
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Search
@@ -218,7 +170,6 @@ export default function MyPredictions() {
                 />
               </div>
 
-              {/* Labeled filter */}
               <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Dataset type
@@ -238,7 +189,6 @@ export default function MyPredictions() {
                 </select>
               </div>
 
-              {/* Sort by */}
               <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Sort by
@@ -256,7 +206,6 @@ export default function MyPredictions() {
                 </select>
               </div>
 
-              {/* Sort order */}
               <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                   Order
@@ -275,7 +224,6 @@ export default function MyPredictions() {
             </div>
           </section>
 
-          {/* Table / list area */}
           <section className="rounded-lg border border-neutral-200 bg-neutral-50">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-sm text-neutral-600">
@@ -372,7 +320,7 @@ export default function MyPredictions() {
                               className="border-black/10 text-xs text-neutral-800 hover:bg-neutral-100"
                               onClick={() => handleView(prediction)}
                             >
-                              View
+                              <Eye className="h-5 w-3" />
                             </Button>
                             <Button
                               variant="outline"
@@ -382,7 +330,7 @@ export default function MyPredictions() {
                                 setDeletingId(prediction.prediction_id)
                               }
                             >
-                              Delete
+                              <Trash2 className="h-5 w-3" />
                             </Button>
                           </div>
                         </TableCell>
@@ -396,133 +344,6 @@ export default function MyPredictions() {
         </div>
       </div>
 
-      {/* View Modal */}
-      {viewingPrediction && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
-          onClick={() => setViewingPrediction(null)}
-        >
-          <div
-            className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-black/10 bg-neutral-50 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-900">
-                  {viewingPrediction.name}
-                </h2>
-                <p className="mt-1 text-xs text-neutral-600">
-                  {viewingPrediction.predictor.name} •{" "}
-                  {viewingPrediction.dataset.dataset_name}
-                </p>
-              </div>
-              <button
-                onClick={() => setViewingPrediction(null)}
-                className="rounded-full border border-transparent p-1 text-xl leading-none text-neutral-400 hover:border-black/10 hover:text-neutral-700"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Tabs for labeled predictions */}
-            {viewingPrediction.is_labeled && (
-              <div className="flex gap-1 border-b border-black/10 bg-white px-6 pt-3">
-                <button
-                  onClick={() => setActiveTab("individual")}
-                  className={[
-                    "px-3 py-2 text-xs font-medium",
-                    activeTab === "individual"
-                      ? "border-b-2 border-neutral-900 text-neutral-900"
-                      : "border-b-2 border-transparent text-neutral-600 hover:text-neutral-900",
-                  ].join(" ")}
-                >
-                  Individual predictions
-                </button>
-                <button
-                  onClick={() => setActiveTab("dcalibration")}
-                  className={[
-                    "px-3 py-2 text-xs font-medium",
-                    activeTab === "dcalibration"
-                      ? "border-b-2 border-neutral-900 text-neutral-900"
-                      : "border-b-2 border-transparent text-neutral-600 hover:text-neutral-900",
-                  ].join(" ")}
-                >
-                  D-calibration histogram
-                </button>
-                <button
-                  onClick={() => setActiveTab("kaplan-meier")}
-                  className={[
-                    "px-3 py-2 text-xs font-medium",
-                    activeTab === "kaplan-meier"
-                      ? "border-b-2 border-neutral-900 text-neutral-900"
-                      : "border-b-2 border-transparent text-neutral-600 hover:text-neutral-900",
-                  ].join(" ")}
-                >
-                  Kaplan–Meier visualization
-                </button>
-              </div>
-            )}
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto bg-white px-6 py-4">
-              {activeTab === "individual" && (() => {
-                const survivalData = getSurvivalCurvesData(
-                  viewingPrediction,
-                );
-                return survivalData ? (
-                  <IndividualSurvivalCurves
-                    data={survivalData}
-                    timeUnit={null}
-                    predictorId={
-                      viewingPrediction.predictor.predictor_id
-                    }
-                  />
-                ) : (
-                  <div className="py-8 text-center text-sm text-neutral-600">
-                    No survival curves data available for this prediction.
-                  </div>
-                );
-              })()}
-
-              {activeTab === "dcalibration" &&
-                viewingPrediction.is_labeled && (
-                  <DCalibrationHistogram
-                    predictorId={
-                      viewingPrediction.predictor.predictor_id
-                    }
-                    predictorName={viewingPrediction.predictor.name}
-                  />
-                )}
-
-              {activeTab === "kaplan-meier" &&
-                viewingPrediction.is_labeled && (
-                  <KaplanMeierVisualization
-                    predictorId={
-                      viewingPrediction.predictor.predictor_id
-                    }
-                    predictorName={viewingPrediction.predictor.name}
-                    timeUnit={null}
-                  />
-                )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end border-t border-black/10 bg-neutral-50 px-6 py-3">
-              <Button
-                variant="outline"
-                className="border-black/10 text-sm text-neutral-800 hover:bg-neutral-100"
-                onClick={() => setViewingPrediction(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
       {deletingId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-xl">

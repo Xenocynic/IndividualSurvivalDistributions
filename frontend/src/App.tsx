@@ -23,62 +23,74 @@ import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
 import RequirementsRoute from "./auth/RequirementsRoute";
 import PredictionSavePage from "./pages/PredictionSaveModal";
-
+import PredictionViewPage from "./pages/PredictionViewPage";
 
 export default function App() {
   return (
     <>
       <ScrollToTop />
       <Routes>
-      <Route element={<AppLayout />}>
-        {/* Public for everyone */}
-        <Route index element={<Landing />} />
-        <Route path='about' element={<About />} />
-        <Route path='instructions' element={<Instructions />} />
-        <Route path='browse' element={<Browse />} />
+        <Route element={<AppLayout />}>
+          {/* Public for everyone */}
+          <Route index element={<Landing />} />
+          <Route path='about' element={<About />} />
+          <Route path='instructions' element={<Instructions />} />
+          <Route path='browse' element={<Browse />} />
 
-        {/* Password reset confirm — support both patterns */}
-        {/* UPDATE THIS LATER AND REMOVE THE QUERY TOKEN ONE */}
-        <Route path='reset/confirm' element={<ResetConfirm />} />
-        <Route path='reset/confirm/:uid/:token' element={<ResetConfirm />} />
+          {/* Password reset confirm — support both patterns */}
+          {/* UPDATE THIS LATER AND REMOVE THE QUERY TOKEN ONE */}
+          <Route path='reset/confirm' element={<ResetConfirm />} />
+          <Route path='reset/confirm/:uid/:token' element={<ResetConfirm />} />
 
-        {/* Guest-only */}
-        <Route element={<GuestRoute />}>
-          <Route path='login' element={<Login />} />
-          <Route path='signup' element={<Signup />} />
-          <Route path='reset' element={<ResetPassword />} />
-        </Route>
+          {/* Guest-only */}
+          <Route element={<GuestRoute />}>
+            <Route path='login' element={<Login />} />
+            <Route path='signup' element={<Signup />} />
+            <Route path='reset' element={<ResetPassword />} />
+          </Route>
 
-        {/* Auth-only */}
-        <Route element={<ProtectedRoute />}>
-          <Route path='dashboard' element={<Dashboard />} />
-          <Route path='settings' element={<Settings />} />
-          <Route path='datasets/new' element={<DatasetUpload />} />
-          <Route path='datasets/:id/edit' element={<DatasetEdit />} />
-          <Route path='datasets/:id/view' element={<DatasetView />} />
-          <Route path='predictors/new' element={<PredictorCreate />} />
-          <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
-          <Route path='predictors/:id/edit' element={<PredictorEdit />} />
-          <Route path='use-predictor' element={
-            <RequirementsRoute>
-              <UsePredictor />
-            </RequirementsRoute>
-          } />
+          {/* Auth-only */}
+          <Route element={<ProtectedRoute />}>
+            <Route path='dashboard' element={<Dashboard />} />
+            <Route path='settings' element={<Settings />} />
+            <Route path='datasets/new' element={<DatasetUpload />} />
+            <Route path='datasets/:id/edit' element={<DatasetEdit />} />
+            <Route path='datasets/:id/view' element={<DatasetView />} />
+            <Route path='predictors/new' element={<PredictorCreate />} />
+            <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
+            <Route path='predictors/:id/edit' element={<PredictorEdit />} />
+
             <Route
-          path='predictions/save'
-          element={
-            <RequirementsRoute>
-              <PredictionSavePage />
-            </RequirementsRoute>
-          }
-        />
-          <Route path='my-predictions' element={<MyPredictions />} />
-        </Route>
+              path='use-predictor'
+              element={
+                <RequirementsRoute>
+                  <UsePredictor />
+                </RequirementsRoute>
+              }
+            />
 
-        {/* Fallback */}
-        <Route path='*' element={<Navigate to='/' replace />} />
-      </Route>
-    </Routes>
+            <Route
+              path='predictions/save'
+              element={
+                <RequirementsRoute>
+                  <PredictionSavePage />
+                </RequirementsRoute>
+              }
+            />
+
+            {/* Read-only prediction view page */}
+            <Route
+              path='predictions/:predictionId'
+              element={<PredictionViewPage />}
+            />
+
+            <Route path='my-predictions' element={<MyPredictions />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path='*' element={<Navigate to='/' replace />} />
+        </Route>
+      </Routes>
     </>
   );
 }
