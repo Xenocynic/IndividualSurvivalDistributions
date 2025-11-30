@@ -28,9 +28,7 @@
  */
 
 /**
- * PredictionSaveModal Component
- *
- * Full-page version of the old PredictionSaveModal.
+ * edited full-page version of the old PredictionSaveModal.
  * Opened after running a prediction, lets the user:
  * - Name the prediction
  * - Preview curves/metrics
@@ -184,7 +182,7 @@ export default function PredictionSavePage() {
     else navigate(-1);
   }
 
-  // shared button styling helper like PredictorDetailPage’s dataset sub-tabs
+  // shared button styling helper
   const tabButtonClass = (tab: Tab) =>
     `rounded-md px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
       activeTab === tab
@@ -223,7 +221,7 @@ export default function PredictionSavePage() {
 
   return (
     <div className="min-h-[60vh] bg-neutral-100">
-      {/* Sticky sub-header aligned with max-w-5xl body */}
+      {/* Sticky sub-header */}
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-7 py-3">
           <button
@@ -334,8 +332,6 @@ export default function PredictionSavePage() {
                         />
                       </div>
                     </div>
-                    {/* Download buttons are handled inside IndividualSurvivalCurves
-                        (Download Chart (PNG) / Download Data (CSV)) */}
                   </div>
                 )}
 
@@ -345,15 +341,6 @@ export default function PredictionSavePage() {
                       <h3 className="text-sm font-semibold text-neutral-900">
                         D-calibration histogram
                       </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadChartPng("dcalibration")}
-                        className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
-                        aria-label="Download D-calibration chart as PNG"
-                        title="Download chart as PNG"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
                     </div>
                     <div className="max-w-full overflow-x-auto">
                       <div
@@ -375,15 +362,6 @@ export default function PredictionSavePage() {
                       <h3 className="text-sm font-semibold text-neutral-900">
                         Kaplan–Meier visualization
                       </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadChartPng("kaplan-meier")}
-                        className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
-                        aria-label="Download Kaplan–Meier chart as PNG"
-                        title="Download chart as PNG"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
                     </div>
                     <div className="max-w-full overflow-x-auto">
                       <div
@@ -419,7 +397,6 @@ export default function PredictionSavePage() {
                     />
                   </div>
                 </div>
-                {/* Download buttons for preview are also handled inside IndividualSurvivalCurves */}
               </div>
             </section>
           )}
