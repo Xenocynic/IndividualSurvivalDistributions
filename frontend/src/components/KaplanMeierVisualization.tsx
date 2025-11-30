@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import type { FullPredictionsData } from "../lib/predictors";
 import { getPredictorFullPredictionsData } from "../lib/predictors";
-import { Download, FileDown } from "lucide-react";
+import { Download } from "lucide-react";
 
 interface KaplanMeierVisualizationProps {
   predictorId: number;
@@ -255,38 +255,6 @@ export default function KaplanMeierVisualization({
     };
 
     img.src = url;
-  };
-
-  const handleDownloadPdf = () => {
-    if (typeof window === "undefined" || !containerRef.current) return;
-
-    const printClass = "km-print-area";
-    const element = containerRef.current;
-    element.classList.add(printClass);
-
-    const style = document.createElement("style");
-    style.textContent = `
-      @media print {
-        body * {
-          visibility: hidden;
-        }
-        .${printClass}, .${printClass} * {
-          visibility: visible;
-        }
-        .${printClass} {
-          position: absolute;
-          inset: 0;
-          margin: 0 !important;
-          padding: 1.5rem !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-
-    window.print();
-
-    element.classList.remove(printClass);
-    document.head.removeChild(style);
   };
 
   return (
