@@ -664,7 +664,7 @@ function SavingOverlay() {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
-        <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
         <h3 className="text-lg font-semibold">Uploading dataset…</h3>
         <p className="mt-2 text-sm text-neutral-600">
           Larger files can take a minute. Please stay on this page until it&apos;s

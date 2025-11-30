@@ -227,7 +227,7 @@ export default function MyPredictions() {
           <section className="rounded-lg border border-neutral-200 bg-neutral-50">
             {loading ? (
               <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-sm text-neutral-600">
-                <span className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-800" />
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
                 <span>Loading your predictions…</span>
               </div>
             ) : filteredAndSortedPredictions.length === 0 ? (

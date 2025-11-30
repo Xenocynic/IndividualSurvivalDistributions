@@ -215,7 +215,7 @@ export default function DatasetView() {
     return (
       <div className="min-h-screen bg-neutral-100 grid place-items-center">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
           <div className="mt-2 text-sm text-neutral-700">
             Loading dataset…
           </div>

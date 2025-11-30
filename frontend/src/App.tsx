@@ -18,6 +18,7 @@ import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
+import PredictorDraftEdit from "./pages/PredictorDraftEdit";
 import ScrollToTop from "./components/ScrollToTop";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
@@ -34,36 +35,53 @@ export default function App() {
         <Route element={<AppLayout />}>
           {/* Public for everyone */}
           <Route index element={<Landing />} />
-          <Route path='about' element={<About />} />
-          <Route path='instructions' element={<Instructions />} />
-          <Route path='browse' element={<Browse />} />
+          <Route path="about" element={<About />} />
+          <Route path="instructions" element={<Instructions />} />
+          <Route path="browse" element={<Browse />} />
 
           {/* Password reset confirm — support both patterns */}
           {/* UPDATE THIS LATER AND REMOVE THE QUERY TOKEN ONE */}
-          <Route path='reset/confirm' element={<ResetConfirm />} />
-          <Route path='reset/confirm/:uid/:token' element={<ResetConfirm />} />
+          <Route path="reset/confirm" element={<ResetConfirm />} />
+          <Route path="reset/confirm/:uid/:token" element={<ResetConfirm />} />
 
           {/* Guest-only */}
           <Route element={<GuestRoute />}>
-            <Route path='login' element={<Login />} />
-            <Route path='signup' element={<Signup />} />
-            <Route path='reset' element={<ResetPassword />} />
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+            <Route path="reset" element={<ResetPassword />} />
           </Route>
 
           {/* Auth-only */}
           <Route element={<ProtectedRoute />}>
-            <Route path='dashboard' element={<Dashboard />} />
-            <Route path='settings' element={<Settings />} />
-            <Route path='datasets/new' element={<DatasetUpload />} />
-            <Route path='datasets/:id/edit' element={<DatasetEdit />} />
-            <Route path='datasets/:id/view' element={<DatasetView />} />
-            <Route path='predictors/new' element={<PredictorCreate />} />
-            <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
-            <Route path='predictors/:id/select-features' element={<SelectFeaturesPage />} />
-            <Route path='predictors/:id/edit' element={<PredictorEdit />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="settings" element={<Settings />} />
 
+            {/* Datasets */}
+            <Route path="datasets/new" element={<DatasetUpload />} />
+            <Route path="datasets/:id/edit" element={<DatasetEdit />} />
+            <Route path="datasets/:id/view" element={<DatasetView />} />
+
+            {/* Predictors */}
+            <Route path="predictors/new" element={<PredictorCreate />} />
             <Route
-              path='use-predictor'
+              path="predictors/:predictorId"
+              element={<PredictorDetailPage />}
+            />
+            <Route
+              path="predictors/:id/select-features"
+              element={<SelectFeaturesPage />}
+            />
+            <Route path="predictors/:id/edit" element={<PredictorEdit />} />
+
+            {/* Draft predictor editing */}
+            <Route
+              path="predictors/draft/:id/edit"
+              element={<PredictorDraftEdit />}
+            />
+
+            {/* Use predictor */}
+            <Route
+              path="use-predictor"
               element={
                 <RequirementsRoute>
                   <UsePredictor />
@@ -71,8 +89,9 @@ export default function App() {
               }
             />
 
+            {/* Predictions */}
             <Route
-              path='predictions/save'
+              path="predictions/save"
               element={
                 <RequirementsRoute>
                   <PredictionSavePage />
@@ -82,15 +101,15 @@ export default function App() {
 
             {/* Read-only prediction view page */}
             <Route
-              path='predictions/:predictionId'
+              path="predictions/:predictionId"
               element={<PredictionViewPage />}
             />
 
-            <Route path='my-predictions' element={<MyPredictions />} />
+            <Route path="my-predictions" element={<MyPredictions />} />
           </Route>
 
           {/* Fallback */}
-          <Route path='*' element={<Navigate to='/' replace />} />
+          <Route path="* " element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </>

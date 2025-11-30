@@ -341,7 +341,7 @@ export default function DatasetEdit() {
     return (
       <div className="min-h-[60vh] bg-neutral-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-neutral-700 mx-auto" />
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
           <div className="mt-2 text-sm text-neutral-600">Loading dataset...</div>
         </div>
       </div>

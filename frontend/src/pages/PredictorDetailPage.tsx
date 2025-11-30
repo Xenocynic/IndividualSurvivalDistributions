@@ -89,8 +89,8 @@ interface PredictorDetail {
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
 
-const NAVBAR_HEIGHT = 64; 
-const HEADER_HEIGHT = 72; 
+const NAVBAR_HEIGHT = 64;
+const HEADER_HEIGHT = 72;
 const MAX_HISTOGRAM_BARS = 20;
 const SURVIVAL_X_TICKS = 6;
 const SURVIVAL_Y_TICKS = 5;
@@ -98,6 +98,7 @@ const EVENT_X_TICKS = 6;
 const EVENT_Y_TICKS = 5;
 
 type DatasetSubTab = "correlations" | "eventHistogram" | "survivalHistogram";
+
 type SurvivalHistogramBin = { bin_start: number; bin_end: number; count: number };
 interface SurvivalHistogramData {
   bins: SurvivalHistogramBin[];
@@ -107,6 +108,7 @@ interface SurvivalHistogramData {
 interface SurvivalChartDatum extends SurvivalHistogramBin {
   center: number;
 }
+type HistogramBin = DatasetStats["event_time_histogram"][number];
 interface EventHistogramDatum extends HistogramBin {
   center: number;
   events: number;
@@ -178,7 +180,7 @@ export default function PredictorDetailPage() {
 
   // Poll for status updates if training
   useEffect(() => {
-    if (!predictor || predictor.ml_training_status !== 'training') {
+    if (!predictor || predictor.ml_training_status !== "training") {
       return;
     }
 
@@ -190,11 +192,11 @@ export default function PredictorDetailPage() {
         setPredictor(data);
 
         // Stop polling if training is complete
-        if (data.ml_training_status !== 'training') {
+        if (data.ml_training_status !== "training") {
           clearInterval(pollInterval);
         }
       } catch (err) {
-        console.error('Error polling predictor status:', err);
+        console.error("Error polling predictor status:", err);
       }
     }, 2000); // Poll every 2 seconds
 
@@ -206,10 +208,8 @@ export default function PredictorDetailPage() {
     return (
       <div className="grid min-h-screen place-items-center bg-neutral-100">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-900" />
-          <p className="mt-2 text-sm text-neutral-600">
-            Loading Predictor...
-          </p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+          <p className="mt-2 text-sm text-neutral-600">Loading Predictor...</p>
         </div>
       </div>
     );
@@ -248,8 +248,19 @@ export default function PredictorDetailPage() {
     }
   };
 
+  const statusLabel =
+    predictor.ml_training_status === "not_trained"
+      ? "Not Trained"
+      : predictor.ml_training_status === "training"
+      ? "Training"
+      : predictor.ml_training_status === "trained"
+      ? "Trained"
+      : predictor.ml_training_status === "failed"
+      ? "Failed"
+      : "Unknown";
+
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-100">
+    <div className="flex min-h-screen flex-col bg-neutral-100">
       {/* Sticky header */}
       <div
         className="sticky z-30 w-full border-b border-black/20 bg-neutral-700 text-white shadow-sm"
@@ -263,7 +274,7 @@ export default function PredictorDetailPage() {
             Back
           </button>
 
-          <div className="flex-1 min-w-0 px-4 text-center">
+          <div className="min-w-0 flex-1 px-4 text-center">
             <h1 className="truncate text-sm font-semibold tracking-wide sm:text-base">
               {predictor.name}
             </h1>
@@ -275,26 +286,27 @@ export default function PredictorDetailPage() {
                 {predictor.dataset?.dataset_name}
               </span>
               {"   ·   "}
-              Time unit:{" "}
-              <span className="lowercase">{predictor.time_unit}</span>
+              Time unit: <span className="lowercase">{predictor.time_unit}</span>
             </p>
           </div>
 
-          {/* status badge */}
+          {/* Status badge / training indicator */}
           <button
+            type="button"
             onClick={() => {
-              if (predictor.ml_training_status === 'training') {
+              if (predictor.ml_training_status === "training") {
                 setShowTrainingModal(true);
               }
             }}
-            className={`hidden rounded-full px-3 py-1 text-xs sm:block ${
-              predictor.ml_training_status === 'training'
-                ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition'
-                : 'bg-neutral-600 text-white cursor-default'
+            className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-[11px] ${
+              predictor.ml_training_status === "training"
+                ? "border-white/30 bg-blue-600 text-white hover:bg-blue-500 cursor-pointer transition"
+                : "border-white/25 bg-neutral-600/80 text-white cursor-default"
             }`}
-            disabled={predictor.ml_training_status !== 'training'}
+            disabled={predictor.ml_training_status !== "training"}
           >
-            Status: <span className="font-medium">{predictor.ml_training_status === 'training' ? 'Training' : 'Trained'}</span>
+            <span className="mr-1 text-neutral-200">Status</span>
+            <span className="font-medium">{statusLabel}</span>
           </button>
         </div>
         <div className="h-1 w-full bg-neutral-700" />
@@ -337,7 +349,7 @@ export default function PredictorDetailPage() {
 
       {/* CONTENT */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+        <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
           {renderTabContent()}
         </div>
       </div>
@@ -412,9 +424,7 @@ function MetaTab({ predictor }: { predictor: PredictorDetail }) {
           <div className="sm:col-span-2">
             <InfoItem
               label="Description"
-              value={
-                predictor.description || "No description provided."
-              }
+              value={predictor.description || "No description provided."}
             />
           </div>
         </dl>
@@ -538,8 +548,7 @@ function DatasetTab({
   const survivalHistogram = useMemo<SurvivalHistogramData | null>(() => {
     if (!cvPredictions) return null;
     const predicted = (cvPredictions.median_predictions ?? []).filter(
-      (val): val is number =>
-        typeof val === "number" && Number.isFinite(val)
+      (val): val is number => typeof val === "number" && Number.isFinite(val)
     );
     if (!predicted.length) return null;
 
@@ -574,10 +583,7 @@ function DatasetTab({
       if (value <= axisMin) return 0;
       if (value >= axisMax) return binCount - 1;
       const relative = (value - axisMin) / binWidth;
-      return Math.min(
-        binCount - 1,
-        Math.max(0, Math.floor(relative))
-      );
+      return Math.min(binCount - 1, Math.max(0, Math.floor(relative)));
     };
 
     predicted.forEach((value) => {
@@ -612,8 +618,8 @@ function DatasetTab({
           (apiDetails &&
             typeof apiDetails.message === "string" &&
             apiDetails.message) ||
-          (typeof err?.message === "string"
-            ? err.message
+          (typeof (err as any)?.message === "string"
+            ? (err as any).message
             : "Failed to load predicted survival data.");
         setCvPredictions(null);
         setCvError(message);
@@ -623,7 +629,7 @@ function DatasetTab({
 
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
-      `rounded-md px-3 py-1.5 text-xs sm:text-sm font-medium transition ${
+      `rounded-md px-3 py-1.5 text-xs font-medium transition sm:text-sm ${
         activeView === tab
           ? "bg-neutral-900 text-white shadow-sm"
           : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
@@ -659,17 +665,10 @@ function DatasetTab({
 
     switch (activeView) {
       case "correlations":
-        return (
-          <FeatureCorrelationTable
-            rows={stats.feature_correlations ?? []}
-          />
-        );
+        return <FeatureCorrelationTable rows={stats.feature_correlations ?? []} />;
       case "eventHistogram":
         return (
-          <EventHistogramChart
-            bins={histogramBins}
-            timeUnit={timeUnitLabel}
-          />
+          <EventHistogramChart bins={histogramBins} timeUnit={timeUnitLabel} />
         );
       case "survivalHistogram":
         return (
@@ -895,16 +894,13 @@ function DatasetTab({
             Predicted Survival Histogram
           </button>
         </div>
-        <div className="p-4">
-          {content}
-        </div>
+        <div className="p-4">{content}</div>
       </Card>
     </div>
   );
 }
 
 type FeatureCorrelationRow = DatasetStats["feature_correlations"][number];
-type HistogramBin = DatasetStats["event_time_histogram"][number];
 
 export function FeatureCorrelationTable({
   rows,
@@ -918,9 +914,7 @@ export function FeatureCorrelationTable({
   const filteredRows = useMemo(() => {
     if (!search) return rows;
     const term = search.trim().toLowerCase();
-    return rows.filter((row) =>
-      row.feature.toLowerCase().includes(term)
-    );
+    return rows.filter((row) => row.feature.toLowerCase().includes(term));
   }, [rows, search]);
 
   const totalPages = Math.max(
@@ -961,9 +955,7 @@ export function FeatureCorrelationTable({
             <span>Rows per page</span>
             <select
               value={rowsPerPage}
-              onChange={(event) =>
-                setRowsPerPage(Number(event.target.value))
-              }
+              onChange={(event) => setRowsPerPage(Number(event.target.value))}
               className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-500"
             >
               {[25, 50, 100, 250].map((size) => (
@@ -973,7 +965,7 @@ export function FeatureCorrelationTable({
               ))}
             </select>
           </div>
-          <div className="min-w-[200px] flex-1 max-w-xs sm:max-w-sm">
+          <div className="min-w-[200px] max-w-xs flex-1 sm:max-w-sm">
             <input
               type="search"
               value={search}
@@ -989,58 +981,31 @@ export function FeatureCorrelationTable({
         <table className="min-w-full divide-y divide-neutral-200 text-sm">
           <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500">
             <tr>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
                 Rank
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
                 Feature
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 Non-nil (%)
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-left font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
                 Type
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 Correlation
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 |Correlation|
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 Details
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 Cox score
               </th>
-              <th
-                scope="col"
-                className="px-3 py-2 text-right font-semibold"
-              >
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
                 Cox score log
               </th>
             </tr>
@@ -1049,8 +1014,7 @@ export function FeatureCorrelationTable({
             {paginatedRows.map((row, index) => {
               const correlationValue = row.correlation_with_time;
               const correlationClass =
-                correlationValue === null ||
-                correlationValue === undefined
+                correlationValue === null || correlationValue === undefined
                   ? "text-neutral-500"
                   : correlationValue >= 0
                   ? "text-emerald-600"
@@ -1070,9 +1034,7 @@ export function FeatureCorrelationTable({
                   <td className="px-3 py-2 text-left capitalize text-neutral-600">
                     {row.feature_type ?? "—"}
                   </td>
-                  <td
-                    className={`px-3 py-2 text-right ${correlationClass}`}
-                  >
+                  <td className={`px-3 py-2 text-right ${correlationClass}`}>
                     {formatCorrelation(correlationValue)}
                   </td>
                   <td className="px-3 py-2 text-right text-neutral-600">
@@ -1142,8 +1104,7 @@ export function EventHistogramChart({
       typeof bin.censored === "number"
         ? bin.censored
         : Math.max((bin.count ?? 0) - events, 0);
-    const total =
-      typeof bin.count === "number" ? bin.count : events + censored;
+    const total = typeof bin.count === "number" ? bin.count : events + censored;
     return {
       ...bin,
       bin_start: start,
@@ -1175,15 +1136,11 @@ export function EventHistogramChart({
   const yTicks = Array.from(
     { length: EVENT_Y_TICKS },
     (_, idx) =>
-      Math.round(
-        (maxCount / (EVENT_Y_TICKS - 1 || 1)) * idx
-      )
+      Math.round((maxCount / (EVENT_Y_TICKS - 1 || 1)) * idx)
   );
   const xTicks = Array.from(
     { length: EVENT_X_TICKS },
-    (_, idx) =>
-      resolvedMin +
-      (range / (EVENT_X_TICKS - 1 || 1)) * idx
+    (_, idx) => resolvedMin + (range / (EVENT_X_TICKS - 1 || 1)) * idx
   );
 
   return (
@@ -1201,10 +1158,7 @@ export function EventHistogramChart({
               margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
               barGap={8}
             >
-              <CartesianGrid
-                strokeDasharray="4 6"
-                vertical={false}
-              />
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
               <XAxis
                 type="number"
                 dataKey="center"
@@ -1214,9 +1168,7 @@ export function EventHistogramChart({
                 stroke="#9ca3af"
                 tick={{ fontSize: 10 }}
                 label={{
-                  value: `Time${
-                    timeUnit ? ` (${timeUnit})` : ""
-                  }`,
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
                   position: "insideBottom",
                   offset: -20,
                   style: { fill: "#4b5563", fontSize: 12 },
@@ -1235,9 +1187,7 @@ export function EventHistogramChart({
                   style: { fill: "#4b5563", fontSize: 12 },
                 }}
               />
-              <Tooltip
-                content={<EventHistogramTooltip timeUnit={timeUnit} />}
-              />
+              <Tooltip content={<EventHistogramTooltip timeUnit={timeUnit} />} />
               <Legend
                 verticalAlign="top"
                 height={32}
@@ -1289,7 +1239,7 @@ function PredictedSurvivalHistogram({
   if (isLoading) {
     return (
       <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
         <p>Loading predicted survival distribution…</p>
       </div>
     );
@@ -1326,15 +1276,11 @@ function PredictedSurvivalHistogram({
   const yTickValues = Array.from(
     { length: SURVIVAL_Y_TICKS },
     (_, idx) =>
-      Math.round(
-        (maxValue / (SURVIVAL_Y_TICKS - 1 || 1)) * idx
-      )
+      Math.round((maxValue / (SURVIVAL_Y_TICKS - 1 || 1)) * idx)
   );
   const xTickValues = Array.from(
     { length: SURVIVAL_X_TICKS },
-    (_, idx) =>
-      axisMin +
-      (range / (SURVIVAL_X_TICKS - 1 || 1)) * idx
+    (_, idx) => axisMin + (range / (SURVIVAL_X_TICKS - 1 || 1)) * idx
   );
 
   const chartData: SurvivalChartDatum[] = bins.map((bin) => ({
@@ -1374,10 +1320,7 @@ function PredictedSurvivalHistogram({
               margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
               barSize={barSize}
             >
-              <CartesianGrid
-                strokeDasharray="4 6"
-                vertical={false}
-              />
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
               <XAxis
                 type="number"
                 dataKey="center"
@@ -1387,9 +1330,7 @@ function PredictedSurvivalHistogram({
                 stroke="#9ca3af"
                 tick={{ fontSize: 10 }}
                 label={{
-                  value: `Time${
-                    timeUnit ? ` (${timeUnit})` : ""
-                  }`,
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
                   position: "insideBottom",
                   offset: -20,
                   style: { fill: "#4b5563", fontSize: 12 },
@@ -1408,9 +1349,7 @@ function PredictedSurvivalHistogram({
                   style: { fill: "#4b5563", fontSize: 12 },
                 }}
               />
-              <Tooltip
-                content={<SurvivalTooltip timeUnit={timeUnit} />}
-              />
+              <Tooltip content={<SurvivalTooltip timeUnit={timeUnit} />} />
               <Bar
                 dataKey="count"
                 fill="#2563eb"
@@ -1424,8 +1363,8 @@ function PredictedSurvivalHistogram({
       </div>
 
       <p className="text-xs text-neutral-500">
-        Each bar counts test patients whose predicted median survival
-        falls inside the matching time bucket.
+        Each bar counts test patients whose predicted median survival falls
+        inside the matching time bucket.
       </p>
     </div>
   );
@@ -1469,12 +1408,8 @@ function EventHistogramTooltip({
         {formatHistogramLabel(datum.bin_end)}
         {timeUnit ? ` ${timeUnit}` : ""}
       </p>
-      <p className="mt-1 text-neutral-500">
-        Uncensored: {datum.events}
-      </p>
-      <p className="text-neutral-500">
-        Censored: {datum.censored}
-      </p>
+      <p className="mt-1 text-neutral-500">Uncensored: {datum.events}</p>
+      <p className="text-neutral-500">Censored: {datum.censored}</p>
       <p className="text-neutral-500">Total: {datum.total}</p>
     </div>
   );
@@ -1489,10 +1424,7 @@ export function formatInteger(
   return Math.round(value).toLocaleString();
 }
 
-function formatFloat(
-  value: number | null | undefined,
-  digits = 2
-): string {
+function formatFloat(value: number | null | undefined, digits = 2): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -1597,10 +1529,8 @@ function calculateMeanAndStd(values: number[]): {
   }
 
   const variance =
-    values.reduce(
-      (sum, val) => sum + Math.pow(val - mean, 2),
-      0
-    ) / values.length;
+    values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+    values.length;
   const std = Math.sqrt(variance);
 
   return { mean, std };
@@ -1683,10 +1613,7 @@ function getFreedmanDiaconisBinWidth(values: number[]): number {
   return (2 * iqr) / Math.cbrt(values.length);
 }
 
-function getPercentile(
-  sortedValues: number[],
-  percentile: number
-): number {
+function getPercentile(sortedValues: number[], percentile: number): number {
   if (!sortedValues.length) return 0;
   const index = (sortedValues.length - 1) * percentile;
   const lower = Math.floor(index);
@@ -1695,10 +1622,7 @@ function getPercentile(
     return sortedValues[lower];
   }
   const weight = index - lower;
-  return (
-    sortedValues[lower] * (1 - weight) +
-    sortedValues[upper] * weight
-  );
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
 }
 
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
@@ -1818,9 +1742,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       {/* "Options" & "Results" */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Card>
-          <h3 className="text-sm font-semibold text-neutral-800">
-            Options
-          </h3>
+          <h3 className="text-sm font-semibold text-neutral-800">Options</h3>
           <p className="mt-2 text-xs text-neutral-500">
             Current predictor settings
           </p>
@@ -2041,7 +1963,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                         >
                           {isLoadingMtlr ? (
                             <span className="flex items-center justify-center gap-2">
-                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                              <svg className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
@@ -2242,8 +2164,11 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 }
 
 function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
-  const [activeView, setActiveView] = useState<"statistics" | "individual" | "dcalibration" | "kaplanmeier" | "comparison">("statistics");
-  const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
+  const [activeView, setActiveView] = useState<
+    "statistics" | "individual" | "dcalibration" | "kaplanmeier" | "comparison"
+  >("statistics");
+  const [survivalCurves, setSurvivalCurves] =
+    useState<SurvivalCurvesData | null>(null);
   const [isLoadingCurves, setIsLoadingCurves] = useState(false);
   const [curvesError, setCurvesError] = useState<string | null>(null);
 
@@ -2328,26 +2253,13 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         </button>
         <button
           onClick={() => setActiveView("comparison")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
             activeView === "comparison"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
           }`}
         >
           Compare Predictors
-        </button>
-        <button
-          onClick={() => setActiveView("comparison")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            activeView === "comparison"
-              ? "bg-neutral-800 text-white"
-              : "border bg-white hover:bg-neutral-50"
-          }`}
-        >
-          Compare Predictors
-        </button>
-        <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
-          Show Feature Weights
         </button>
       </div>
 
@@ -2379,7 +2291,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             </div>
           ) : isLoadingCurves ? (
             <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-              <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
               <p>Loading survival curves...</p>
             </div>
           ) : survivalCurves ? (
@@ -2415,9 +2327,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
                   aria-label="Download cross-validation metrics CSV"
                 >
                   <Download className="h-4 w-4" />
-                  <span className="ml-1 hidden sm:inline">
-                    CSV
-                  </span>
+                  <span className="ml-1 hidden sm:inline">CSV</span>
                 </button>
               </div>
             </div>
@@ -2425,8 +2335,8 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             {!predictor.ml_model_metrics ? (
               <div className="py-8 text-center text-sm text-neutral-500">
                 <p>
-                  No metrics available. This predictor may not have been
-                  trained yet.
+                  No metrics available. This predictor may not have been trained
+                  yet.
                 </p>
               </div>
             ) : (
@@ -2582,8 +2492,8 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             </h4>
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <label className="text-sm text-neutral-700">
-                Statistics accuracy, specificity, sensitivity
-                (t-calibration) for classifier with cutoff:
+                Statistics accuracy, specificity, sensitivity (t-calibration)
+                for classifier with cutoff:
               </label>
               <input
                 type="number"
