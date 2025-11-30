@@ -306,6 +306,14 @@ export async function trainPredictor(
   });
 }
 
+export async function retrainPredictor(
+  params?: TrainPredictorParams
+): Promise<TrainPredictorResponse> {
+  return api.post(`http://localhost:5000/retrain/`, {
+    parameters: params?.parameters,
+  });
+}
+
 /**
  * Make a prediction using a trained predictor's ML model
  */
@@ -409,4 +417,13 @@ export async function getPredictorFullPredictionsData(
   predictorId: number
 ): Promise<FullPredictionsData> {
   return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+/**
+ * Get the MTLR model file content as plain text
+ */
+export async function getPredictorMtlrFile(
+  predictorId: number
+): Promise<string> {
+  return api.get<string>(`/api/predictors/${predictorId}/mtlr_file/`);
 }

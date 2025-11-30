@@ -20,6 +20,7 @@ import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
+import SelectFeaturesPage from "./pages/SelectFeaturesPage";
 import RequirementsRoute from "./auth/RequirementsRoute";
 
 
@@ -54,6 +55,7 @@ export default function App() {
           <Route path='datasets/:id/view' element={<DatasetView />} />
           <Route path='predictors/new' element={<PredictorCreate />} />
           <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
+          <Route path='predictors/:id/select-features' element={<SelectFeaturesPage />} />
           <Route path='predictors/:id/edit' element={<PredictorEdit />} />
           <Route path='use-predictor' element={
             <RequirementsRoute>

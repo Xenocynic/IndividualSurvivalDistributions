@@ -508,6 +508,42 @@ class PredictorViewSet(viewsets.ModelViewSet):
                 {"error": "Failed to load metadata", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    @action(detail=True, methods=['get'], url_path='mtlr_file')
+    def retrieve_mtlr_file(self, request, pk=None):
+        """Return metadata for the predictor."""
+        try:
+            predictor = self.get_object()
+
+            if not predictor.model_id:
+                return Response(
+                    {"error": "This predictor has not been trained yet."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            # Construct the path to the model config json file
+            mtlr_model_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                predictor.model_id,
+                f'mtlr_model_{predictor.model_id}.mtlr'
+            )
+            
+            if not os.path.exists(mtlr_model_path):
+                return Response(
+                    {"error": f"MTLR model file not found for model {predictor.model_id}"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Read and return the text file
+            with open(mtlr_model_path, 'r') as f:
+                mtlr_model_data = f.read()
+            
+            return Response(mtlr_model_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "Failed to load model data", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # PredictorPermission ViewSet
