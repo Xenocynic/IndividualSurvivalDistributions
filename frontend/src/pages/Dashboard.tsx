@@ -1175,10 +1175,8 @@ export default function Dashboard() {
                       !isLoading && (
                         <div className="col-span-full flex items-center justify-center py-12 text-center">
                           <div className="max-w-sm">
-                            <div className="mb-2 text-lg text-neutral-400">
-                              <FolderOpen className="h-4 w-4 text-neutral-500" />
-                            </div>
-                            <p className="text-sm text-neutral-500">
+                            <p className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+                              <FolderOpen className="h-4 w-4" />
                               No {activeTab} in your main collection
                             </p>
                             <p className="mt-1 text-xs text-neutral-400">
