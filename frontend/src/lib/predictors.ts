@@ -306,13 +306,6 @@ export async function trainPredictor(
   });
 }
 
-export async function retrainPredictor(
-  params?: TrainPredictorParams
-): Promise<TrainPredictorResponse> {
-  return api.post(`http://localhost:5000/retrain/`, {
-    parameters: params?.parameters,
-  });
-}
 
 /**
  * Make a prediction using a trained predictor's ML model
