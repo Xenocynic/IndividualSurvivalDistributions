@@ -373,7 +373,7 @@ export default function Browse() {
   // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
 
   // Fetch Pinned Predictor IDs
-  const { data: pinnedPredictorIds = new Set<string>() } = useQuery({
+  const { data: pinnedPredictorIds = new Set<string>(), isLoading: isPinnedPredictorsLoading } = useQuery({
     queryKey: ["pinned-predictors"],
     queryFn: async () => {
       if (!user) return new Set<string>();
@@ -384,7 +384,7 @@ export default function Browse() {
   });
 
   // Fetch Pinned Dataset IDs
-  const { data: pinnedDatasetIds = new Set<string>() } = useQuery({
+  const { data: pinnedDatasetIds = new Set<string>(), isLoading: isPinnedDatasetsLoading } = useQuery({
     queryKey: ["pinned-datasets"],
     queryFn: async () => {
       if (!user) return new Set<string>();
@@ -395,7 +395,7 @@ export default function Browse() {
   });
 
   // Fetch Pinned Folder IDs
-  const { data: pinnedFolderData = [] } = useQuery({
+  const { data: pinnedFolderData = [], isLoading: isPinnedFoldersLoading } = useQuery({
     queryKey: ["pinned-folders"],
     queryFn: async () => {
       if (!user) return [];
@@ -404,6 +404,12 @@ export default function Browse() {
     enabled: !!user,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Sidebar loading state based on active tab
+  const isSidebarLoading =
+    (activeTab === "predictors" && isPinnedPredictorsLoading) ||
+    (activeTab === "datasets" && isPinnedDatasetsLoading) ||
+    (activeTab === "folders" && isPinnedFoldersLoading);
 
   const pinnedFolderIds = new Set(
     pinnedFolderData.map((pf) => String(pf.folder?.folder_id || pf.folder_id))
@@ -1097,7 +1103,12 @@ export default function Browse() {
               </div>
               {pinnedOpen && (
                 <div className="space-y-2 p-2">
-                  {pinned.length === 0 ? (
+                  {isSidebarLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                      <span className="text-xs text-neutral-600">Loading...</span>
+                    </div>
+                  ) : pinned.length === 0 ? (
                     <div className="rounded-md bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-600">
                       Nothing pinned yet
                     </div>
