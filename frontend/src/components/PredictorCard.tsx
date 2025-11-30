@@ -64,6 +64,8 @@ type PredictorCardProps = {
   isPinned?: boolean;
   /** Called when the pin star is toggled. */
   onTogglePin?: (id: string, nextPinned?: boolean) => void;
+  /** If true, show a highlight animation for newly created predictors. */
+  isNew?: boolean;
 };
 
 export default function PredictorCard({
@@ -80,6 +82,7 @@ export default function PredictorCard({
   showPin = false,
   isPinned: isPinnedProp,
   onTogglePin,
+  isNew = false,
 }: PredictorCardProps) {
   const dragItem: DragItem = {
     id: item.id,
@@ -112,18 +115,30 @@ export default function PredictorCard({
   const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
 
   return (
-    <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
-      <CardShell
-        eyebrowLeft={
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-neutral-800">
-            <UsernameTag name={ownerLabel} />
-          </div>
-        }
-        title={
-          <div className="truncate pt-1 text-sm font-semibold text-neutral-900">
-            {item.title}
-          </div>
-        }
+    <div
+      className={
+        isNew
+          ? "animate-highlight-new rounded-lg ring-2 ring-emerald-500 ring-offset-2"
+          : ""
+      }
+    >
+      <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
+        <CardShell
+          eyebrowLeft={
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-neutral-800">
+              <UsernameTag name={ownerLabel} />
+              {isNew && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 animate-pulse">
+                  NEW
+                </span>
+              )}
+            </div>
+          }
+          title={
+            <div className="truncate pt-1 text-sm font-semibold text-neutral-900">
+              {item.title}
+            </div>
+          }
         description={
           item.notes ? (
             <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
@@ -227,7 +242,8 @@ export default function PredictorCard({
           </>
         )}
       </CardShell>
-    </DraggableCard>
+      </DraggableCard>
+    </div>
   );
 }
 

@@ -376,7 +376,12 @@ export default function PredictorCreate() {
       setTrainingStep("complete");
 
       setTimeout(() => {
-        navigate(`/predictors/${created.predictor_id}`);
+        navigate("/dashboard", {
+          state: {
+            tab: "predictors",
+            justCreatedId: created.predictor_id,
+          },
+        });
       }, 2000);
     } catch (error: any) {
       setTrainingStep("error");
