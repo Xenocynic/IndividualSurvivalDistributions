@@ -843,7 +843,7 @@ export default function Browse() {
   return (
     <DragDropProvider>
       {/* Sticky sub-header under global nav (leave this exactly as-is) */}
-      <div className="sticky top=[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
+      <div className="sticky top-[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-4">
           <div className="text-md font-semibold tracking-wide">
             Browse {tabLabel}
@@ -1510,12 +1510,12 @@ function AdvancedFilterMenu({
       </button>
 
       <div
-        className={`absolute right-0 z-20 mt-1 w-72 origin-top-right transform rounded-md border bg-white p-3 text-xs shadow-lg transition-all duration-150 ease-out ${
-          open
-            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
-        }`}
-        onClick={(e) => e.stopPropagation()}
+        className={`absolute right-0 z-20 mt-1 w-72 origin-top-right transform rounded-md border bg-white p-3 text-xs shadow-lg transition-all duration-150 ease-out max-h-[50vh] overflow-y-auto ${
+            open
+              ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+          }`}
+          onClick={(e) => e.stopPropagation()}  
       >
         {/* Info pill about how filters work */}
         <div className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-600">
