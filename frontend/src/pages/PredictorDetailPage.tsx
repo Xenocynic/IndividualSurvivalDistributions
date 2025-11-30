@@ -21,6 +21,7 @@ import {
   getPredictorMtlrFile,
   trainPredictor,
   updatePredictor,
+  retrainPredictorAsync,
   type CvPredictions,
   type SurvivalCurvesData,
 } from "../lib/predictors";
