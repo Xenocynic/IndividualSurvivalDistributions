@@ -13,9 +13,9 @@
  *
  * Flow:
  * 1. Fill out form → Click "Train & Save"
- * 2. Trains ML model
+ * 2. Trains ML model (async)
  * 3. Creates or updates predictor in database (draft / final)
- * 4. Navigates to predictor detail page
+ * 4. User can navigate to predictor detail page from TrainingModal
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +30,7 @@ import {
   getPredictor,
   updatePredictor,
   grantPredictorViewer,
-  trainPredictor,
+  trainPredictorAsync,
 } from "../lib/predictors";
 import {
   UserSearchInput,
@@ -38,6 +38,7 @@ import {
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 import { AlertModal } from "../components/AlertModal";
+import TrainingModal from "../components/TrainingModal";
 
 type PermRow = {
   id: number;
@@ -82,9 +83,9 @@ export default function PredictorCreate() {
   // training state
   const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(
-    null
-  );
+  const [createdPredictorId, setCreatedPredictorId] =
+    useState<number | null>(null);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
 
   // advanced settings state
   const [numTimePoints, setNumTimePoints] = useState<string | number>("");
@@ -276,33 +277,82 @@ export default function PredictorCreate() {
   }, [datasets, query]);
 
   const canSave =
-    !!name.trim() && !nameTaken && !!selectedDatasetId && trainingStep === "idle";
+    !!name.trim() &&
+    !nameTaken &&
+    !!selectedDatasetId &&
+    trainingStep === "idle";
 
   // Train-and-save flow (supports draft + advanced settings)
   async function onTrainAndSave() {
     if (!canSave) return;
 
-    setTrainingStep("training");
+    setTrainingStep("creating");
     setTrainingError(null);
 
     try {
       const datasetId = Number(selectedDatasetId);
 
-      const validNumTimePoints =
-        numTimePoints !== "" &&
-        !Number.isNaN(Number(numTimePoints)) &&
-        Number(numTimePoints) > 0
-          ? Number(numTimePoints)
-          : undefined;
+      // Step 1: Create predictor first (without model_id, in 'not_trained' state)
+      const created = await createPredictor({
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: datasetId,
+        folder_id: selectedFolderId || undefined,
+        is_private: !isPublic,
+        ml_training_status: "not_trained",
+        // Advanced settings
+        num_time_points:
+          numTimePoints !== "" &&
+          !Number.isNaN(Number(numTimePoints)) &&
+          Number(numTimePoints) > 0
+            ? Number(numTimePoints)
+            : undefined,
+        regularization,
+        objective_function: objectiveFunction,
+        marginal_loss_type: marginalLossType,
+        c_param_search_scope: cParamSearchScope,
+        cox_feature_selection: coxFeatureSelection,
+        mrmr_feature_selection: mrmrFeatureSelection,
+        mtlr_predictor: mtlrPredictor,
+        tune_parameters: tuneParameters,
+        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+        use_predefined_folds: usePredefinedFolds,
+        run_cross_validation: runCrossValidation,
+        standardize_features: standardizeFeatures,
+      });
 
-      // Step 1: Train first (no predictor yet)
-      const trainingResult = await trainPredictor(datasetId, {
+      setCreatedPredictorId(created.predictor_id);
+
+      // Step 2: Grant permissions
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
+        let userId = row.userId;
+        if (!userId) {
+          const resolvedId = await resolveUsernameToId(username);
+          if (!resolvedId) continue;
+          userId = resolvedId;
+        }
+        await grantPredictorViewer(created.predictor_id, userId, row.role);
+      }
+
+      // Step 3: Start async training
+      setTrainingStep("training");
+      setShowTrainingModal(true);
+
+      await trainPredictorAsync(datasetId, created.predictor_id, {
         parameters: {
           n_epochs: 100,
           dropout: 0.2,
           neurons: [64, 64],
           n_exp: 10,
-          num_time_points: validNumTimePoints,
+          // Advanced settings
+          num_time_points:
+            numTimePoints !== "" &&
+            !Number.isNaN(Number(numTimePoints)) &&
+            Number(numTimePoints) > 0
+              ? Number(numTimePoints)
+              : undefined,
           regularization,
           objective_function: objectiveFunction,
           marginal_loss_type: marginalLossType,
@@ -321,106 +371,13 @@ export default function PredictorCreate() {
               : undefined,
         },
       });
-
-      if (!trainingResult || !trainingResult.model_id) {
-        throw new Error("Training did not return a valid model_id");
-      }
-
-      setTrainingStep("creating");
-
-      // Parse selected_features if it's a string
-      let parsedFeatures = trainingResult.selected_features;
-      if (typeof parsedFeatures === "string") {
-        try {
-          parsedFeatures = JSON.parse(parsedFeatures);
-        } catch {
-          console.warn(
-            "Could not parse selected_features as JSON, using as-is"
-          );
-        }
-      }
-
-      const commonPayload = {
-        name: name.trim(),
-        description: notes.trim(),
-        dataset_id: datasetId,
-        folder_id: selectedFolderId || undefined,
-        is_private: !isPublic,
-        model_id: trainingResult.model_id,
-        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
-        ml_training_status: "trained" as "trained",
-        ml_model_metrics: trainingResult.metrics || {},
-        ml_selected_features: parsedFeatures || null,
-        num_time_points: validNumTimePoints,
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      };
-
-      let finalPredictor: any;
-      if (isDraftMode && draftId) {
-        finalPredictor = await updatePredictor(Number(draftId), commonPayload);
-      } else {
-        finalPredictor = await createPredictor(commonPayload);
-      }
-
-      setCreatedPredictorId(finalPredictor.predictor_id);
-
-      // Step 3: Grant permissions
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          const resolved = await resolveUsernameToId(username);
-          if (resolved == null) continue;
-          userId = resolved;
-        }
-        if (!userId) continue;
-
-        try {
-          await grantPredictorViewer(
-            finalPredictor.predictor_id,
-            userId,
-            row.role
-          );
-        } catch (e) {
-          console.error("Grant failed", e);
-        }
-      }
-
-      // Step 4: Complete!
-      setTrainingStep("complete");
-
-      setTimeout(() => {
-        navigate(`/predictors/${finalPredictor.predictor_id}`);
-      }, 2000);
     } catch (error: any) {
       setTrainingStep("error");
-      console.error("Training/Creation error:", error);
-      console.error("Error details:", error?.details);
-
-      let errorMessage = "Failed to train and create predictor!";
-      if (error?.details) {
-        if (typeof error.details === "object") {
-          errorMessage = JSON.stringify(error.details, null, 2);
-        } else {
-          errorMessage = String(error.details);
-        }
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      setTrainingError(errorMessage);
+      setTrainingError(
+        error?.message ||
+          "Failed to create predictor and start training. Please try again."
+      );
+      console.error("Training error:", error);
     }
   }
 
@@ -483,7 +440,7 @@ export default function PredictorCreate() {
 
   function onBack() {
     if (trainingStep !== "idle") {
-      // Don't allow navigation during training
+      // Don't allow navigation during training or creation
       return;
     }
     if (dirtyRef.current) setShowLeavePrompt(true);
@@ -834,21 +791,60 @@ export default function PredictorCreate() {
         </div>
       </div>
 
-      {/* Training Modal */}
-      {isProcessing && (
+      {/* Creating Predictor Modal */}
+      {trainingStep === "creating" && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+              <h3 className="text-lg font-semibold">Creating Predictor...</h3>
+              <p className="mt-2 text-sm text-neutral-600">
+                Setting up your predictor in the database.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Training Modal (async, shared component) */}
+      {showTrainingModal && createdPredictorId && (
         <TrainingModal
-          step={trainingStep}
-          error={trainingError}
-          onRetry={() => {
-            setTrainingStep("idle");
-            setTrainingError(null);
+          predictorId={createdPredictorId}
+          onClose={() => {
+            setShowTrainingModal(false);
+            navigate("/dashboard", { state: { tab: "predictors" } });
           }}
-          onViewPredictor={() => {
-            if (createdPredictorId) {
-              navigate(`/predictors/${createdPredictorId}`);
-            }
-          }}
+          autoNavigateOnComplete={false}
         />
+      )}
+
+      {/* Error Modal */}
+      {trainingStep === "error" && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
+                ✕
+              </div>
+              <h3 className="text-lg font-semibold">Training Failed</h3>
+              <p className="mt-2 text-sm text-red-600">
+                {trainingError ??
+                  "We were unable to start training. Please review your settings and try again."}
+              </p>
+              <div className="mt-4 flex justify-center gap-2">
+                <button
+                  onClick={() => {
+                    setTrainingStep("idle");
+                    setTrainingError(null);
+                  }}
+                  className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showLeavePrompt && (
@@ -869,90 +865,6 @@ export default function PredictorCreate() {
           onClose={() => setAlertState(null)}
         />
       )}
-    </div>
-  );
-}
-
-function TrainingModal({
-  step,
-  error,
-  onRetry,
-  onViewPredictor,
-}: {
-  step: TrainingStep;
-  error: string | null;
-  onRetry: () => void;
-  onViewPredictor: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        {step === "creating" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
-            <h3 className="text-lg font-semibold">Creating Predictor...</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Setting up your predictor in the database.
-            </p>
-          </div>
-        )}
-
-        {step === "training" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <h3 className="text-lg font-semibold">Training ML Model...</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              This may take several minutes depending on dataset size. Please
-              don't close this page.
-            </p>
-            <div className="mt-4 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-              🛠 Training in progress... The model is learning from your
-              dataset.
-            </div>
-          </div>
-        )}
-
-        {step === "complete" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-              ✓
-            </div>
-            <h3 className="text-lg font-semibold">Training Complete!</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Your predictor has been created and trained successfully.
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
-              Redirecting to predictor details...
-            </p>
-          </div>
-        )}
-
-        {step === "error" && (
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-              ✕
-            </div>
-            <h3 className="text-lg font-semibold">Training Failed</h3>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-red-600">
-              {error}
-            </p>
-            <div className="mt-4 flex justify-center gap-2">
-              <button
-                onClick={onRetry}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 active:translate-y-[0.5px]"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={onViewPredictor}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
-              >
-                View Predictor (if created)
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -1482,7 +1394,9 @@ function FeatureSelectionSection({
                     <button
                       type="button"
                       className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
                       disabled={disabled}
                     >
                       NEXT
