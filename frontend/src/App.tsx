@@ -18,6 +18,7 @@ import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
+import PredictorDraftEdit from "./pages/PredictorDraftEdit";
 import ScrollToTop from "./components/ScrollToTop";
 
 
@@ -55,6 +56,7 @@ export default function App() {
           <Route path='predictors/new' element={<PredictorCreate />} />
           <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
           <Route path='predictors/:id/edit' element={<PredictorEdit />} />
+          <Route path="predictors/draft/:id/edit" element={<PredictorDraftEdit />} />
         </Route>
 
         {/* Fallback */}

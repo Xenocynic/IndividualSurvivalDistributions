@@ -1,17 +1,23 @@
 /**
  * DASHBOARD
  *
- * Predictors, Datasets, and Folders workspace.
+ * Purpose:
+ * - Renders a three-tab workspace: "Predictors", "Datasets", and "Folders".
+ * - Shares a single search box and filters across tabs.
+ * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
+ * - Grid shows cards; clicking a card toggles its "selected" state.
+ * - "Create" menu can add a Predictor, Dataset, or Folder.
+ *   - The new item is inserted at the top,
+ *   - The page switches to the corresponding tab (for datasets),
+ *   - The new card is selected.
  *
- * Features:
- * - Three tabs: Predictors, Datasets, Folders
- * - Shared search box and filter controls per tab
- * - Sticky toolbar with tabs, search, filters, and Create menu
- * - Cards grid with selectable items and per-item actions (view, edit, delete, download)
- * - Folder sidebar and folder cards with drag-and-drop organization
- * - Folder creation, editing, sharing, and deletion flows
- * - Advanced filtering for all tabs (ownership, search target, time window, sorting)
- * - Delete confirmation dialogs and optimistic updates for folder deletion
+ * Implementation notes (UPDATED):
+ * - TanStack Query (useQuery) manages data fetching and caching.
+ * - TanStack Query (useMutation) handles server-side updates.
+ * - Local state holds UI state (activeTab, query, ownership, selection, etc.).
+ * - useMemo filters each list by query + ownership + time window.
+ * - Clicking the page background clears any selection.
+ * - A small modal handles delete confirmation.
  */
 
 import {
@@ -259,9 +265,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["folders"], (prev: any) => {
         if (!Array.isArray(prev)) return prev;
         return prev.filter(
-          (f) =>
-            f.folder_id !== folderId &&
-            f.id !== folderId
+          (f) => f.folder_id !== folderId && f.id !== folderId
         );
       });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -665,6 +669,16 @@ export default function Dashboard() {
     [activeTab, navigate]
   );
 
+  // Draft edit route for predictors (used by PredictorCard via onDraftEdit)
+  const draftEditItem = useCallback(
+    (id: string) => {
+      if (activeTab === "predictors") {
+        navigate(`/predictors/draft/${id}/edit`);
+      }
+    },
+    [activeTab, navigate]
+  );
+
   const viewItem = useCallback(
     (id: string) => {
       if (activeTab === "predictors") {
@@ -681,10 +695,10 @@ export default function Dashboard() {
   async function downloadItem(
     id: string,
     allowAdminAccess: boolean,
-    isOwner: boolean
+    isOwnerFlag: boolean
   ) {
     try {
-      if (!isOwner && !allowAdminAccess) {
+      if (!isOwnerFlag && !allowAdminAccess) {
         alert(
           "Download blocked: External access to this dataset has been disabled."
         );
@@ -1128,6 +1142,7 @@ export default function Dashboard() {
                               selected={selection.predictorId === it.id}
                               onToggleSelect={toggleSelect}
                               onEdit={editItem}
+                              onDraftEdit={draftEditItem}
                               onDelete={(id) =>
                                 promptDelete(id, it.title, "predictor")
                               }
@@ -1150,7 +1165,7 @@ export default function Dashboard() {
                               }
                               onView={viewItem}
                               onDownload={() => {
-                                const isOwner = isUserOwner(
+                                const ownerFlag = isUserOwner(
                                   it.owner,
                                   currentUserId
                                 );
@@ -1159,7 +1174,7 @@ export default function Dashboard() {
                                   "allow_admin_access" in it
                                     ? it.allow_admin_access ?? false
                                     : false,
-                                  isOwner
+                                  ownerFlag
                                 );
                               }}
                               onDrop={handleDrop}
@@ -1175,15 +1190,15 @@ export default function Dashboard() {
                       !isLoading && (
                         <div className="col-span-full flex items-center justify-center py-12 text-center">
                           <div className="max-w-sm">
-                            <div className="mb-2 text-lg text-neutral-400">
-                              <FolderOpen className="h-4 w-4 text-neutral-500" />
+                            <div className="mb-2 flex justify-center">
+                              <FolderOpen className="h-5 w-5 text-neutral-500" />
                             </div>
                             <p className="text-sm text-neutral-500">
                               No {activeTab} in your main collection
                             </p>
                             <p className="mt-1 text-xs text-neutral-400">
                               Drag items from folders here to move them back to
-                              your main collection
+                              your main collection.
                             </p>
                           </div>
                         </div>
@@ -1192,6 +1207,7 @@ export default function Dashboard() {
                 </DroppableFolder>
               )}
 
+              {/* Delete / folder modals & folder creation */}
               <DeleteConfirmation
                 open={!!deleteContext}
                 name={deleteContext?.title ?? ""}
@@ -1747,7 +1763,7 @@ function FolderAdvancedFilterMenu({
           <button
             type="button"
             onClick={handleFolderAlphaToggle}
-            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg_WHITE text-neutral-700 hover:bg-neutral-50"
           >
             <span>{alphaLabel}</span>
             <span className="text-[11px]">{alphaArrow}</span>

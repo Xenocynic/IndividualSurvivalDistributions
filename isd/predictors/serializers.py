@@ -33,6 +33,55 @@ class FolderSerializer(serializers.ModelSerializer):
 
 
 # ----------------------------
+# Predictor Permission Serializer
+# ----------------------------
+class PredictorPermissionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for PredictorPermission model.
+    Manages granting access to predictors for specific users.
+    """
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True
+    )
+    predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
+    role = serializers.ChoiceField(
+        choices=PredictorPermission.ROLE_CHOICES,
+        default="viewer",
+        required=False,
+    )
+
+    class Meta:
+        model = PredictorPermission
+        fields = ["id", "predictor", "user", "user_id", "role"]
+
+    def to_internal_value(self, data):
+        """
+        Allow clients to submit either `user_id` (preferred) or `user`.
+        """
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        if "user_id" not in mutable_data and "user" in mutable_data:
+            mutable_data["user_id"] = mutable_data["user"]
+        return super().to_internal_value(mutable_data)
+
+    def validate_predictor(self, value):
+        """Validate that the user owns the predictor."""
+        request = self.context.get("request")
+        if not request or not request.user:
+            raise PermissionDenied("Authentication required.")
+        
+        if value.owner != request.user:
+            raise PermissionDenied("You can only grant access to predictors you own.")
+        
+        return value
+
+    def create(self, validated_data):
+        """Create predictor permission after validation."""
+        return super().create(validated_data)
+
+
+
+# ----------------------------
 # Predictor Serializer
 # ----------------------------
 class PredictorSerializer(serializers.ModelSerializer):
@@ -41,8 +90,13 @@ class PredictorSerializer(serializers.ModelSerializer):
     dataset_id = serializers.PrimaryKeyRelatedField(
         queryset=Dataset.objects.all(),
         source='dataset',
-        write_only=True # This means it will not appear in responses (get, etc)
+        write_only=False # This means it will not appear in responses (get, etc)
     )
+
+    permissions = PredictorPermissionSerializer(
+        many=True, read_only=True
+    )
+    
     folder = FolderSerializer(read_only=True, help_text="Folder containing this predictor")
     folder_id = serializers.PrimaryKeyRelatedField(
         queryset=Folder.objects.all(),
@@ -109,55 +163,6 @@ class PredictorSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and hasattr(request, "user"):
             validated_data["owner"] = request.user
-        return super().create(validated_data)
-
-
-
-# ----------------------------
-# Predictor Permission Serializer
-# ----------------------------
-class PredictorPermissionSerializer(serializers.ModelSerializer):
-    """
-    Serializer for PredictorPermission model.
-    Manages granting access to predictors for specific users.
-    """
-    user = UserSerializer(read_only=True)
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source="user", write_only=True
-    )
-    predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
-    role = serializers.ChoiceField(
-        choices=PredictorPermission.ROLE_CHOICES,
-        default="viewer",
-        required=False,
-    )
-
-    class Meta:
-        model = PredictorPermission
-        fields = ["id", "predictor", "user", "user_id", "role"]
-
-    def to_internal_value(self, data):
-        """
-        Allow clients to submit either `user_id` (preferred) or `user`.
-        """
-        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
-        if "user_id" not in mutable_data and "user" in mutable_data:
-            mutable_data["user_id"] = mutable_data["user"]
-        return super().to_internal_value(mutable_data)
-
-    def validate_predictor(self, value):
-        """Validate that the user owns the predictor."""
-        request = self.context.get("request")
-        if not request or not request.user:
-            raise PermissionDenied("Authentication required.")
-        
-        if value.owner != request.user:
-            raise PermissionDenied("You can only grant access to predictors you own.")
-        
-        return value
-
-    def create(self, validated_data):
-        """Create predictor permission after validation."""
         return super().create(validated_data)
 
 
