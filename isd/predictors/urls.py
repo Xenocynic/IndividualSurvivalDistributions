@@ -51,6 +51,6 @@ urlpatterns = [
     path("ml/health/", ml_health_check, name="ml-health"),
     path("ml/retrain/", ml_retrain_model, name="ml-retrain"),
     path("ml/retrain-async/", ml_retrain_model_async, name="ml-retrain-async"),
-    path("ml/predict/", ml_predict, name="ml-predict"),
+    path("<int:predictor_id>/ml/predict/", ml_predict, name="ml-predict"),
     path("ml/models/", ml_list_models, name="ml-list-models"),
 ] + router.urls
