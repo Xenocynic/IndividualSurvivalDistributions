@@ -64,6 +64,9 @@ import {
   listPublicFolders,
   getPublicFolderContents,
   mapApiFolderToUi,
+  listPinnedFolders,
+  pinFolder,
+  unpinFolder,
   type Folder,
 } from "../lib/folders";
 import {
@@ -237,11 +240,6 @@ export default function Browse() {
     new Set()
   );
 
-  // Local state for folder pins (no backend yet)
-  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(
-    new Set()
-  );
-
   // --- TANSTACK QUERY: FETCH MAIN LISTS ---
 
   // Fetch Public Predictors
@@ -396,6 +394,21 @@ export default function Browse() {
     enabled: !!user && activeTab === "datasets",
   });
 
+  // Fetch Pinned Folder IDs
+  const { data: pinnedFolderData = [] } = useQuery({
+    queryKey: ["pinned-folders"],
+    queryFn: async () => {
+      if (!user) return [];
+      return await listPinnedFolders();
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const pinnedFolderIds = new Set(
+    pinnedFolderData.map((pf) => String(pf.folder?.folder_id || pf.folder_id))
+  );
+
   // --- MUTATIONS FOR PINNING ---
 
   const pinPredictorMutation = useMutation({
@@ -414,6 +427,29 @@ export default function Browse() {
       queryClient.invalidateQueries({ queryKey: ["pinned-datasets"] });
     },
     onError: (err) => console.error("Failed to toggle dataset pin", err),
+  });
+
+  const pinFolderMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
+      if (isPinned) {
+        // Get fresh pinned folders data
+        const currentPinned = queryClient.getQueryData<any[]>(["pinned-folders"]) || [];
+        const pinnedEntry = currentPinned.find(
+          (pf) => String(pf.folder?.folder_id || pf.folder_id) === id
+        );
+        if (pinnedEntry) {
+          await unpinFolder(String(pinnedEntry.id));
+        } else {
+          console.warn(`Could not find pinned folder entry for folder ${id}`);
+        }
+      } else {
+        await pinFolder(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pinned-folders"] });
+    },
+    onError: (err) => console.error("Failed to toggle folder pin", err),
   });
 
   // --- FILTERING ---
@@ -667,10 +703,16 @@ export default function Browse() {
       ? pinnedDatasetIds
       : pinnedFolderIds;
 
-  // For now, we only show pinned predictors/datasets in sidebar (folders use inline pins only)
+  // Pinned items for sidebar
   const pinned =
     activeTab === "folders"
-      ? []
+      ? pinnedFolderData.map((pf) => ({
+          id: String(pf.folder.folder_id),
+          title: pf.folder.name,
+          owner: false,
+          notes: pf.folder.description || "",
+          updatedAt: new Date(pf.folder.updated_at).toLocaleDateString(),
+        }))
       : baseList.filter((it) => pinnedSet.has(it.id));
 
   // --- ACTIONS ---
@@ -713,15 +755,17 @@ export default function Browse() {
     ]
   );
 
-  // Local state pin for folders
-  const toggleFolderPin = useCallback((folderId: string) => {
-    setPinnedFolderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
-      return next;
-    });
-  }, []);
+  // Folder pin toggle using backend API
+  const toggleFolderPin = useCallback(
+    (folderId: string) => {
+      if (!user) return;
+      pinFolderMutation.mutate({
+        id: folderId,
+        isPinned: pinnedFolderIds.has(folderId),
+      });
+    },
+    [user, pinnedFolderIds, pinFolderMutation]
+  );
 
   const downloadDataset = useCallback(
     async (id: string, _allowAdminAccess?: boolean) => {
@@ -1063,7 +1107,18 @@ export default function Browse() {
                         (activeTab === "predictors" &&
                           pinnedPredictorIds.has(p.id)) ||
                         (activeTab === "datasets" &&
-                          pinnedDatasetIds.has(p.id));
+                          pinnedDatasetIds.has(p.id)) ||
+                        (activeTab === "folders" &&
+                          pinnedFolderIds.has(p.id));
+
+                      const handlePinClick = () => {
+                        if (activeTab === "folders") {
+                          toggleFolderPin(p.id);
+                        } else {
+                          togglePin(p.id);
+                        }
+                      };
+
                       return (
                         <div
                           key={p.id}
@@ -1079,7 +1134,7 @@ export default function Browse() {
                                 : "hover:bg-neutral-50"
                             }`}
                             title={isPinned ? "Unpin" : "Pin"}
-                            onClick={() => togglePin(p.id)}
+                            onClick={handlePinClick}
                           >
                             {isPinned ? "★" : "☆"}
                           </button>
@@ -1149,9 +1204,8 @@ export default function Browse() {
                     ) : (
                       <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                         {filteredFolders.map((folder: any) => {
-                          const isPinned = pinnedFolderIds.has(
-                            folder.folder_id
-                          );
+                          const folderId = String(folder.folder_id);
+                          const isPinned = pinnedFolderIds.has(folderId);
                           return (
                             <div
                               key={folder.folder_id}
