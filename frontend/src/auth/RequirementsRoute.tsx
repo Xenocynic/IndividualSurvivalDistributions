@@ -4,6 +4,7 @@ import { api } from "../lib/apiClient";
 import { mapApiPredictorToUi } from "../lib/predictors";
 import { listMyDatasets } from "../lib/datasets";
 import { useAuth } from "./AuthContext";
+import AuthLoadingScreen from "./AuthLoadingScreen";
 
 interface RequirementsRouteProps {
   children: React.ReactNode;
@@ -56,12 +57,10 @@ export default function RequirementsRoute({ children }: RequirementsRouteProps) 
   // Show loading state while checking
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking requirements...</p>
-        </div>
-      </div>
+      <AuthLoadingScreen
+        word="Loading"
+        message="Checking requirements..."
+      />
     );
   }
 
