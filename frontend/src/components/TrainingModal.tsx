@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getTrainingStatus } from '../lib/predictors';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { X, CheckCircle2, AlertTriangle } from "lucide-react";
+import { getTrainingStatus } from "../lib/predictors";
 
 interface TrainingProgress {
   current_experiment?: number;
@@ -20,11 +21,13 @@ interface TrainingModalProps {
 export default function TrainingModal({
   predictorId,
   onClose,
-  autoNavigateOnComplete = false
+  autoNavigateOnComplete = false,
 }: TrainingModalProps) {
   const navigate = useNavigate();
   const [progress, setProgress] = useState<TrainingProgress | null>(null);
-  const [status, setStatus] = useState<'training' | 'complete' | 'failed'>('training');
+  const [status, setStatus] = useState<"training" | "complete" | "failed">(
+    "training"
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,19 +37,17 @@ export default function TrainingModal({
       try {
         const statusData = await getTrainingStatus(predictorId);
 
-        // Update progress
         if (statusData.progress) {
           setProgress(statusData.progress);
         }
 
-        // Check if training is complete
-        if (statusData.status === 'trained') {
+        if (statusData.status === "trained") {
           clearInterval(pollInterval);
-          setStatus('complete');
+          setStatus("complete");
           setProgress({
             ...statusData.progress,
             estimated_progress: 100,
-            message: 'Training completed successfully!'
+            message: "Training completed successfully.",
           });
 
           if (autoNavigateOnComplete) {
@@ -54,47 +55,56 @@ export default function TrainingModal({
               navigate(`/predictors/${predictorId}`);
             }, 2000);
           }
-        } else if (statusData.status === 'failed') {
+        } else if (statusData.status === "failed") {
           clearInterval(pollInterval);
-          setStatus('failed');
-          setError(statusData.error || 'Training failed');
+          setStatus("failed");
+          setError(statusData.error || "Training failed.");
         }
-      } catch (err: any) {
-        console.error('Error polling training status:', err);
-        // Don't stop polling on error, might be temporary network issue
+      } catch (err) {
+        // Keep polling; transient errors are possible
+        // eslint-disable-next-line no-console
+        console.error("Error polling training status:", err);
       }
     };
 
     // Start polling immediately
     pollTrainingStatus();
-    pollInterval = setInterval(pollTrainingStatus, 1000); // Poll every 1 second
+    pollInterval = window.setInterval(pollTrainingStatus, 1000);
 
-    // Cleanup on unmount
     return () => clearInterval(pollInterval);
   }, [predictorId, autoNavigateOnComplete, navigate]);
 
+  const formatTime = (seconds?: number) => {
+    if (seconds === undefined || seconds === null || seconds < 0) return "—";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}m ${secs}s`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-2xl">
-        {/* Close button (only if onClose is provided) */}
-        {onClose && status !== 'complete' && (
+      <div className="relative w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-2xl">
+        {/* Close button (only if onClose is provided and training not complete) */}
+        {onClose && status !== "complete" && (
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 text-neutral-400 hover:text-neutral-600"
+            className="absolute right-4 top-4 text-neutral-400 transition hover:text-neutral-700"
             aria-label="Close"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="h-5 w-5" />
           </button>
         )}
 
-        {status === 'training' && (
+        {status === "training" && (
           <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-            <h3 className="text-lg font-semibold">Training ML Model...</h3>
+            {/* Correct spinner */}
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+
+            <h3 className="text-base font-semibold text-neutral-900">
+              Training ML model…
+            </h3>
             <p className="mt-2 text-sm text-neutral-600">
-              {progress?.message || 'Training in progress...'}
+              {progress?.message || "Training in progress."}
             </p>
 
             {/* Progress Bar */}
@@ -104,9 +114,9 @@ export default function TrainingModal({
                   <span>Progress</span>
                   <span>{progress.estimated_progress}%</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+                <div className="h-3 w-full overflow-hidden rounded-md border border-neutral-300 bg-neutral-50">
                   <div
-                    className="h-full bg-blue-600 transition-all duration-500"
+                    className="h-full rounded-md bg-neutral-800 transition-all duration-500"
                     style={{ width: `${progress.estimated_progress}%` }}
                   />
                 </div>
@@ -115,50 +125,55 @@ export default function TrainingModal({
 
             {/* Detailed Progress Info */}
             {progress && progress.current_experiment && (
-              <div className="mt-4 space-y-1 rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-                {progress.current_experiment && progress.total_experiments && (
-                  <div className="font-medium">
-                    📊 Running cross-validation: Fold {progress.current_experiment} of {progress.total_experiments}
-                  </div>
-                )}
-                <div className="flex justify-between text-neutral-600">
+              <div className="mt-4 space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-left text-xs text-neutral-700">
+                {progress.current_experiment &&
+                  progress.total_experiments && (
+                    <div className="font-medium">
+                      Cross-validation: fold {progress.current_experiment} of{" "}
+                      {progress.total_experiments}
+                    </div>
+                  )}
+                <div className="flex justify-between gap-4 text-neutral-600">
                   {progress.elapsed_seconds !== undefined && (
-                    <div>
-                      ⏱️ Elapsed: {Math.floor(progress.elapsed_seconds / 60)}m {progress.elapsed_seconds % 60}s
-                    </div>
+                    <div>Elapsed: {formatTime(progress.elapsed_seconds)}</div>
                   )}
-                  {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
-                    <div>
-                      🕐 Remaining: ~{Math.floor(progress.eta_seconds / 60)}m {progress.eta_seconds % 60}s
-                    </div>
-                  )}
+                  {progress.eta_seconds !== undefined &&
+                    progress.eta_seconds > 0 && (
+                      <div>
+                        Estimated remaining: {formatTime(progress.eta_seconds)}
+                      </div>
+                    )}
                 </div>
                 <div className="mt-2 text-neutral-600">
                   {onClose
-                    ? "You can close this window and training will continue in the background."
-                    : "The model is learning from your dataset. This may take a few minutes."}
+                    ? "You can close this window; training will continue in the background."
+                    : "The model is training on your dataset. This may take a few minutes."}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {status === 'complete' && (
+        {status === "complete" && (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-              ✓
+            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-neutral-300 bg-neutral-50 text-neutral-800">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-semibold">Training Complete!</h3>
+            <h3 className="text-base font-semibold text-neutral-900">
+              Training complete
+            </h3>
             <p className="mt-2 text-sm text-neutral-600">
               Your predictor has been trained successfully.
             </p>
             {autoNavigateOnComplete && (
-              <p className="mt-1 text-xs text-neutral-500">Redirecting to predictor details...</p>
+              <p className="mt-1 text-xs text-neutral-500">
+                Redirecting to predictor details…
+              </p>
             )}
             {onClose && !autoNavigateOnComplete && (
               <button
                 onClick={onClose}
-                className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                className="mt-4 inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
               >
                 Close
               </button>
@@ -166,17 +181,21 @@ export default function TrainingModal({
           </div>
         )}
 
-        {status === 'failed' && (
+        {status === "failed" && (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-              ✕
+            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-semibold">Training Failed</h3>
-            <p className="mt-2 text-sm text-red-600">{error}</p>
+            <h3 className="text-base font-semibold text-neutral-900">
+              Training failed
+            </h3>
+            <p className="mt-2 text-sm text-red-600">
+              {error || "An error occurred while training this predictor."}
+            </p>
             {onClose && (
               <button
                 onClick={onClose}
-                className="mt-4 rounded-md bg-neutral-600 px-4 py-2 text-sm text-white hover:bg-neutral-700"
+                className="mt-4 inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
               >
                 Close
               </button>
