@@ -4,6 +4,9 @@ from .models import Predictor, PredictorPermission, PinnedPredictor
 from dataset.models import Dataset
 from folders.models import Folder
 from rest_framework.exceptions import PermissionDenied
+import os
+import json
+from django.conf import settings
 
 
 # ----------------------------
@@ -20,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
 class DatasetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dataset
-        fields = ["dataset_id", "dataset_name"]  
+        fields = ["dataset_id", "dataset_name", "original_filename"]  
 
 # ----------------------------
 # Folder Serializer (lightweight)
@@ -80,7 +83,8 @@ class PredictorSerializer(serializers.ModelSerializer):
         return folder
     
     def to_representation(self, instance):
-        """Add folder information to the response."""
+        """Add folder information and model metadata to the response."""
+        
         data = super().to_representation(instance)
         
         # Get folder information if predictor is in a folder
@@ -100,6 +104,30 @@ class PredictorSerializer(serializers.ModelSerializer):
             }
         else:
             data['folder'] = None
+        
+        # Add model metadata if available (model_type and n_features)
+        if instance.model_id:
+            model_config_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                instance.model_id,
+                'model_config.json'
+            )
+            
+            if os.path.exists(model_config_path):
+                try:
+                    with open(model_config_path, 'r') as f:
+                        model_config = json.load(f)
+                    data['model_metadata'] = {
+                        'model_type': model_config.get('model_type'),
+                        'n_features': model_config.get('n_features')
+                    }
+                except Exception:
+                    data['model_metadata'] = None
+            else:
+                data['model_metadata'] = None
+        else:
+            data['model_metadata'] = None
             
         return data
     

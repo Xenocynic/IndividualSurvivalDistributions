@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import type { FullPredictionsData } from "../lib/predictors";
 import { getPredictorFullPredictionsData } from "../lib/predictors";
+import { Download } from "lucide-react";
 
 interface DCalibrationHistogramProps {
   predictorId: number;
@@ -33,9 +34,12 @@ export default function DCalibrationHistogram({
   predictorName,
 }: DCalibrationHistogramProps) {
   const [numBins, setNumBins] = useState(10);
-  const [fullPredictions, setFullPredictions] = useState<FullPredictionsData | null>(null);
+  const [fullPredictions, setFullPredictions] =
+    useState<FullPredictionsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const chartRef = useRef<HTMLDivElement | null>(null);
 
   // Load full predictions data
   useEffect(() => {
@@ -52,18 +56,17 @@ export default function DCalibrationHistogram({
       .finally(() => setIsLoading(false));
   }, [predictorId]);
 
-  // Calculate histogram bins and Hosmer-Lemeshow statistics
   const { binsData, hosmerLemeshow } = useMemo(() => {
     if (!fullPredictions) {
-      return { binsData: [], hosmerLemeshow: { chiSquare: 0, pValue: 0 } };
+      return {
+        binsData: [] as BinData[],
+        hosmerLemeshow: { chiSquare: 0, pValue: 0 },
+      };
     }
 
     const { prob_at_actual_time, actual_events } = fullPredictions;
-    
-    // Total number of subjects
+
     const totalSubjects = prob_at_actual_time.length;
-    
-    // Create bins
     const binWidth = 100 / numBins;
     const bins: BinData[] = [];
 
@@ -75,33 +78,25 @@ export default function DCalibrationHistogram({
       let uncensoredCount = 0;
       let censoredCount = 0;
 
-      // Count subjects in this bin
       prob_at_actual_time.forEach((prob, idx) => {
         if (prob >= binStart && prob < binEnd) {
-          if (actual_events[idx] === 1) {
-            uncensoredCount++;
-          } else {
-            censoredCount++;
-          }
+          if (actual_events[idx] === 1) uncensoredCount++;
+          else censoredCount++;
         }
       });
 
-      // Handle the last bin to include 100
+      // Include 100 in last bin
       if (i === numBins - 1) {
         prob_at_actual_time.forEach((prob, idx) => {
           if (prob === 100) {
-            if (actual_events[idx] === 1) {
-              uncensoredCount++;
-            } else {
-              censoredCount++;
-            }
+            if (actual_events[idx] === 1) uncensoredCount++;
+            else censoredCount++;
           }
         });
       }
 
       const totalCount = uncensoredCount + censoredCount;
-      
-      // Calculate percentage of ALL subjects (this is what the bar length represents)
+
       const uncensoredPercent = (uncensoredCount / totalSubjects) * 100;
       const censoredPercent = (censoredCount / totalSubjects) * 100;
 
@@ -117,29 +112,29 @@ export default function DCalibrationHistogram({
       });
     }
 
-    // Calculate Hosmer-Lemeshow statistics
     let chiSquare = 0;
     bins.forEach((bin) => {
       if (bin.totalCount > 0) {
-        const binMidpoint = (bin.binStart + bin.binEnd) / 2 / 100; // Convert to 0-1 scale
+        const binMidpoint = (bin.binStart + bin.binEnd) / 2 / 100;
         const expectedEvents = binMidpoint * bin.totalCount;
         const observedEvents = bin.uncensoredCount;
-        
+
         if (expectedEvents > 0) {
-          chiSquare += Math.pow(observedEvents - expectedEvents, 2) / expectedEvents;
+          chiSquare +=
+            Math.pow(observedEvents - expectedEvents, 2) / expectedEvents;
         }
-        
+
         const expectedCensored = (1 - binMidpoint) * bin.totalCount;
         const observedCensored = bin.censoredCount;
-        
+
         if (expectedCensored > 0) {
-          chiSquare += Math.pow(observedCensored - expectedCensored, 2) / expectedCensored;
+          chiSquare +=
+            Math.pow(observedCensored - expectedCensored, 2) /
+            expectedCensored;
         }
       }
     });
 
-    // Calculate p-value using chi-square distribution
-    // Degrees of freedom = numBins - 2
     const degreesOfFreedom = numBins - 2;
     const pValue = calculateChiSquarePValue(chiSquare, degreesOfFreedom);
 
@@ -149,11 +144,50 @@ export default function DCalibrationHistogram({
     };
   }, [fullPredictions, numBins]);
 
+  const handleDownloadChart = () => {
+    if (!chartRef.current) return;
+
+    const svgElement = chartRef.current.querySelector("svg");
+    if (!svgElement) return;
+
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    const svgBlob = new Blob([svgData], {
+      type: "image/svg+xml;charset=utf-8",
+    });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const link = document.createElement("a");
+        link.download = `d-calibration-histogram-${Date.now()}.png`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      });
+    };
+
+    img.src = url;
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
-        <p className="ml-3 text-sm text-neutral-500">Loading calibration data...</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+        <p className="ml-3 text-sm text-neutral-500">
+          Loading calibration data...
+        </p>
       </div>
     );
   }
@@ -169,7 +203,9 @@ export default function DCalibrationHistogram({
   if (!fullPredictions || binsData.length === 0) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <p className="text-sm text-neutral-500">No calibration data available.</p>
+        <p className="text-sm text-neutral-500">
+          No calibration data available.
+        </p>
       </div>
     );
   }
@@ -178,7 +214,7 @@ export default function DCalibrationHistogram({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-neutral-800">
-          Calibration Histogram for Predictor "{predictorName}"
+          Calibration Histogram for Predictor &quot;{predictorName}&quot;
         </h2>
       </div>
 
@@ -187,26 +223,52 @@ export default function DCalibrationHistogram({
           Number of Bins:
           <input
             type="number"
-            min="5"
-            max="20"
+            min={5}
+            max={20}
             value={numBins}
-            onChange={(e) => setNumBins(Math.max(5, Math.min(20, parseInt(e.target.value) || 10)))}
+            onChange={(e) =>
+              setNumBins(
+                Math.max(
+                  5,
+                  Math.min(20, parseInt(e.target.value, 10) || 10),
+                ),
+              )
+            }
             className="w-20 rounded-md border border-neutral-300 px-2 py-1"
           />
         </label>
         <div className="text-sm text-neutral-600">
-          Hosmer-Lemeshow statistics: <span className="font-semibold">{hosmerLemeshow.chiSquare.toFixed(3)}</span>
+          Hosmer-Lemeshow statistics:{" "}
+          <span className="font-semibold">
+            {hosmerLemeshow.chiSquare.toFixed(3)}
+          </span>
           {" | "}
-          Hosmer-Lemeshow p-value: <span className="font-semibold">{hosmerLemeshow.pValue.toFixed(3)}</span>
+          Hosmer-Lemeshow p-value:{" "}
+          <span className="font-semibold">
+            {hosmerLemeshow.pValue.toFixed(3)}
+          </span>
         </div>
       </div>
 
-      <div className="rounded-md border bg-white p-4">
-        <h3 className="mb-4 text-center text-sm font-semibold text-neutral-700">
-          Histogram (Sideways) of "Probability of Event"
-          <br />
-          <span className="text-xs font-normal text-neutral-500">By Censored Status</span>
-        </h3>
+      <div ref={chartRef} className="rounded-md border bg-white p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-center text-sm font-semibold text-neutral-700">
+            Histogram (Sideways) of &quot;Probability of Event&quot;
+            <br />
+            <span className="text-xs font-normal text-neutral-500">
+              By Censored Status
+            </span>
+          </h3>
+          <button
+            type="button"
+            onClick={handleDownloadChart}
+            title="Download chart as PNG"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm transition hover:bg-neutral-50"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Download chart as PNG</span>
+          </button>
+        </div>
         <div className="h-[500px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
@@ -242,9 +304,9 @@ export default function DCalibrationHistogram({
                 cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
               />
               <Legend
-                wrapperStyle={{ 
+                wrapperStyle={{
                   fontSize: 12,
-                  paddingTop: "30px"
+                  paddingTop: "30px",
                 }}
                 iconType="square"
               />
@@ -283,36 +345,44 @@ function CustomTooltip({ active, payload }: any) {
   return (
     <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
       <p className="font-semibold text-neutral-700">Bin: {data.binLabel}</p>
-      <p className="text-neutral-600">Total in bin: {data.totalCount} ({binPercent.toFixed(1)}% of all subjects)</p>
-      <p className="text-blue-600">Uncensored: {data.uncensoredCount} ({data.uncensoredPercent.toFixed(1)}% of all)</p>
-      <p className="text-red-600">Censored: {data.censoredCount} ({data.censoredPercent.toFixed(1)}% of all)</p>
+      <p className="text-neutral-600">
+        Total in bin: {data.totalCount} ({binPercent.toFixed(1)}% of all
+        subjects)
+      </p>
+      <p className="text-blue-600">
+        Uncensored: {data.uncensoredCount} (
+        {data.uncensoredPercent.toFixed(1)}% of all)
+      </p>
+      <p className="text-red-600">
+        Censored: {data.censoredCount} ({data.censoredPercent.toFixed(1)}% of
+        all)
+      </p>
     </div>
   );
 }
 
 // Approximate chi-square p-value calculation
 function calculateChiSquarePValue(chiSquare: number, df: number): number {
-  // Using a simple approximation for chi-square p-value
-  // For more accuracy, you'd want to use a proper statistical library
-  
   if (df <= 0 || chiSquare < 0) return 1;
-  
+
   // Wilson-Hilferty approximation
-  const z = Math.pow(chiSquare / df, 1/3) - (1 - 2/(9*df));
-  const denominator = Math.sqrt(2/(9*df));
+  const z = Math.pow(chiSquare / df, 1 / 3) - (1 - 2 / (9 * df));
+  const denominator = Math.sqrt(2 / (9 * df));
   const normalZ = z / denominator;
-  
-  // Approximate normal CDF
+
   const pValue = 1 - normalCDF(normalZ);
-  
+
   return Math.max(0, Math.min(1, pValue));
 }
 
 function normalCDF(x: number): number {
-  // Approximation of the cumulative distribution function for standard normal
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
-  const d = 0.3989423 * Math.exp(-x * x / 2);
-  const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-  
+  const d = 0.3989423 * Math.exp(-(x * x) / 2);
+  const prob =
+    d *
+    t *
+    (0.3193815 +
+      t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+
   return x > 0 ? 1 - prob : prob;
 }
