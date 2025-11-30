@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import SearchBar from "../components/SearchBar";
 import { FolderSelector } from "../components/folder";
 import { listMyDatasets, getDatasetStats } from "../lib/datasets";
@@ -30,7 +30,7 @@ import {
   getPredictor,
   updatePredictor,
   grantPredictorViewer,
-  trainPredictorAsync,
+  trainPredictor,
 } from "../lib/predictors";
 import {
   UserSearchInput,
@@ -39,6 +39,7 @@ import {
 import { resolveUsernameToId } from "../lib/users";
 import { AlertModal } from "../components/AlertModal";
 import TrainingModal from "../components/TrainingModal";
+import { AlertTriangle, AlertCircle, ChevronDown, X } from "lucide-react";
 
 type PermRow = {
   id: number;
@@ -53,6 +54,8 @@ export default function PredictorCreate() {
   const navigate = useNavigate();
   const { id: draftId } = useParams();
   const isDraftMode = Boolean(draftId);
+  const location = useLocation();
+  const cameFromUsePredictor = location.state?.from === "use-predictor";
 
   // form state
   const [name, setName] = useState("");
@@ -87,29 +90,52 @@ export default function PredictorCreate() {
     useState<number | null>(null);
   const [showTrainingModal, setShowTrainingModal] = useState(false);
 
-  // advanced settings state
-  const [numTimePoints, setNumTimePoints] = useState<string | number>("");
-  const [regularization, setRegularization] = useState<"l1" | "l2">("l2");
-  const [objectiveFunction, setObjectiveFunction] = useState<
-    "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
-  >("log-likelihood");
-  const [marginalLossType, setMarginalLossType] = useState<
-    "weighted" | "unweighted"
-  >("weighted");
-  const [cParamSearchScope, setCParamSearchScope] = useState<
-    "basic" | "fine" | "extremely fine"
-  >("basic");
-  const [coxFeatureSelection, setCoxFeatureSelection] = useState(false);
-  const [mrmrFeatureSelection, setMrmrFeatureSelection] = useState(false);
-  const [mtlrPredictor, setMtlrPredictor] = useState<"stable" | "testing1">(
-    "stable"
-  );
-  const [tuneParameters, setTuneParameters] = useState(false);
-  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] =
-    useState(false);
-  const [usePredefinedFolds, setUsePredefinedFolds] = useState(false);
-  const [runCrossValidation, setRunCrossValidation] = useState(true);
-  const [standardizeFeatures, setStandardizeFeatures] = useState(true);
+  // Advanced settings - Model Selection
+  const [selectedModel, setSelectedModel] = useState<string>("MTLR");
+
+  // General/Experiment Settings
+  const [postProcess, setPostProcess] = useState<"CSD" | "CSD-iPOT">("CSD");
+  const [nExp, setNExp] = useState<number>(10);
+  const [seed, setSeed] = useState<number>(0);
+  const [timeBins, setTimeBins] = useState<number | null>(null);
+
+  // Conformalization Settings
+  const [decensorMethod, setDecensorMethod] = useState<
+    "uncensored" | "margin" | "PO" | "sampling"
+  >("sampling");
+  const [monoMethod, setMonoMethod] = useState<
+    "ceil" | "floor" | "bootstrap"
+  >("bootstrap");
+  const [interpolate, setInterpolate] = useState<"Linear" | "Pchip">("Pchip");
+  const [nQuantiles, setNQuantiles] = useState<number>(9);
+  const [useTrain, setUseTrain] = useState<boolean>(true);
+  const [nSample, setNSample] = useState<number>(1000);
+
+  // Neural Network Architecture
+  const [neurons, setNeurons] = useState<number[]>([64, 64]);
+  const [norm, setNorm] = useState<boolean>(true);
+  const [dropout, setDropout] = useState<number>(0.4);
+  const [activation, setActivation] = useState<string>("ReLU");
+
+  // Training Hyperparameters
+  const [nEpochs, setNEpochs] = useState<number>(10000);
+  const [earlyStop, setEarlyStop] = useState<boolean>(true);
+  const [batchSize, setBatchSize] = useState<number>(256);
+  const [lr, setLr] = useState<number>(0.001);
+  const [weightDecay, setWeightDecay] = useState<number>(0.1);
+  const [lam, setLam] = useState<number>(0);
+
+  // Helper function to check if model uses neural network
+  const isNeuralNetworkModel = () => {
+    return [
+      "MTLR",
+      "CoxPH",
+      "DeepHit",
+      "CoxTime",
+      "CQRNN",
+      "LogNormalNN",
+    ].includes(selectedModel);
+  };
 
   // feature selection state
   const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
@@ -247,6 +273,7 @@ export default function PredictorCreate() {
         const stats = await getDatasetStats(Number(selectedDatasetId));
         if (cancelled) return;
 
+        // Extract feature names from feature_correlations
         const features =
           stats.feature_correlations?.map((fc: any) => fc.feature) ?? [];
         setAvailableFeatures(features);
@@ -282,6 +309,8 @@ export default function PredictorCreate() {
     !!selectedDatasetId &&
     trainingStep === "idle";
 
+  const isProcessing = trainingStep !== "idle";
+
   // Train-and-save flow (supports draft + advanced settings)
   async function onTrainAndSave() {
     if (!canSave) return;
@@ -291,86 +320,136 @@ export default function PredictorCreate() {
 
     try {
       const datasetId = Number(selectedDatasetId);
-
-      // Step 1: Create predictor first (without model_id, in 'not_trained' state)
-      const created = await createPredictor({
-        name: name.trim(),
-        description: notes.trim(),
-        dataset_id: datasetId,
-        folder_id: selectedFolderId || undefined,
-        is_private: !isPublic,
-        ml_training_status: "not_trained",
-        // Advanced settings
-        num_time_points:
-          numTimePoints !== "" &&
-          !Number.isNaN(Number(numTimePoints)) &&
-          Number(numTimePoints) > 0
-            ? Number(numTimePoints)
-            : undefined,
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      });
-
-      setCreatedPredictorId(created.predictor_id);
-
-      // Step 2: Grant permissions
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          const resolvedId = await resolveUsernameToId(username);
-          if (!resolvedId) continue;
-          userId = resolvedId;
-        }
-        await grantPredictorViewer(created.predictor_id, userId, row.role);
-      }
-
-      // Step 3: Start async training
-      setTrainingStep("training");
-      setShowTrainingModal(true);
-
-      await trainPredictorAsync(datasetId, created.predictor_id, {
+      // Step 1: Train first (no predictor yet)
+      const trainingResult = await trainPredictor(datasetId, {
         parameters: {
-          n_epochs: 100,
-          dropout: 0.2,
-          neurons: [64, 64],
-          n_exp: 10,
-          // Advanced settings
-          num_time_points:
-            numTimePoints !== "" &&
-            !Number.isNaN(Number(numTimePoints)) &&
-            Number(numTimePoints) > 0
-              ? Number(numTimePoints)
-              : undefined,
-          regularization,
-          objective_function: objectiveFunction,
-          marginal_loss_type: marginalLossType,
-          c_param_search_scope: cParamSearchScope,
-          cox_feature_selection: coxFeatureSelection,
-          mrmr_feature_selection: mrmrFeatureSelection,
-          mtlr_predictor: mtlrPredictor,
-          tune_parameters: tuneParameters,
-          use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-          use_predefined_folds: usePredefinedFolds,
-          run_cross_validation: runCrossValidation,
-          standardize_features: standardizeFeatures,
+          // Model & Experiment
+          model: selectedModel,
+          post_process: postProcess,
+          n_exp: nExp,
+          seed,
+          ...(["MTLR", "CoxPH", "CQRNN", "LogNormalNN"].includes(
+            selectedModel
+          ) &&
+            timeBins !== null && { time_bins: timeBins }),
+
+          // Conformalization
+          error_f: "Quantile",
+          decensor_method: decensorMethod,
+          mono_method: monoMethod,
+          interpolate,
+          n_quantiles: nQuantiles,
+          use_train: useTrain,
+          n_sample: decensorMethod === "sampling" ? nSample : undefined,
+
+          // Neural Network Architecture and Training Hyperparameters (only if applicable)
+          ...(isNeuralNetworkModel() && {
+            neurons,
+            norm,
+            dropout,
+            activation,
+            n_epochs: nEpochs,
+            early_stop: earlyStop,
+            batch_size: batchSize,
+            lr,
+            weight_decay: weightDecay,
+          }),
+          ...(selectedModel === "LogNormalNN" && { lam }),
+
+          // Feature selection
           selected_features:
             selectedFeatures.size > 0
               ? Array.from(selectedFeatures)
               : undefined,
         },
       });
+
+      // Validate training result
+      if (!trainingResult || !trainingResult.model_id) {
+        throw new Error("Training did not return a valid model_id");
+      }
+
+      // Step 2: Create predictor with ML metadata
+      setTrainingStep("creating");
+
+      // Parse selected_features if it's a string
+      let parsedFeatures = trainingResult.selected_features;
+      if (typeof parsedFeatures === "string") {
+        try {
+          parsedFeatures = JSON.parse(parsedFeatures);
+        } catch (e) {
+          console.warn(
+            "Could not parse selected_features as JSON, using as-is"
+          );
+        }
+      }
+
+      const created = await createPredictor({
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: Number(selectedDatasetId),
+        folder_id: selectedFolderId || undefined,
+        is_private: !isPublic,
+        model_id: trainingResult.model_id,
+        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
+        ml_training_status: "trained",
+        ml_model_metrics: trainingResult.metrics || {},
+        ml_selected_features: parsedFeatures || null,
+
+        // Store all the new parameters with predictor
+        model: selectedModel,
+        post_process: postProcess,
+        n_exp: nExp,
+        seed,
+        time_bins:
+          ["MTLR", "CoxPH", "CQRNN", "LogNormalNN"].includes(selectedModel) &&
+          timeBins !== null
+            ? timeBins
+            : undefined,
+        error_f: "Quantile",
+        decensor_method: decensorMethod,
+        mono_method: monoMethod,
+        interpolate,
+        n_quantiles: nQuantiles,
+        use_train: useTrain,
+        n_sample: decensorMethod === "sampling" ? nSample : undefined,
+        neurons: isNeuralNetworkModel() ? neurons : undefined,
+        norm: isNeuralNetworkModel() ? norm : undefined,
+        dropout: isNeuralNetworkModel() ? dropout : undefined,
+        activation: isNeuralNetworkModel() ? activation : undefined,
+        n_epochs: isNeuralNetworkModel() ? nEpochs : undefined,
+        early_stop: isNeuralNetworkModel() ? earlyStop : undefined,
+        batch_size: isNeuralNetworkModel() ? batchSize : undefined,
+        lr: isNeuralNetworkModel() ? lr : undefined,
+        weight_decay: isNeuralNetworkModel() ? weightDecay : undefined,
+        lam: selectedModel === "LogNormalNN" ? lam : undefined,
+      });
+
+      setCreatedPredictorId(created.predictor_id);
+
+      // Step 3: Grant permissions
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
+        let userId = row.userId;
+        if (!userId) {
+          userId = await resolveUsernameToId(username);
+        }
+        if (!userId) continue;
+
+        try {
+          await grantPredictorViewer(created.predictor_id, userId, row.role);
+        } catch (e) {
+          console.error("Grant failed", e);
+        }
+      }
+
+      // Step 4: Complete!
+      setTrainingStep("complete");
+
+      setTimeout(() => {
+        navigate(`/predictors/${created.predictor_id}`);
+      }, 2000);
     } catch (error: any) {
       setTrainingStep("error");
       setTrainingError(
@@ -466,8 +545,6 @@ export default function PredictorCreate() {
     updateRow(id, { username: user.username, userId: user.id });
   }
 
-  const isProcessing = trainingStep !== "idle";
-
   return (
     <div className="min-h-[60vh] bg-neutral-100">
       {/* Sticky sub-header */}
@@ -497,6 +574,26 @@ export default function PredictorCreate() {
         </div>
         <div className="h-1 w-full bg-neutral-600" />
       </div>
+
+      {/* Notification Banner - Only shown when redirected from use-predictor */}
+      {cameFromUsePredictor && (
+        <div className="mx-auto max-w-3xl px-4 pt-4">
+          <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-neutral-700" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-neutral-900">
+                  No trained predictors available
+                </h3>
+                <p className="mt-1 text-sm text-neutral-700">
+                  You must create and train a predictor before you can make
+                  predictions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <div className="mx-auto max-w-3xl px-4 py-6">
@@ -659,32 +756,49 @@ export default function PredictorCreate() {
           {/* Advanced Settings (Collapsible) */}
           <AdvancedSettingsSection
             disabled={isProcessing}
-            numTimePoints={numTimePoints}
-            setNumTimePoints={setNumTimePoints}
-            regularization={regularization}
-            setRegularization={setRegularization}
-            objectiveFunction={objectiveFunction}
-            setObjectiveFunction={setObjectiveFunction}
-            marginalLossType={marginalLossType}
-            setMarginalLossType={setMarginalLossType}
-            cParamSearchScope={cParamSearchScope}
-            setCParamSearchScope={setCParamSearchScope}
-            coxFeatureSelection={coxFeatureSelection}
-            setCoxFeatureSelection={setCoxFeatureSelection}
-            mrmrFeatureSelection={mrmrFeatureSelection}
-            setMrmrFeatureSelection={setMrmrFeatureSelection}
-            mtlrPredictor={mtlrPredictor}
-            setMtlrPredictor={setMtlrPredictor}
-            tuneParameters={tuneParameters}
-            setTuneParameters={setTuneParameters}
-            useSmoothedLogLikelihood={useSmoothedLogLikelihood}
-            setUseSmoothedLogLikelihood={setUseSmoothedLogLikelihood}
-            usePredefinedFolds={usePredefinedFolds}
-            setUsePredefinedFolds={setUsePredefinedFolds}
-            runCrossValidation={runCrossValidation}
-            setRunCrossValidation={setRunCrossValidation}
-            standardizeFeatures={standardizeFeatures}
-            setStandardizeFeatures={setStandardizeFeatures}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            postProcess={postProcess}
+            setPostProcess={setPostProcess}
+            nExp={nExp}
+            setNExp={setNExp}
+            seed={seed}
+            setSeed={setSeed}
+            timeBins={timeBins}
+            setTimeBins={setTimeBins}
+            decensorMethod={decensorMethod}
+            setDecensorMethod={setDecensorMethod}
+            monoMethod={monoMethod}
+            setMonoMethod={setMonoMethod}
+            interpolate={interpolate}
+            setInterpolate={setInterpolate}
+            nQuantiles={nQuantiles}
+            setNQuantiles={setNQuantiles}
+            useTrain={useTrain}
+            setUseTrain={setUseTrain}
+            nSample={nSample}
+            setNSample={setNSample}
+            neurons={neurons}
+            setNeurons={setNeurons}
+            norm={norm}
+            setNorm={setNorm}
+            dropout={dropout}
+            setDropout={setDropout}
+            activation={activation}
+            setActivation={setActivation}
+            nEpochs={nEpochs}
+            setNEpochs={setNEpochs}
+            earlyStop={earlyStop}
+            setEarlyStop={setEarlyStop}
+            batchSize={batchSize}
+            setBatchSize={setBatchSize}
+            lr={lr}
+            setLr={setLr}
+            weightDecay={weightDecay}
+            setWeightDecay={setWeightDecay}
+            lam={lam}
+            setLam={setLam}
+            isNeuralNetworkModel={isNeuralNetworkModel}
           />
 
           {/* Visibility + Permissions grouped */}
@@ -733,12 +847,13 @@ export default function PredictorCreate() {
                     >
                       <div className="flex items-center gap-2">
                         <button
-                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs transition hover:bg-neutral-50 disabled:opacity-50"
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-neutral-300 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-50"
                           title="Remove"
                           onClick={() => removeRow(r.id)}
                           disabled={isProcessing}
+                          aria-label="Remove user"
                         >
-                          ✕
+                          <X className="h-3.5 w-3.5" />
                         </button>
                         <UserSearchInput
                           value={r.username}
@@ -797,7 +912,7 @@ export default function PredictorCreate() {
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
               <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
-              <h3 className="text-lg font-semibold">Creating Predictor...</h3>
+              <h3 className="text-lg font-semibold">Creating predictor…</h3>
               <p className="mt-2 text-sm text-neutral-600">
                 Setting up your predictor in the database.
               </p>
@@ -823,23 +938,22 @@ export default function PredictorCreate() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-                ✕
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-800">
+                <AlertCircle className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold">Training Failed</h3>
-              <p className="mt-2 text-sm text-red-600">
-                {trainingError ??
-                  "We were unable to start training. Please review your settings and try again."}
-              </p>
+              <h3 className="text-lg font-semibold text-neutral-900">
+                Training failed
+              </h3>
+              <p className="mt-2 text-sm text-neutral-700">{trainingError}</p>
               <div className="mt-4 flex justify-center gap-2">
                 <button
                   onClick={() => {
                     setTrainingStep("idle");
                     setTrainingError(null);
                   }}
-                  className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+                  className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
                 >
-                  Try Again
+                  Try again
                 </button>
               </div>
             </div>
@@ -912,68 +1026,99 @@ function ConfirmLeave({
 
 interface AdvancedSettingsProps {
   disabled: boolean;
-  numTimePoints: string | number;
-  setNumTimePoints: (v: string | number) => void;
-  regularization: "l1" | "l2";
-  setRegularization: (v: "l1" | "l2") => void;
-  objectiveFunction:
-    | "log-likelihood"
-    | "l2 marginal loss"
-    | "log-likelihood & L2ML";
-  setObjectiveFunction: (
-    v: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
-  ) => void;
-  marginalLossType: "weighted" | "unweighted";
-  setMarginalLossType: (v: "weighted" | "unweighted") => void;
-  cParamSearchScope: "basic" | "fine" | "extremely fine";
-  setCParamSearchScope: (v: "basic" | "fine" | "extremely fine") => void;
-  coxFeatureSelection: boolean;
-  setCoxFeatureSelection: (v: boolean) => void;
-  mrmrFeatureSelection: boolean;
-  setMrmrFeatureSelection: (v: boolean) => void;
-  mtlrPredictor: "stable" | "testing1";
-  setMtlrPredictor: (v: "stable" | "testing1") => void;
-  tuneParameters: boolean;
-  setTuneParameters: (v: boolean) => void;
-  useSmoothedLogLikelihood: boolean;
-  setUseSmoothedLogLikelihood: (v: boolean) => void;
-  usePredefinedFolds: boolean;
-  setUsePredefinedFolds: (v: boolean) => void;
-  runCrossValidation: boolean;
-  setRunCrossValidation: (v: boolean) => void;
-  standardizeFeatures: boolean;
-  setStandardizeFeatures: (v: boolean) => void;
+  selectedModel: string;
+  setSelectedModel: (v: string) => void;
+  postProcess: "CSD" | "CSD-iPOT";
+  setPostProcess: (v: "CSD" | "CSD-iPOT") => void;
+  nExp: number;
+  setNExp: (v: number) => void;
+  seed: number;
+  setSeed: (v: number) => void;
+  timeBins: number | null;
+  setTimeBins: (v: number | null) => void;
+  decensorMethod: "uncensored" | "margin" | "PO" | "sampling";
+  setDecensorMethod: (v: "uncensored" | "margin" | "PO" | "sampling") => void;
+  monoMethod: "ceil" | "floor" | "bootstrap";
+  setMonoMethod: (v: "ceil" | "floor" | "bootstrap") => void;
+  interpolate: "Linear" | "Pchip";
+  setInterpolate: (v: "Linear" | "Pchip") => void;
+  nQuantiles: number;
+  setNQuantiles: (v: number) => void;
+  useTrain: boolean;
+  setUseTrain: (v: boolean) => void;
+  nSample: number;
+  setNSample: (v: number) => void;
+  neurons: number[];
+  setNeurons: (v: number[]) => void;
+  norm: boolean;
+  setNorm: (v: boolean) => void;
+  dropout: number;
+  setDropout: (v: number) => void;
+  activation: string;
+  setActivation: (v: string) => void;
+  nEpochs: number;
+  setNEpochs: (v: number) => void;
+  earlyStop: boolean;
+  setEarlyStop: (v: boolean) => void;
+  batchSize: number;
+  setBatchSize: (v: number) => void;
+  lr: number;
+  setLr: (v: number) => void;
+  weightDecay: number;
+  setWeightDecay: (v: number) => void;
+  lam: number;
+  setLam: (v: number) => void;
+  isNeuralNetworkModel: () => boolean;
 }
 
-function AdvancedSettingsSection({
-  disabled,
-  numTimePoints,
-  setNumTimePoints,
-  regularization,
-  setRegularization,
-  objectiveFunction,
-  setObjectiveFunction,
-  marginalLossType,
-  setMarginalLossType,
-  cParamSearchScope,
-  setCParamSearchScope,
-  coxFeatureSelection,
-  setCoxFeatureSelection,
-  mrmrFeatureSelection,
-  setMrmrFeatureSelection,
-  mtlrPredictor,
-  setMtlrPredictor,
-  tuneParameters,
-  setTuneParameters,
-  useSmoothedLogLikelihood,
-  setUseSmoothedLogLikelihood,
-  usePredefinedFolds,
-  setUsePredefinedFolds,
-  runCrossValidation,
-  setRunCrossValidation,
-  standardizeFeatures,
-  setStandardizeFeatures,
-}: AdvancedSettingsProps) {
+function AdvancedSettingsSection(props: AdvancedSettingsProps) {
+  const {
+    disabled,
+    selectedModel,
+    setSelectedModel,
+    postProcess,
+    setPostProcess,
+    nExp,
+    setNExp,
+    seed,
+    setSeed,
+    timeBins,
+    setTimeBins,
+    decensorMethod,
+    setDecensorMethod,
+    monoMethod,
+    setMonoMethod,
+    interpolate,
+    setInterpolate,
+    nQuantiles,
+    setNQuantiles,
+    useTrain,
+    setUseTrain,
+    nSample,
+    setNSample,
+    neurons,
+    setNeurons,
+    norm,
+    setNorm,
+    dropout,
+    setDropout,
+    activation,
+    setActivation,
+    nEpochs,
+    setNEpochs,
+    earlyStop,
+    setEarlyStop,
+    batchSize,
+    setBatchSize,
+    lr,
+    setLr,
+    weightDecay,
+    setWeightDecay,
+    lam,
+    setLam,
+    isNeuralNetworkModel,
+  } = props;
+
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
@@ -987,216 +1132,560 @@ function AdvancedSettingsSection({
         <h2 className="block text-sm font-semibold uppercase text-neutral-900">
           Advanced Settings
         </h2>
-        <span
-          className={`transform text-neutral-600 transition-transform ${
+        <ChevronDown
+          className={`h-4 w-4 text-neutral-600 transition-transform ${
             showAdvanced ? "rotate-180" : ""
           }`}
-        >
-          ▼
-        </span>
+        />
       </button>
 
       {showAdvanced && (
-        <div className="grid grid-cols-1 gap-6 pt-2 sm:grid-cols-2">
-          <div>
+        <div className="space-y-6 pt-4">
+          {/* Model Selection */}
+          <div className="border-b border-neutral-300 pb-4">
             <label
-              htmlFor="num_time_points"
-              className="block text-sm font-medium text-neutral-700"
+              htmlFor="model_type"
+              className="mb-2 block text-sm font-medium text-neutral-700"
             >
-              Number of Time Points
+              Model Type
             </label>
-            <input
-              type="number"
-              id="num_time_points"
-              value={numTimePoints}
-              onChange={(e) => setNumTimePoints(e.target.value)}
+            <select
+              id="model_type"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
               disabled={disabled}
-              placeholder="Optional"
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            />
+              className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+            >
+              <option value="MTLR">MTLR</option>
+              <option value="DeepHit" disabled>
+                DeepHit (Coming Soon)
+              </option>
+              <option value="CoxPH" disabled>
+                CoxPH (Coming Soon)
+              </option>
+              <option value="AFT" disabled>
+                AFT (Coming Soon)
+              </option>
+              <option value="GB" disabled>
+                GB (Coming Soon)
+              </option>
+              <option value="CoxTime" disabled>
+                CoxTime (Coming Soon)
+              </option>
+              <option value="CQRNN" disabled>
+                CQRNN (Coming Soon)
+              </option>
+              <option value="LogNormalNN" disabled>
+                LogNormalNN (Coming Soon)
+              </option>
+              <option value="KM" disabled>
+                KM (Coming Soon)
+              </option>
+            </select>
             <p className="mt-1 text-xs text-neutral-500">
-              Leave blank to use default (sqrt of sample size).
+              Select the survival model to use
             </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="regularization"
-              className="block text-sm font-medium text-neutral-700"
-            >
-              Regularization
-            </label>
-            <select
-              id="regularization"
-              value={regularization}
-              onChange={(e) =>
-                setRegularization(e.target.value as "l1" | "l2")
-              }
-              disabled={disabled}
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            >
-              <option value="l1">L1</option>
-              <option value="l2">L2</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="objective_function"
-              className="block text-sm font-medium text-neutral-700"
-            >
-              Objective Function
-            </label>
-            <select
-              id="objective_function"
-              value={objectiveFunction}
-              onChange={(e) =>
-                setObjectiveFunction(
-                  e.target.value as
-                    | "log-likelihood"
-                    | "l2 marginal loss"
-                    | "log-likelihood & L2ML"
-                )
-              }
-              disabled={disabled}
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            >
-              <option value="log-likelihood">Log-Likelihood</option>
-              <option value="l2 marginal loss">L2 Marginal Loss</option>
-              <option value="log-likelihood & L2ML">
-                Log-Likelihood &amp; L2ML
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="marginal_loss_type"
-              className="block text-sm font-medium text-neutral-700"
-            >
-              Marginal Loss Type
-            </label>
-            <select
-              id="marginal_loss_type"
-              value={marginalLossType}
-              onChange={(e) =>
-                setMarginalLossType(e.target.value as "weighted" | "unweighted")
-              }
-              disabled={disabled}
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            >
-              <option value="weighted">Weighted</option>
-              <option value="unweighted">Unweighted</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="c_param_search_scope"
-              className="block text-sm font-medium text-neutral-700"
-            >
-              C-Param Search Scope
-            </label>
-            <select
-              id="c_param_search_scope"
-              value={cParamSearchScope}
-              onChange={(e) =>
-                setCParamSearchScope(
-                  e.target.value as "basic" | "fine" | "extremely fine"
-                )
-              }
-              disabled={disabled}
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            >
-              <option value="basic">Basic</option>
-              <option value="fine">Fine</option>
-              <option value="extremely fine">Extremely Fine</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="mtlr_predictor"
-              className="block text-sm font-medium text-neutral-700"
-            >
-              MTLR Predictor
-            </label>
-            <select
-              id="mtlr_predictor"
-              value={mtlrPredictor}
-              onChange={(e) =>
-                setMtlrPredictor(e.target.value as "stable" | "testing1")
-              }
-              disabled={disabled}
-              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
-            >
-              <option value="stable">Stable</option>
-              <option value="testing1">Testing1</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
-            {[
-              {
-                state: coxFeatureSelection,
-                setState: setCoxFeatureSelection,
-                label: "Use Cox Feature Selection",
-                id: "cox_feature_selection_create",
-              },
-              {
-                state: mrmrFeatureSelection,
-                setState: setMrmrFeatureSelection,
-                label: "Use MRMR Feature Selection",
-                id: "mrmr_feature_selection_create",
-              },
-              {
-                state: tuneParameters,
-                setState: setTuneParameters,
-                label: "Tune Parameters",
-                id: "tune_parameters_create",
-              },
-              {
-                state: useSmoothedLogLikelihood,
-                setState: setUseSmoothedLogLikelihood,
-                label: "Use Smoothed Log-Likelihood",
-                id: "use_smoothed_log_likelihood_create",
-              },
-              {
-                state: usePredefinedFolds,
-                setState: setUsePredefinedFolds,
-                label: "Use Predefined Folds",
-                id: "use_predefined_folds_create",
-              },
-              {
-                state: runCrossValidation,
-                setState: setRunCrossValidation,
-                label: "Run Cross Validation",
-                id: "run_cross_validation_create",
-              },
-              {
-                state: standardizeFeatures,
-                setState: setStandardizeFeatures,
-                label: "Standardize Features",
-                id: "standardize_features_create",
-              },
-            ].map((cb) => (
-              <div className="flex items-center" key={cb.id}>
-                <input
-                  type="checkbox"
-                  id={cb.id}
-                  checked={cb.state}
-                  onChange={(e) => cb.setState(e.target.checked)}
-                  disabled={disabled}
-                  className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
-                />
+          {/* General Settings */}
+          <div className="border-b border-neutral-300 pb-4">
+            <h4 className="mb-3 text-sm font-semibold text-neutral-800">
+              General Settings
+            </h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
                 <label
-                  htmlFor={cb.id}
-                  className="ml-2 block text-sm text-neutral-900"
+                  htmlFor="post_process"
+                  className="block text-sm font-medium text-neutral-700"
                 >
-                  {cb.label}
+                  Post Process
                 </label>
+                <select
+                  id="post_process"
+                  value={postProcess}
+                  onChange={(e) =>
+                    setPostProcess(e.target.value as "CSD" | "CSD-iPOT")
+                  }
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                >
+                  <option value="CSD">CSD</option>
+                  <option value="CSD-iPOT">CSD-iPOT</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Post-processing method for predictions
+                </p>
               </div>
-            ))}
+              <div>
+                <label
+                  htmlFor="n_exp"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Number of Experiments
+                </label>
+                <input
+                  type="number"
+                  id="n_exp"
+                  value={nExp}
+                  onChange={(e) => setNExp(Number(e.target.value))}
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Number of experimental runs
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="seed"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Random Seed
+                </label>
+                <input
+                  type="number"
+                  id="seed"
+                  value={seed}
+                  onChange={(e) => setSeed(Number(e.target.value))}
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Seed for reproducibility
+                </p>
+              </div>
+              {["MTLR", "CoxPH", "CQRNN", "LogNormalNN"].includes(
+                selectedModel
+              ) && (
+                <div>
+                  <label
+                    htmlFor="time_bins"
+                    className="block text-sm font-medium text-neutral-700"
+                  >
+                    Time Bins
+                  </label>
+                  <input
+                    type="number"
+                    id="time_bins"
+                    value={timeBins || ""}
+                    onChange={(e) =>
+                      setTimeBins(
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    disabled={disabled}
+                    placeholder="Optional"
+                    className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Number of time bins for survival analysis
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Conformalization Settings */}
+          <div className="border-b border-neutral-300 pb-4">
+            <h4 className="mb-3 text-sm font-semibold text-neutral-800">
+              Conformalization Settings
+            </h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="error_f"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Error Function
+                </label>
+                <input
+                  type="text"
+                  id="error_f"
+                  value="Quantile"
+                  disabled
+                  className="mt-1 block w-full rounded-md border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Error function for conformal prediction
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="decensor_method"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Decensor Method
+                </label>
+                <select
+                  id="decensor_method"
+                  value={decensorMethod}
+                  onChange={(e) =>
+                    setDecensorMethod(
+                      e.target.value as
+                        | "uncensored"
+                        | "margin"
+                        | "PO"
+                        | "sampling"
+                    )
+                  }
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                >
+                  <option value="uncensored">Uncensored</option>
+                  <option value="margin">Margin</option>
+                  <option value="PO">PO</option>
+                  <option value="sampling">Sampling</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Method for handling censored data
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="mono_method"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Monotonization Method
+                </label>
+                <select
+                  id="mono_method"
+                  value={monoMethod}
+                  onChange={(e) =>
+                    setMonoMethod(
+                      e.target.value as "ceil" | "floor" | "bootstrap"
+                    )
+                  }
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                >
+                  <option value="ceil">Ceil</option>
+                  <option value="floor">Floor</option>
+                  <option value="bootstrap">Bootstrap</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Method for ensuring monotonicity
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="interpolate"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Interpolation
+                </label>
+                <select
+                  id="interpolate"
+                  value={interpolate}
+                  onChange={(e) =>
+                    setInterpolate(e.target.value as "Linear" | "Pchip")
+                  }
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                >
+                  <option value="Linear">Linear</option>
+                  <option value="Pchip">Pchip</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Interpolation method for predictions
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="n_quantiles"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Number of Quantiles
+                </label>
+                <input
+                  type="number"
+                  id="n_quantiles"
+                  value={nQuantiles}
+                  onChange={(e) => setNQuantiles(Number(e.target.value))}
+                  disabled={disabled}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Common values: 4, 9, 19, 39, 49, 99
+                </p>
+              </div>
+              {decensorMethod === "sampling" && (
+                <div>
+                  <label
+                    htmlFor="n_sample"
+                    className="block text-sm font-medium text-neutral-700"
+                  >
+                    Sample Size
+                  </label>
+                  <input
+                    type="number"
+                    id="n_sample"
+                    value={nSample}
+                    onChange={(e) => setNSample(Number(e.target.value))}
+                    disabled={disabled}
+                    className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Number of samples when using sampling method
+                  </p>
+                </div>
+              )}
+              <div className="sm:col-span-2">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={useTrain}
+                    onChange={(e) => setUseTrain(e.target.checked)}
+                    disabled={disabled}
+                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
+                    id="use_train"
+                  />
+                  <label htmlFor="use_train" className="ml-2 text-sm">
+                    Use Training Data
+                  </label>
+                </div>
+                <p className="ml-6 mt-1 text-xs text-neutral-500">
+                  Include training data in conformal prediction
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Neural Network Architecture */}
+          <div className="border-b border-neutral-300 pb-4">
+            <h4 className="mb-3 text-sm font-semibold text-neutral-800">
+              Neural Network Architecture
+              {!isNeuralNetworkModel() && (
+                <span className="ml-2 text-xs font-normal text-neutral-500">
+                  (Only for neural network models)
+                </span>
+              )}
+            </h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="neurons"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Hidden Layers (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  id="neurons"
+                  value={neurons.join(",")}
+                  onChange={(e) => {
+                    const values = e.target.value
+                      .split(",")
+                      .map((v) => parseInt(v.trim()))
+                      .filter((n) => !isNaN(n));
+                    setNeurons(values.length > 0 ? values : [64, 64]);
+                  }}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  placeholder="e.g., 64,64"
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Layer sizes separated by commas
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="activation"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Activation Function
+                </label>
+                <select
+                  id="activation"
+                  value={activation}
+                  onChange={(e) => setActivation(e.target.value)}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                >
+                  <option value="ReLU">ReLU</option>
+                  <option value="LeakyReLU">LeakyReLU</option>
+                  <option value="PReLU">PReLU</option>
+                  <option value="Tanh">Tanh</option>
+                  <option value="Sigmoid">Sigmoid</option>
+                  <option value="ELU">ELU</option>
+                  <option value="SELU">SELU</option>
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Non-linearity between layers
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="dropout"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Dropout Rate
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1"
+                  id="dropout"
+                  value={dropout}
+                  onChange={(e) => setDropout(Number(e.target.value))}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Probability of dropping neurons (0-1)
+                </p>
+              </div>
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={norm}
+                    onChange={(e) => setNorm(e.target.checked)}
+                    disabled={disabled || !isNeuralNetworkModel()}
+                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
+                    id="norm"
+                  />
+                  <label htmlFor="norm" className="ml-2 text-sm">
+                    Use Batch Normalization
+                  </label>
+                </div>
+                <p className="ml-6 mt-1 text-xs text-neutral-500">
+                  Normalize activations for stability
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Training Hyperparameters */}
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-neutral-800">
+              Training Hyperparameters
+              {!isNeuralNetworkModel() && (
+                <span className="ml-2 text-xs font-normal text-neutral-500">
+                  (Only for neural network models)
+                </span>
+              )}
+            </h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="n_epochs"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Number of Epochs
+                </label>
+                <input
+                  type="number"
+                  id="n_epochs"
+                  value={nEpochs}
+                  onChange={(e) => setNEpochs(Number(e.target.value))}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Maximum training iterations
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="batch_size"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Batch Size
+                </label>
+                <input
+                  type="number"
+                  id="batch_size"
+                  value={batchSize}
+                  onChange={(e) => setBatchSize(Number(e.target.value))}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Samples per gradient update
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="lr"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Learning Rate
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  id="lr"
+                  value={lr}
+                  onChange={(e) => setLr(Number(e.target.value))}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Step size for gradient descent
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="weight_decay"
+                  className="block text-sm font-medium text-neutral-700"
+                >
+                  Weight Decay
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  id="weight_decay"
+                  value={weightDecay}
+                  onChange={(e) => setWeightDecay(Number(e.target.value))}
+                  disabled={disabled || !isNeuralNetworkModel()}
+                  className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100 disabled:text-neutral-500"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  L2 regularization strength
+                </p>
+              </div>
+              {selectedModel === "LogNormalNN" && (
+                <div>
+                  <label
+                    htmlFor="lam"
+                    className="block text-sm font-medium text-neutral-700"
+                  >
+                    Lambda (λ)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    id="lam"
+                    value={lam}
+                    onChange={(e) => setLam(Number(e.target.value))}
+                    disabled={disabled}
+                    className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Regularization weight for d-calibration
+                  </p>
+                </div>
+              )}
+              <div className="sm:col-span-2">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={earlyStop}
+                    onChange={(e) => setEarlyStop(e.target.checked)}
+                    disabled={disabled || !isNeuralNetworkModel()}
+                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
+                    id="early_stop"
+                  />
+                  <label htmlFor="early_stop" className="ml-2 text-sm">
+                    Enable Early Stopping
+                  </label>
+                </div>
+                <p className="ml-6 mt-1 text-xs text-neutral-500">
+                  Stop training if validation performance plateaus
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1258,8 +1747,7 @@ function FeatureSelectionSection({
     setSelectedFeatures(newSelected);
   };
 
-  const handleSelectAll = () =>
-    setSelectedFeatures(new Set(availableFeatures));
+  const handleSelectAll = () => setSelectedFeatures(new Set(availableFeatures));
   const handleDeselectAll = () => setSelectedFeatures(new Set());
 
   return (
@@ -1279,34 +1767,33 @@ function FeatureSelectionSection({
             selected
           </p>
         </div>
-        <span
-          className={`transform text-neutral-600 transition-transform ${
+        <ChevronDown
+          className={`h-4 w-4 text-neutral-600 transition-transform ${
             showFeatures ? "rotate-180" : ""
           }`}
-        >
-          ▼
-        </span>
+        />
       </button>
 
       {showFeatures && (
         <div className="pt-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
               <span className="ml-2 text-sm text-neutral-500">
-                Loading features...
+                Loading features…
               </span>
             </div>
           ) : error ? (
-            <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
-              {error}
+            <div className="flex items-start gap-2 rounded-md border border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-700" />
+              <span>{error}</span>
             </div>
           ) : availableFeatures.length === 0 ? (
             <div className="rounded-md bg-neutral-100 p-3 text-center text-sm text-neutral-500">
               No features available for this dataset.
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border border-neutral-300 bg-white">
               {/* Search and actions bar */}
               <div className="flex items-center gap-2 border-b bg-neutral-50 p-2">
                 <input
@@ -1321,22 +1808,22 @@ function FeatureSelectionSection({
                   type="button"
                   onClick={handleSelectAll}
                   disabled={disabled}
-                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                  className="text-sm text-neutral-800 underline-offset-2 hover:underline disabled:opacity-50"
                 >
-                  Select All
+                  Select all
                 </button>
                 <button
                   type="button"
                   onClick={handleDeselectAll}
                   disabled={disabled}
-                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                  className="text-sm text-neutral-800 underline-offset-2 hover:underline disabled:opacity-50"
                 >
-                  Deselect All
+                  Deselect all
                 </button>
               </div>
 
               {/* Feature list */}
-              <div className="max-h-72 overflow-y-auto bg-white">
+              <div className="max-h-72 overflow-y-auto">
                 {currentFeatures.map((feature) => (
                   <label
                     key={feature}
@@ -1360,7 +1847,7 @@ function FeatureSelectionSection({
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between border-t p-2">
+              <div className="flex items-center justify-between border-t bg-neutral-50 p-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span>Entries per page:</span>
                   <select
@@ -1380,11 +1867,11 @@ function FeatureSelectionSection({
                   {page > 1 && (
                     <button
                       type="button"
-                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={disabled}
                     >
-                      PREV
+                      Prev
                     </button>
                   )}
                   <span className="px-2 text-sm text-neutral-600">
@@ -1393,13 +1880,11 @@ function FeatureSelectionSection({
                   {page < totalPages && (
                     <button
                       type="button"
-                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={disabled}
                     >
-                      NEXT
+                      Next
                     </button>
                   )}
                 </div>

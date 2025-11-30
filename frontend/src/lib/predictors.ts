@@ -284,7 +284,11 @@ export function mapApiPredictorToUi(
 
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
-    ml_training_status: item.ml_training_status,
+    ml_selected_features: item.ml_selected_features ?? undefined,
+    ml_training_status: item.ml_training_status ?? undefined,
+    ml_trained_at: formatDate(item.ml_trained_at ?? ""),
+    dataset: item.dataset ?? undefined,
+    model_metadata: item.model_metadata ?? undefined,
   };
 }
 
@@ -432,10 +436,10 @@ export async function retrainPredictorAsync(
  */
 export async function predictWithPredictor(
   predictorId: number,
-  features: Record<string, number>
+  datasetId: number,
 ): Promise<PredictionResult> {
-  return api.post(`/api/predictors/${predictorId}/predict/`, {
-    features,
+  return api.post(`/api/predictors/${predictorId}/ml/predict/`, {
+    dataset_id: datasetId,
   });
 }
 
@@ -471,9 +475,13 @@ export async function getPredictorCvPredictions(
 export async function getPredictorFullPredictions(
   predictorId: number
 ): Promise<CvPredictions> {
-  return api.get<CvPredictions>(
-    `/api/predictors/${predictorId}/full-predictions/`
-  );
+  return api.get<CvPredictions>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+export async function getPredictorMetadata(
+  predictorId: number
+): Promise<any> {
+  return api.get<any>(`/api/predictors/${predictorId}/metadata/`);
 }
 
 export interface SurvivalCurve {
@@ -533,9 +541,16 @@ export interface FullPredictionsData {
 export async function getPredictorFullPredictionsData(
   predictorId: number
 ): Promise<FullPredictionsData> {
-  return api.get<FullPredictionsData>(
-    `/api/predictors/${predictorId}/full-predictions/`
-  );
+  return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+/**
+ * Get the MTLR model file content as plain text
+ */
+export async function getPredictorMtlrFile(
+  predictorId: number
+): Promise<string> {
+  return api.get<string>(`/api/predictors/${predictorId}/mtlr_file/`);
 }
 
 // --- Predictor Comparison Types ---

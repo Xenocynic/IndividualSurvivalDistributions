@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   createDataset,
   grantDatasetViewer,
@@ -27,6 +27,7 @@ import {
   type UserSuggestion,
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
+import { AlertTriangle, CloudUpload, X } from "lucide-react";
 
 type PermRow = {
   id: number; // local row id
@@ -39,6 +40,9 @@ type TimeUnit = "year" | "month" | "day" | "hour";
 
 export default function DatasetUpload() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const cameFromUsePredictor  =
+    location.state?.from === "use-predictor";
 
   // form state
   const [name, setName] = useState("");
@@ -264,6 +268,26 @@ export default function DatasetUpload() {
         <div className="h-1 w-full bg-neutral-600" />
       </div>
 
+      {/* Notification Banner - Only shown when redirected from use-predictor */}
+      {cameFromUsePredictor  && (
+        <div className="mx-auto max-w-3xl px-4 pt-4">
+          <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-neutral-700" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-neutral-900">
+                  No datasets available
+                </h3>
+                <p className="mt-1 text-sm text-neutral-700">
+                  You must upload a dataset before you can create predictors or
+                  make predictions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Body — single centered column (match PredictorCreate) */}
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-8 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
@@ -291,7 +315,7 @@ export default function DatasetUpload() {
               className="w-full rounded-md border border-neutral-400 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200"
               placeholder="A concise dataset name"
             />
-            <div className="flex justify-between items-start min-h-[1.25rem] text-xs">
+            <div className="flex min-h-[1.25rem] items-start justify-between text-xs">
               <div>
                 {name ? (
                   checking ? (
@@ -365,7 +389,7 @@ export default function DatasetUpload() {
 
           {/* Folder Selection */}
           <section className="space-y-4 rounded-lg border border-neutral-300 bg-neutral-50 p-4">
-            <h2 className="block uppercase text-sm font-semibold text-neutral-900">
+            <h2 className="block text-sm font-semibold uppercase text-neutral-900">
               Organization
             </h2>
             <FolderSelector
@@ -426,8 +450,8 @@ export default function DatasetUpload() {
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
               <div>
-                <div className="text-3xl">☁️</div>
-                <div className="mt-1 text-sm">
+                <CloudUpload className="mx-auto h-8 w-8 text-neutral-500" />
+                <div className="mt-2 text-sm text-neutral-900">
                   {file ? (
                     <strong>{file.name}</strong>
                   ) : (
@@ -468,7 +492,7 @@ export default function DatasetUpload() {
 
           {/* Visibility + Admin + Permissions grouped */}
           <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50/80 p-4">
-            <h2 className="block uppercase text-sm font-semibold text-neutral-900">
+            <h2 className="block text-sm font-semibold uppercase text-neutral-900">
               Visibility &amp; sharing
             </h2>
 
@@ -532,11 +556,12 @@ export default function DatasetUpload() {
                     >
                       <div className="flex items-center gap-2">
                         <button
-                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs transition hover:bg-neutral-50"
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-neutral-300 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900"
                           title="Remove"
+                          aria-label="Remove user"
                           onClick={() => removeRow(r.id)}
                         >
-                          ✕
+                          <X className="h-3.5 w-3.5" />
                         </button>
                         <UserSearchInput
                           value={r.username}
@@ -639,10 +664,10 @@ function SavingOverlay() {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
-        <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
         <h3 className="text-lg font-semibold">Uploading dataset…</h3>
         <p className="mt-2 text-sm text-neutral-600">
-          Larger files can take a minute. Please stay on this page until it's
+          Larger files can take a minute. Please stay on this page until it&apos;s
           done.
         </p>
       </div>
