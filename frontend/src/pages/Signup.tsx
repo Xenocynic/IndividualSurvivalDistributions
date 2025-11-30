@@ -61,16 +61,16 @@ function normalizeRegistrationError(message: unknown): string {
   const text = raw.trim() || "Registration failed";
   const lower = text.toLowerCase();
 
+  // Map the backend "too short" message into a clean, consistent one
   if (lower.includes("password") && lower.includes("too short")) {
-    return (
-      "Your password is too short. It must be at least 9 characters long."
-    );
+    return "Your password is too short. It must be at least 9 characters long.";
   }
 
   if (text === "Registration failed") {
     return "Registration failed. Please check the fields above and try again.";
   }
 
+  // Otherwise just show whatever the backend said
   return text;
 }
 
@@ -92,13 +92,15 @@ export default function Signup() {
     setErrorMsg(null);
     setMsg(null);
 
+    // Simple local validation so it doesn't feel "mysterious"
     if (pw1 !== pw2) {
       setErrorMsg("Passwords do not match.");
       return;
     }
 
-    if (pw1.length < 8) {
-      setErrorMsg("Password must be at least 8 characters long.");
+    // Match backend/browser requirement: 9+ characters
+    if (pw1.length < 9) {
+      setErrorMsg("Password must be at least 9 characters long.");
       return;
     }
 
@@ -228,7 +230,6 @@ export default function Signup() {
                   onChange={(e) => setPw1(e.target.value)}
                   className="mt-1 w-full rounded-md border border-black/10 px-3 py-2 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
                   autoComplete="new-password"
-                  minLength={9}
                 />
                 <p className="mt-1 text-[11px] text-gray-500">
                   Use at least 9 characters, and avoid very common or repetitive
