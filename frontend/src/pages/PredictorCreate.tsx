@@ -1778,7 +1778,7 @@ function FeatureSelectionSection({
         <div className="pt-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
               <span className="ml-2 text-sm text-neutral-500">
                 Loading features…
               </span>
