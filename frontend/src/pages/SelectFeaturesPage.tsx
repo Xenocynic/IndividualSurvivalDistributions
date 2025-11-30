@@ -267,8 +267,8 @@ export default function SelectFeaturesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] bg-neutral-100">
-        <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="bg-neutral-100">
+        <div className="flex min-h-screen items-center justify-center">
           <div className="text-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
             <p className="mt-4 text-sm text-neutral-600">
@@ -279,6 +279,7 @@ export default function SelectFeaturesPage() {
       </div>
     );
   }
+
 
   if (error || !predictor) {
     return (
