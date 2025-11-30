@@ -8,6 +8,8 @@
  * - Buttons appear with a staggered, “bubbly” animation when the card is selected.
  * - Supports drag and drop functionality for folder organization.
  * - Can optionally show a pin button (for Browse) and hide owner actions.
+ * - Supports draft predictors: if ml_training_status === "not_trained",
+ *   the Edit action can be routed to a dedicated draft editor via onDraftEdit.
  * ----------------------------------------------------------------------------------
  */
 
@@ -50,6 +52,8 @@ type PredictorCardProps = {
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
   onEdit?: (id: string) => void;
+  /** Called instead of onEdit when ml_training_status === "not_trained". */
+  onDraftEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onView?: (id: string) => void;
   onDoubleClick?: (id: string) => void;
@@ -58,7 +62,7 @@ type PredictorCardProps = {
 
   /** If false, hide owner-only Edit/Delete (used by Browse). Defaults to true. */
   showOwnerActions?: boolean;
-  /** If true, show the pin star button (used by Browse). Defaults to false. */
+  /** If true, show the pin star button (for Browse). Defaults to false. */
   showPin?: boolean;
   /** Optional explicit pinned state; falls back to item.pinned if omitted. */
   isPinned?: boolean;
@@ -71,6 +75,7 @@ export default function PredictorCard({
   selected = false,
   onToggleSelect,
   onEdit,
+  onDraftEdit,
   onDelete,
   onView,
   onDoubleClick,
@@ -110,6 +115,18 @@ export default function PredictorCard({
   const deleteDelay = showPin ? 180 : 120;
 
   const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
+
+  // Decide how to handle "Edit" for draft vs trained predictors.
+  const handleEditClick = () => {
+    if (item.ml_training_status === "not_trained") {
+      // Prefer the dedicated draft editor if provided, otherwise fall back to normal edit.
+      if (onDraftEdit) {
+        onDraftEdit(item.id);
+        return;
+      }
+    }
+    onEdit?.(item.id);
+  };
 
   return (
     <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
@@ -209,7 +226,7 @@ export default function PredictorCard({
           <>
             <button
               type="button"
-              onClick={() => onEdit?.(item.id)}
+              onClick={handleEditClick}
               className={bubbleButtonClass(selected)}
               style={bubbleDelayStyle(selected, editDelay)}
             >

@@ -20,19 +20,28 @@ export type Predictor = {
   created_at: string;
   updated_at: string;
   time_unit?: "year" | "month" | "day" | "hour";
-  folder_id?: string;
+  folder_id?: number | string | null;
   folder_name?: string;
   // NEW: ML Model fields
   model_id?: string;
   ml_trained_at?: string;
-  ml_training_status?: 'not_trained' | 'training' | 'trained' | 'failed';
+  ml_training_status?: "not_trained" | "training" | "trained" | "failed";
   ml_model_metrics?: {
-    'C-index'?: number;
+    "C-index"?: number;
     IBS?: number;
     [key: string]: any;
   };
-  ml_selected_features: string | string[] | any;
+  // Backend can send this in different shapes; keep it flexible
+  ml_selected_features?: string | string[] | null | any;
   features?: string[];
+  permissions: {
+    id: number;
+    role: "owner" | "viewer";
+    user: {
+      id: number;
+      username: string;
+    };
+  }[];
 };
 
 export type PredictorPermission = {
@@ -64,7 +73,10 @@ export async function createPredictor(body: {
   // Advanced settings
   num_time_points?: number;
   regularization?: "l1" | "l2";
-  objective_function?: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML";
+  objective_function?:
+    | "log-likelihood"
+    | "l2 marginal loss"
+    | "log-likelihood & L2ML";
   marginal_loss_type?: "weighted" | "unweighted";
   c_param_search_scope?: "basic" | "fine" | "extremely fine";
   cox_feature_selection?: boolean;
@@ -101,12 +113,14 @@ export async function listPredictorPermissions(predictorId?: number) {
   return data;
 }
 
-export async function revokePredictorPermission(permissionId: number) {
+export async function revokePredictorPermission(
+  permissionId: number
+) {
   return api.del(`/api/predictors/permissions/${permissionId}/`);
 }
 
 /**
- * Grant user access to predictor.
+ * Delete predictor.
  */
 export async function deletePredictor(id: string) {
   return api.del(`/api/predictors/${id}/`);
@@ -137,8 +151,17 @@ export async function updatePredictor(
   updatedData: {
     name?: string;
     description?: string;
-    time_unit?: string;
+    dataset_id?: number | null;
+    folder_id?: number | string | null;
+
     is_private?: boolean;
+
+    // ML fields
+    model_id?: string | null;
+    ml_training_status?: "not_trained" | "training" | "trained" | "failed";
+    ml_trained_at?: string | null;
+    ml_model_metrics?: Record<string, any>;
+    ml_selected_features?: string | string[] | null | any;
   }
 ): Promise<Predictor> {
   return api.patch(`/api/predictors/${id}/`, updatedData);
@@ -159,7 +182,7 @@ export async function unpinPredictor(id: string) {
 }
 
 /**
- * UList pinned predictors
+ * List pinned predictors
  */
 export async function listPinnedPredictors() {
   return api.get<any[]>(`/api/predictors/pins/`);
@@ -201,10 +224,31 @@ export function mapApiPredictorToUi(
     item.last_edited ??
     undefined;
 
+  // Decide a consistent UI status:
+  // - If ml_training_status === "not_trained" → DRAFT
+  // - If ml_training_status is any other valid value → PUBLISHED
+  // - Otherwise fall back to item.status or is_private heuristic
+  let uiStatus: "DRAFT" | "PUBLISHED" | undefined;
+
+  if (item.ml_training_status === "not_trained") {
+    uiStatus = "DRAFT";
+  } else if (
+    item.ml_training_status === "training" ||
+    item.ml_training_status === "trained" ||
+    item.ml_training_status === "failed"
+  ) {
+    uiStatus = "PUBLISHED";
+  } else if (item.status === "DRAFT" || item.status === "PUBLISHED") {
+    uiStatus = item.status;
+  } else if (typeof item.is_private === "boolean") {
+    uiStatus = item.is_private ? "DRAFT" : "PUBLISHED";
+  }
+
   return {
     id: String(item.predictor_id ?? item.id ?? item.pk ?? ""),
     title: item.name ?? item.title ?? "Untitled predictor",
-    status: item.status ?? (item.is_private ? "DRAFT" : "PUBLISHED"),
+
+    status: uiStatus,
 
     // Human-readable date for display
     updatedAt: rawUpdated ? formatDate(rawUpdated) : undefined,
@@ -218,7 +262,26 @@ export function mapApiPredictorToUi(
         ? item.owner === currentUserId
         : Boolean(item.owner),
 
+    ownerName:
+      typeof item.owner === "object" && item.owner !== null
+        ? item.owner.username ?? null
+        : null,
+
     notes: item.description ?? item.notes ?? "",
+
+    isPublic:
+      typeof item.is_private === "boolean"
+        ? !item.is_private
+        : undefined,
+
+    // If backend ever sends a pinned flag, map it; otherwise leave undefined.
+    pinned:
+      typeof item.pinned === "boolean"
+        ? item.pinned
+        : typeof item.is_pinned === "boolean"
+        ? item.is_pinned
+        : undefined,
+
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
     ml_selected_features: item.ml_selected_features ?? undefined,
@@ -227,7 +290,6 @@ export function mapApiPredictorToUi(
     dataset: item.dataset ?? undefined,
     model_metadata: item.model_metadata ?? undefined,
   };
-
 }
 
 // ========================================
@@ -247,7 +309,10 @@ export interface TrainPredictorParams {
     // Advanced settings
     num_time_points?: number;
     regularization?: "l1" | "l2";
-    objective_function?: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML";
+    objective_function?:
+      | "log-likelihood"
+      | "l2 marginal loss"
+      | "log-likelihood & L2ML";
     marginal_loss_type?: "weighted" | "unweighted";
     c_param_search_scope?: "basic" | "fine" | "extremely fine";
     cox_feature_selection?: boolean;
@@ -288,8 +353,8 @@ interface TrainPredictorResponse {
     n_folds: number;
     total_predictions: number;
   };
-  trained_at: string;       // ISO date string
-  train_duration?: number;   // in seconds
+  trained_at: string; // ISO date string
+  train_duration?: number; // in seconds
   timestamp?: string;
 }
 
@@ -382,7 +447,9 @@ export async function predictWithPredictor(
  * Get detailed predictor information including ML model status
  * (This is the same as getPredictor but more explicit)
  */
-export async function getPredictorDetails(predictorId: number): Promise<Predictor> {
+export async function getPredictorDetails(
+  predictorId: number
+): Promise<Predictor> {
   return api.get<Predictor>(`/api/predictors/${predictorId}/`);
 }
 
@@ -400,7 +467,9 @@ export interface CvPredictions {
 export async function getPredictorCvPredictions(
   predictorId: number
 ): Promise<CvPredictions> {
-  return api.get<CvPredictions>(`/api/predictors/${predictorId}/cv-predictions/`);
+  return api.get<CvPredictions>(
+    `/api/predictors/${predictorId}/cv-predictions/`
+  );
 }
 
 export async function getPredictorFullPredictions(
@@ -430,7 +499,9 @@ export async function getPredictorSurvivalCurves(
   predictorId: number
 ): Promise<SurvivalCurvesData> {
   // Fetch from the API endpoint
-  return api.get<SurvivalCurvesData>(`/api/predictors/${predictorId}/survival-curves/`);
+  return api.get<SurvivalCurvesData>(
+    `/api/predictors/${predictorId}/survival-curves/`
+  );
 }
 
 export interface PredictionSummaryRow {
@@ -451,7 +522,9 @@ export interface PredictionsSummaryData {
 export async function getPredictorPredictionsSummary(
   predictorId: number
 ): Promise<PredictionsSummaryData> {
-  return api.get<PredictionsSummaryData>(`/api/predictors/${predictorId}/predictions-summary/`);
+  return api.get<PredictionsSummaryData>(
+    `/api/predictors/${predictorId}/predictions-summary/`
+  );
 }
 
 export interface FullPredictionsData {
@@ -546,7 +619,7 @@ export async function comparePredictorsCvStats(
   predictorIds: number[]
 ): Promise<CompareCvStatsResponse> {
   return api.post<CompareCvStatsResponse>(
-    '/api/predictors/compare-cv-stats/',
+    "/api/predictors/compare-cv-stats/",
     { predictor_ids: predictorIds }
   );
 }

@@ -18,6 +18,7 @@ import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
+import PredictorDraftEdit from "./pages/PredictorDraftEdit";
 import ScrollToTop from "./components/ScrollToTop";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
