@@ -1093,21 +1093,25 @@ export function FeatureCorrelationTable({
         </table>
       </div>
 
-      <div className="flex flex-col gap-2 text-xs text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          Showing {paginatedRows.length} of {filteredRows.length} features
-        </span>
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          onPrev={() => setPage((current) => Math.max(1, current - 1))}
-          onNext={() =>
-            setPage((current) =>
-              Math.min(totalPages, current + 1)
-            )
-          }
-          onJump={(n) => setPage(n)}
-        />
+      {/* Info text and pagination */}
+      <div className="flex flex-col gap-2 border-t bg-neutral-50 px-3 py-2 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-shrink-0 text-neutral-600">
+          Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredRows.length)} of {filteredRows.length} {filteredRows.length === 1 ? 'feature' : 'features'}
+          {search && ` (filtered from ${rows.length} total)`}
+        </div>
+        <div className="overflow-x-auto">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() =>
+              setPage((current) =>
+                Math.min(totalPages, current + 1)
+              )
+            }
+            onJump={(n) => setPage(n)}
+          />
+        </div>
       </div>
     </div>
   );
