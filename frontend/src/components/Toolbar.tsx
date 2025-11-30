@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from "react";
+import { useState, useEffect, useRef, type FC, type ReactNode } from "react";
 import SearchBar from "./SearchBar";
 
 type Tab = "predictors" | "datasets" | "folders";
@@ -35,9 +35,30 @@ const Toolbar: FC<ToolbarProps> = ({
   onCreateFolder,
   filterControl,
 }) => {
+  const [createOpen, setCreateOpen] = useState(false);
+  const createContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the Create menu when clicking anywhere outside of it
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!createOpen) return;
+      if (
+        createContainerRef.current &&
+        !createContainerRef.current.contains(event.target as Node)
+      ) {
+        setCreateOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [createOpen]);
+
   return (
     <div className="mx-auto max-w-6xl px-2">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-md">
+      <div className="flex flex-col gap-2 rounded-md md:flex-row md:items-center md:justify-between">
         {/* Left: tabs + search */}
         <div className="flex w-full items-center gap-2">
           {/* Tabs */}
@@ -80,42 +101,74 @@ const Toolbar: FC<ToolbarProps> = ({
         </div>
 
         {/* Right: filters + Create */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {/* Filters (passed from Dashboard) */}
           {filterControl}
 
-          {/* Create dropdown (rightmost) */}
-          <details className="group relative">
-            <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-700">
+          {/* Create dropdown (rightmost) with outside-click close + animation */}
+          <div
+            ref={createContainerRef}
+            className="relative inline-block text-left"
+          >
+            <button
+              type="button"
+              className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCreateOpen((prev) => !prev);
+              }}
+              aria-expanded={createOpen}
+            >
               Create
-              <span className="text-[20px] text-neutral-200 group-open:rotate-180 transition-transform">
+              <span
+                className={`text-[20px] text-neutral-200 transition-transform ${
+                  createOpen ? "rotate-180" : ""
+                }`}
+              >
                 ▾
               </span>
-            </summary>
-            <div className="absolute right-0 mt-1 w-40 rounded-md border bg-white py-1 text-sm shadow-lg z-30">
+            </button>
+
+            <div
+              className={`absolute right-0 z-30 mt-1 w-40 origin-top-right transform rounded-md border bg-white py-1 text-sm shadow-lg transition-all duration-150 ease-out ${
+                createOpen
+                  ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                  : "pointer-events-none -translate-y-1 scale-95 opacity-0"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
-                onClick={onCreatePredictor}
+                onClick={() => {
+                  setCreateOpen(false);
+                  onCreatePredictor();
+                }}
               >
                 New predictor
               </button>
               <button
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
-                onClick={onCreateDataset}
+                onClick={() => {
+                  setCreateOpen(false);
+                  onCreateDataset();
+                }}
               >
                 New dataset
               </button>
               <button
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
-                onClick={onCreateFolder}
+                onClick={() => {
+                  setCreateOpen(false);
+                  onCreateFolder();
+                }}
               >
                 New folder
               </button>
             </div>
-          </details>
+          </div>
         </div>
       </div>
     </div>
