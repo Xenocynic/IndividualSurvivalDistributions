@@ -21,6 +21,7 @@ import PredictorEdit from "./pages/PredictorEdit";
 import ScrollToTop from "./components/ScrollToTop";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
+import SelectFeaturesPage from "./pages/SelectFeaturesPage";
 import RequirementsRoute from "./auth/RequirementsRoute";
 import PredictionSavePage from "./pages/PredictionSaveModal";
 import PredictionViewPage from "./pages/PredictionViewPage";
@@ -58,6 +59,7 @@ export default function App() {
             <Route path='datasets/:id/view' element={<DatasetView />} />
             <Route path='predictors/new' element={<PredictorCreate />} />
             <Route path='predictors/:predictorId' element={<PredictorDetailPage />} />
+            <Route path='predictors/:id/select-features' element={<SelectFeaturesPage />} />
             <Route path='predictors/:id/edit' element={<PredictorEdit />} />
 
             <Route

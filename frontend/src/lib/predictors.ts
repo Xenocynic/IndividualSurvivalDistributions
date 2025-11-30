@@ -471,6 +471,15 @@ export async function getPredictorFullPredictionsData(
   return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
 }
 
+/**
+ * Get the MTLR model file content as plain text
+ */
+export async function getPredictorMtlrFile(
+  predictorId: number
+): Promise<string> {
+  return api.get<string>(`/api/predictors/${predictorId}/mtlr_file/`);
+}
+
 // --- Predictor Comparison Types ---
 
 export interface ComparablePredictor {

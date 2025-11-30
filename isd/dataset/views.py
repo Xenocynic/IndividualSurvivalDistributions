@@ -1032,13 +1032,9 @@ def _download_model_artifacts(ml_data, model_id):
     if 'model_config' in ml_data:
         download_file(ml_data['model_config'], os.path.join(model_dir, 'model_config.json'))
     
-    # Download model files (encoder and icp_state)
-    if 'model_file' in ml_data:
-        model_files = ml_data['model_file']
-        if 'encoder' in model_files:
-            download_file(model_files['encoder'], os.path.join(model_dir, 'encoder.joblib'))
-        if 'icp_state' in model_files:
-            download_file(model_files['icp_state'], os.path.join(model_dir, 'icp_state.dill'))
+    # Download model file 
+    if 'mtlr_model' in ml_data:
+        download_file(ml_data['mtlr_model'], os.path.join(model_dir, f'mtlr_model_{model_id}.mtlr'))
     
     # Download CV predictions
     if 'cv_predictions' in ml_data:
