@@ -18,7 +18,6 @@ import type { DatasetStats } from "../lib/datasets";
 import {
   getPredictorFullPredictions,
   getPredictorSurvivalCurves,
-  getTrainingStatus,
   retrainPredictorAsync,
   type CvPredictions,
   type SurvivalCurvesData,
