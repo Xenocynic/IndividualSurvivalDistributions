@@ -258,9 +258,35 @@ export default function KaplanMeierVisualization({
   };
 
   const handleDownloadPdf = () => {
-    if (typeof window !== "undefined") {
-      window.print();
-    }
+    if (typeof window === "undefined" || !containerRef.current) return;
+
+    const printClass = "km-print-area";
+    const element = containerRef.current;
+    element.classList.add(printClass);
+
+    const style = document.createElement("style");
+    style.textContent = `
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        .${printClass}, .${printClass} * {
+          visibility: visible;
+        }
+        .${printClass} {
+          position: absolute;
+          inset: 0;
+          margin: 0 !important;
+          padding: 1.5rem !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+
+    window.print();
+
+    element.classList.remove(printClass);
+    document.head.removeChild(style);
   };
 
   return (
@@ -269,14 +295,6 @@ export default function KaplanMeierVisualization({
         <h2 className="text-xl font-semibold text-neutral-800">
           Kaplan Meier Visualization for Predictor &quot;{predictorName}&quot;
         </h2>
-        <button
-          type="button"
-          onClick={handleDownloadPdf}
-          className="inline-flex items-center gap-2 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-50"
-        >
-          <FileDown className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Export view as PDF</span>
-        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
