@@ -18,6 +18,7 @@ import DatasetView from "./pages/DatasetView";
 import PredictorCreate from "./pages/PredictorCreate";
 import PredictorDetailPage from "./pages/PredictorDetailPage";
 import PredictorEdit from "./pages/PredictorEdit";
+import ScrollToTop from "./components/ScrollToTop";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
 import RequirementsRoute from "./auth/RequirementsRoute";
@@ -25,7 +26,9 @@ import RequirementsRoute from "./auth/RequirementsRoute";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route element={<AppLayout />}>
         {/* Public for everyone */}
         <Route index element={<Landing />} />
@@ -67,5 +70,6 @@ export default function App() {
         <Route path='*' element={<Navigate to='/' replace />} />
       </Route>
     </Routes>
+    </>
   );
 }

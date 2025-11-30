@@ -56,11 +56,11 @@ export async function createPredictor(body: {
   is_private: boolean;
   permissions?: { username: string; role: "owner" | "viewer" }[];
   folder_id?: string;
-  model_id: string;
-  ml_trained_at: string;
-  ml_model_metrics: Record<string, any>;
-  ml_training_status: string;
-  ml_selected_features: string | string[] | null | any;
+  model_id?: string | null;
+  ml_trained_at?: string | null;
+  ml_model_metrics?: Record<string, any> | null;
+  ml_training_status?: string;
+  ml_selected_features?: string | string[] | null | any;
   // Advanced settings
   num_time_points?: number;
   regularization?: "l1" | "l2";
@@ -307,6 +307,66 @@ export async function trainPredictor(
 }
 
 /**
+ * Start async training for a predictor (non-blocking)
+ */
+export async function trainPredictorAsync(
+  datasetId: number,
+  predictorId: number,
+  params?: TrainPredictorParams
+): Promise<{ message: string; predictor_id: number; dataset_id: number; status: string }> {
+  return api.post(`/api/datasets/${datasetId}/ml/train-async/`, {
+    predictor_id: predictorId,
+    parameters: params?.parameters,
+  });
+}
+
+/**
+ * Get training status and progress for a predictor
+ */
+export async function getTrainingStatus(predictorId: number): Promise<{
+  status: 'not_trained' | 'training' | 'trained' | 'failed';
+  progress: {
+    current_experiment?: number;
+    total_experiments?: number;
+    status?: string;
+    message?: string;
+    estimated_progress?: number;
+    elapsed_seconds?: number;
+    eta_seconds?: number;
+  } | null;
+  error: string | null;
+  model_id: string | null;
+  metrics: Record<string, any> | null;
+  trained_at: string | null;
+}> {
+  return api.get(`/api/predictors/${predictorId}/training-status/`);
+}
+
+/**
+ * Start async retraining for a predictor
+ */
+export async function retrainPredictorAsync(
+  predictorId: number,
+  modelId: string,
+  config: {
+    selected_features?: string[];
+    parameters?: Record<string, any>;
+  }
+): Promise<{
+  message: string;
+  predictor_id: number;
+  task_id: string;
+  status: string;
+}> {
+  return api.post('/api/predictors/ml/retrain-async/', {
+    predictor_id: predictorId,
+    model_id: modelId,
+    selected_features: config.selected_features,
+    parameters: config.parameters,
+  });
+}
+
+/**
  * Make a prediction using a trained predictor's ML model
  */
 export async function predictWithPredictor(
@@ -409,4 +469,75 @@ export async function getPredictorFullPredictionsData(
   predictorId: number
 ): Promise<FullPredictionsData> {
   return api.get<FullPredictionsData>(`/api/predictors/${predictorId}/full-predictions/`);
+}
+
+// --- Predictor Comparison Types ---
+
+export interface ComparablePredictor {
+  predictor_id: number;
+  name: string;
+  owner: string;
+  is_private: boolean;
+  model_id: string | null;
+  has_cv_stats: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComparablePredictorsResponse {
+  base_predictor: {
+    predictor_id: number;
+    name: string;
+    dataset_id: number;
+    dataset_name: string;
+  };
+  comparable_predictors: ComparablePredictor[];
+}
+
+export interface PredictorCvComparison {
+  predictor_id: number;
+  name: string;
+  owner: string;
+  model_id: string | null;
+  cv_stats: any | null;
+  ml_model_metrics: {
+    Cindex?: { mean: number; std: number };
+    IBS?: { mean: number; std: number };
+    MAE_Hinge?: { mean: number; std: number };
+    MAE_PO?: { mean: number; std: number };
+    KM_cal?: { mean: number; std: number };
+    xCal_stats?: { mean: number; std: number };
+    wsc_xCal_stats?: { mean: number; std: number };
+    dcal_p?: { mean: number; std: number };
+    dcal_Chi?: { mean: number; std: number };
+    train_times?: { mean: number; std: number };
+    infer_times?: { mean: number; std: number };
+    [key: string]: any;
+  } | null;
+  created_at?: string;
+  updated_at?: string;
+  error: string | null;
+}
+
+export interface CompareCvStatsResponse {
+  comparisons: PredictorCvComparison[];
+}
+
+// --- Predictor Comparison API Functions ---
+
+export async function getComparablePredictors(
+  predictorId: number
+): Promise<ComparablePredictorsResponse> {
+  return api.get<ComparablePredictorsResponse>(
+    `/api/predictors/${predictorId}/comparable-predictors/`
+  );
+}
+
+export async function comparePredictorsCvStats(
+  predictorIds: number[]
+): Promise<CompareCvStatsResponse> {
+  return api.post<CompareCvStatsResponse>(
+    '/api/predictors/compare-cv-stats/',
+    { predictor_ids: predictorIds }
+  );
 }

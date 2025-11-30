@@ -17,7 +17,8 @@ The DefaultRouter automatically creates the following endpoints:
 
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import DatasetViewSet, DatasetPermissionViewSet, PinnedDatasetViewSet, list_public_datasets, ml_train_model
+from .views import DatasetViewSet, DatasetPermissionViewSet, PinnedDatasetViewSet, list_public_datasets, ml_train_model, ml_train_model_async
+
 router = DefaultRouter()
 
 router.register("permissions", DatasetPermissionViewSet, basename="dataset-permission")
@@ -27,4 +28,5 @@ router.register("", DatasetViewSet, basename="dataset")
 urlpatterns = [
     path("public/", list_public_datasets, name="public-datasets"),
     path("<int:dataset_id>/ml/train/", ml_train_model, name="ml-train"),
+    path("<int:dataset_id>/ml/train-async/", ml_train_model_async, name="ml-train-async"),
 ] + router.urls

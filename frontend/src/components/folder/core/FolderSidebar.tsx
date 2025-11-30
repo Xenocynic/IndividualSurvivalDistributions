@@ -4,12 +4,14 @@
  * ----------------------------------------------------------------------------------
  * - Sidebar panel listing user's folders, with quick create and search.
  * - Appears on Dashboard (Predictors / Datasets tabs).
+ * - Supports drag and drop: users can drag predictors/datasets onto folders.
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   listMyOwnedFolders,
   createFolder,
+  addItemToFolder,
   mapApiFolderToUi,
   type Folder,
   type CreateFolderRequest,
@@ -25,7 +27,9 @@ import {
   Lock,
 } from "lucide-react";
 import FolderCreationModal from "../modals/FolderCreationModal";
+import DroppableFolder from "./DroppableFolder";
 import { useAuth } from "../../../auth/AuthContext";
+import type { DragItem } from "../../../types/dragDrop";
 
 export interface FolderSidebarProps {
   className?: string;
@@ -34,7 +38,7 @@ export interface FolderSidebarProps {
 
 export default function FolderSidebar({
   className,
-  onItemMoved: _onItemMoved,
+  onItemMoved,
 }: FolderSidebarProps) {
   const { user } = useAuth();
   const currentUserId = useMemo(
@@ -44,11 +48,13 @@ export default function FolderSidebar({
 
   const [folders, setFolders] = useState<Folder[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isFetchingFolders, setIsFetchingFolders] = useState(true);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
 
   const [query, setQuery] = useState("");
+  const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
 
   const fetchFolders = useCallback(async () => {
     try {
@@ -59,6 +65,8 @@ export default function FolderSidebar({
       setFolders(mapped);
     } catch (err) {
       console.error("Failed to fetch folders:", err);
+    } finally {
+      setIsFetchingFolders(false);
     }
   }, []);
 
@@ -86,6 +94,49 @@ export default function FolderSidebar({
       setCreatingFolder(false);
     }
   }
+
+  const handleDrop = useCallback(
+    async (item: DragItem, folderId?: string) => {
+      if (!folderId) return;
+
+      setLoadingFolders((prev) => new Set(prev).add(folderId));
+
+      try {
+        await addItemToFolder(folderId, {
+          item_type: item.type,
+          item_id: item.id,
+        });
+
+        // Refresh folders to show updated item count
+        await fetchFolders();
+
+        // Notify parent component
+        onItemMoved?.(item.id, folderId);
+      } catch (error: any) {
+        // If item already exists in folder, don't treat it as an error
+        if (
+          error?.status === 400 &&
+          (error?.details?.item || error?.message?.includes("already"))
+        ) {
+          console.log("Item already exists in folder, skipping...");
+        } else {
+          console.error("Failed to add item to folder:", error);
+        }
+      } finally {
+        setLoadingFolders((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(folderId);
+          return newSet;
+        });
+      }
+    },
+    [fetchFolders, onItemMoved]
+  );
+
+  const isLoading = useCallback(
+    (itemId: string) => loadingFolders.has(itemId),
+    [loadingFolders]
+  );
 
   const filteredFolders = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -155,7 +206,12 @@ export default function FolderSidebar({
             />
 
             <div className="space-y-2">
-              {filteredFolders.length === 0 ? (
+              {isFetchingFolders ? (
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                  <span className="text-xs text-neutral-600">Loading folders...</span>
+                </div>
+              ) : filteredFolders.length === 0 ? (
                 <div className="rounded-md border border-black/10 bg-neutral-200 px-3 py-4 text-center text-xs text-gray-600">
                   No folders
                 </div>
@@ -169,8 +225,11 @@ export default function FolderSidebar({
                   addFolderToRecent(folder);
 
                   return (
-                    <div
+                    <DroppableFolder
                       key={folder.folder_id}
+                      folder={folder}
+                      onDrop={handleDrop}
+                      isLoading={isLoading}
                       className="rounded-md border border-black bg-white p-3 text-xs text-gray-700 hover:bg-gray-50"
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -203,7 +262,7 @@ export default function FolderSidebar({
                           ) : null}
                         </div>
                       </div>
-                    </div>
+                    </DroppableFolder>
                   );
                 })
               )}

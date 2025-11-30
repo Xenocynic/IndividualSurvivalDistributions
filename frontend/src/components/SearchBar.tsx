@@ -51,7 +51,8 @@ export default function SearchBar({
             type="button"
             aria-label="Clear search"
             onClick={clear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 grid h-5 w-5 place-items-center rounded hover:bg-black/10"
+            disabled={disabled}
+            className="absolute right-2 top-1/2 -translate-y-1/2 grid h-5 w-5 place-items-center rounded hover:bg-black/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
             <X size={14} />
         </button>

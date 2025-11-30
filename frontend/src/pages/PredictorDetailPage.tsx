@@ -18,12 +18,16 @@ import type { DatasetStats } from "../lib/datasets";
 import {
   getPredictorFullPredictions,
   getPredictorSurvivalCurves,
+  getTrainingStatus,
+  retrainPredictorAsync,
   type CvPredictions,
   type SurvivalCurvesData,
 } from "../lib/predictors";
 import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
+import TrainingModal from "../components/TrainingModal";
+import PredictorComparisonTable from "../components/PredictorComparisonTable";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -132,6 +136,7 @@ export default function PredictorDetailPage() {
 
   // State for data, loading, and errors
   const [predictor, setPredictor] = useState<PredictorDetail | null>(null);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,6 +170,31 @@ export default function PredictorDetailPage() {
 
     fetchPredictorDetails();
   }, [predictorId]);
+
+  // Poll for status updates if training
+  useEffect(() => {
+    if (!predictor || predictor.ml_training_status !== 'training') {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await api.get<PredictorDetail>(
+          `/api/predictors/${predictorId}/`
+        );
+        setPredictor(data);
+
+        // Stop polling if training is complete
+        if (data.ml_training_status !== 'training') {
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error('Error polling predictor status:', err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [predictor?.ml_training_status, predictorId]);
 
   // --- Render States ---
   if (isLoading) {
@@ -205,7 +235,7 @@ export default function PredictorDetailPage() {
       case "dataset":
         return <DatasetTab predictor={predictor} navOrigin={navOrigin} />;
       case "retrain":
-        return <RetrainTab predictor={predictor} />;
+        return <RetrainTab predictor={predictor} onShowTrainingModal={() => setShowTrainingModal(true)} />;
       case "cross-validation":
         return <CrossValidationTab predictor={predictor} />;
       default:
@@ -245,11 +275,22 @@ export default function PredictorDetailPage() {
             </p>
           </div>
 
-          {/* status badge placeholder */}
-          <div className="hidden sm:inline-flex rounded-full border border-white/25 bg-neutral-600/80 px-3 py-1 text-[11px]">
-            <span className="mr-1 text-neutral-200">Status</span>
-            <span className="font-medium text-white">Trained</span>
-          </div>
+          {/* status badge */}
+          <button
+            onClick={() => {
+              if (predictor.ml_training_status === 'training') {
+                setShowTrainingModal(true);
+              }
+            }}
+            className={`hidden rounded-full px-3 py-1 text-xs sm:block ${
+              predictor.ml_training_status === 'training'
+                ? 'bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition'
+                : 'bg-neutral-600 text-white cursor-default'
+            }`}
+            disabled={predictor.ml_training_status !== 'training'}
+          >
+            Status: <span className="font-medium">{predictor.ml_training_status === 'training' ? 'Training' : 'Trained'}</span>
+          </button>
         </div>
         <div className="h-1 w-full bg-neutral-700" />
       </div>
@@ -268,7 +309,11 @@ export default function PredictorDetailPage() {
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    // Smooth scroll to top on tab change
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                   className={`rounded-md px-3.5 py-2 text-xs sm:text-sm font-medium capitalize transition ${
                     isActive
                       ? "border border-neutral-900 bg-neutral-900 text-white shadow-sm"
@@ -291,6 +336,15 @@ export default function PredictorDetailPage() {
           {renderTabContent()}
         </div>
       </div>
+
+      {/* Training Modal */}
+      {showTrainingModal && predictor && (
+        <TrainingModal
+          predictorId={predictor.predictor_id}
+          onClose={() => setShowTrainingModal(false)}
+          autoNavigateOnComplete={false}
+        />
+      )}
     </div>
   );
 }
@@ -1595,7 +1649,7 @@ function getPercentile(
   );
 }
 
-function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
+function RetrainTab({ predictor, onShowTrainingModal }: { predictor: PredictorDetail; onShowTrainingModal: () => void }) {
   // --- State for Features ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
@@ -1687,48 +1741,29 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   // --- Retrain Handler ---
   const handleRetrain = async () => {
     setIsRetraining(true);
-    const retrainingConfig = {
-      selected_features: Array.from(selectedFeatures),
-      parameters: {
-        num_time_points:
-          numTimePoints === "" ? null : Number(numTimePoints), // Send null if empty for now
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      },
-      model_id: predictor.model_id,
-    };
     try {
-      const response = await fetch("http://localhost:5000/retrain", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await retrainPredictorAsync(predictor.predictor_id, predictor.model_id, {
+        selected_features: Array.from(selectedFeatures),
+        parameters: {
+          num_time_points: numTimePoints === '' ? null : Number(numTimePoints),
+          regularization,
+          objective_function: objectiveFunction,
+          marginal_loss_type: marginalLossType,
+          c_param_search_scope: cParamSearchScope,
+          cox_feature_selection: coxFeatureSelection,
+          mrmr_feature_selection: mrmrFeatureSelection,
+          mtlr_predictor: mtlrPredictor,
+          tune_parameters: tuneParameters,
+          use_smoothed_log_likelihood: useSmoothedLogLikelihood,
+          use_predefined_folds: usePredefinedFolds,
+          run_cross_validation: runCrossValidation,
+          standardize_features: standardizeFeatures,
+          n_exp: 10  // default folds
         },
-        body: JSON.stringify(retrainingConfig),
       });
 
-      // Check if the response was successful
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error ||
-            `HTTP error! status: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
-      alert(
-        `Retraining job started! New model ID: ${data.model_id}`
-      );
+      // Show training modal
+      onShowTrainingModal();
     } catch (err: any) {
       console.error("Retrain failed:", err);
       alert(`Retraining failed: ${err.message}`);
@@ -1736,6 +1771,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       setIsRetraining(false);
     }
   };
+
 
   return (
     <div className="space-y-8">
@@ -2129,11 +2165,8 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 }
 
 function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
-  const [activeView, setActiveView] = useState<
-    "statistics" | "individual" | "dcalibration" | "kaplanmeier"
-  >("statistics");
-  const [survivalCurves, setSurvivalCurves] =
-    useState<SurvivalCurvesData | null>(null);
+  const [activeView, setActiveView] = useState<"statistics" | "individual" | "dcalibration" | "kaplanmeier" | "comparison">("statistics");
+  const [survivalCurves, setSurvivalCurves] = useState<SurvivalCurvesData | null>(null);
   const [isLoadingCurves, setIsLoadingCurves] = useState(false);
   const [curvesError, setCurvesError] = useState<string | null>(null);
 
@@ -2216,9 +2249,37 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
           Show Feature Weights
         </button>
+        <button
+          onClick={() => setActiveView("comparison")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "comparison"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Compare Predictors
+        </button>
+        <button
+          onClick={() => setActiveView("comparison")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            activeView === "comparison"
+              ? "bg-neutral-800 text-white"
+              : "border bg-white hover:bg-neutral-50"
+          }`}
+        >
+          Compare Predictors
+        </button>
+        <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
+          Show Feature Weights
+        </button>
       </div>
 
-      {activeView === "kaplanmeier" ? (
+      {activeView === "comparison" ? (
+        <PredictorComparisonTable
+          predictorId={predictor.predictor_id}
+          predictorName={predictor.name}
+        />
+      ) : activeView === "kaplanmeier" ? (
         <Card>
           <KaplanMeierVisualization
             predictorId={predictor.predictor_id}
