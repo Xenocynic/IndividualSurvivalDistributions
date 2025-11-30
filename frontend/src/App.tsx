@@ -22,6 +22,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import UsePredictor from "./pages/UsePredictor";
 import MyPredictions from "./pages/MyPredictions";
 import RequirementsRoute from "./auth/RequirementsRoute";
+import PredictionSavePage from "./pages/PredictionSaveModal";
 
 
 export default function App() {
@@ -63,6 +64,14 @@ export default function App() {
               <UsePredictor />
             </RequirementsRoute>
           } />
+            <Route
+          path='predictions/save'
+          element={
+            <RequirementsRoute>
+              <PredictionSavePage />
+            </RequirementsRoute>
+          }
+        />
           <Route path='my-predictions' element={<MyPredictions />} />
         </Route>
 

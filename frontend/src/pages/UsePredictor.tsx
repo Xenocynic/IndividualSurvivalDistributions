@@ -8,7 +8,7 @@
  * 1. Select a trained predictor from dropdown (auto-loads metadata)
  * 2. Select a dataset from dropdown (auto-loads preview and validates features)
  * 3. Review validation status and run prediction if features match
- * 4. Save prediction results with a custom name
+ * 4. Navigate to Save Prediction page to name & save results
  * 
  * Features:
  * - Automatic feature validation (checks for missing/extra features)
@@ -48,9 +48,21 @@
  * - Fetches dataset preview when dataset selected
  * - Runs prediction via /api/predictors/:id/ml/predict/
  * - Passes labeled=true parameter for labeled datasets
+ * 
+ */
+
+/**
+ * Use Predictor Page
+ *
+ * Single-page workflow for running predictions on datasets using trained models.
+ * Provides a guided three-step process: select predictor, select dataset, run prediction.
+ *
+ * After a successful prediction, navigates to /predictions/save with
+ * full prediction data so the user can review and save it.
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "../components/use_predictor/card";
 import { Button } from "../components/use_predictor/button";
 import {
@@ -75,7 +87,6 @@ import { type PredictorItem } from "../components/PredictorCard";
 import { type DatasetItem } from "../components/DatasetCard";
 import { mapApiDatasetToUi } from "../lib/datasets";
 import type { SurvivalCurvesData, SurvivalCurve } from "../lib/predictors";
-import PredictionSaveModal from "../components/PredictionSaveModal";
 import AuthLoadingScreen from "../auth/AuthLoadingScreen";
 import {
   CheckCircle2,
@@ -100,13 +111,6 @@ interface ValidationStatus {
   extra?: string[];
 }
 
-/** Prediction result from ML API */
-interface PredictionResult {
-  status: "success" | "error";
-  message: string;
-  data?: any;
-}
-
 /**
  * Truncates a list of features for display
  */
@@ -122,6 +126,7 @@ const truncateFeatures = (
 
 export default function UsePredictor() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const currentUserId = (user as any)?.id ?? (user as any)?.pk;
 
   // Data state
@@ -141,13 +146,12 @@ export default function UsePredictor() {
     useState<ValidationStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [results, setResults] = useState<PredictionResult | null>(null);
   const [isLabeledDataset, setIsLabeledDataset] = useState(false);
-  const [survivalCurvesData, setSurvivalCurvesData] =
-    useState<SurvivalCurvesData | null>(null);
-  const [showSaveModal, setShowSaveModal] = useState(false);
 
-  // --- Navigation ---
+  // NEW: explicit error message for prediction failures
+  const [predictionError, setPredictionError] = useState<string | null>(null);
+
+  // --- Data fetch ---
 
   // Fetch initial data
   useEffect(() => {
@@ -214,7 +218,9 @@ export default function UsePredictor() {
     }
 
     // Check if dataset is labeled (has time and censored columns which are case-insensitive)
-    const hasTimeColumn = datasetPreview.columns.some((col) => /time/i.test(col));
+    const hasTimeColumn = datasetPreview.columns.some((col) =>
+      /time/i.test(col)
+    );
     const hasCensoredColumn = datasetPreview.columns.some((col) =>
       /censored/i.test(col)
     );
@@ -278,7 +284,7 @@ export default function UsePredictor() {
       setSelectedDataset(null);
       setDatasetPreview(null);
       setFeatureStatus(null);
-      setResults(null);
+      setPredictionError(null);
     },
     [predictors]
   );
@@ -287,7 +293,7 @@ export default function UsePredictor() {
     (val: string) => {
       const ds = datasets.find((x) => x.id === val);
       setSelectedDataset(ds || null);
-      setResults(null);
+      setPredictionError(null);
     },
     [datasets]
   );
@@ -296,8 +302,7 @@ export default function UsePredictor() {
     if (!selectedPredictor || !selectedDataset) return;
 
     setLoading(true);
-    setResults(null);
-    setSurvivalCurvesData(null);
+    setPredictionError(null);
 
     try {
       const payload: any = { dataset_id: selectedDataset.id };
@@ -309,6 +314,8 @@ export default function UsePredictor() {
         `/api/predictors/${selectedPredictor.id}/ml/predict/`,
         payload
       );
+
+      let transformedData: SurvivalCurvesData | null = null;
 
       if (
         response.predictions?.survival_curves &&
@@ -327,28 +334,32 @@ export default function UsePredictor() {
           };
         });
 
-        const transformedData: SurvivalCurvesData = {
+        transformedData = {
           quantile_levels: timePoints,
           survival_probabilities: [],
           curves,
         };
-
-        setSurvivalCurvesData(transformedData);
       }
 
-      setResults({
-        status: "success",
-        message: "Prediction completed successfully.",
-        data: response,
+      // ⬇️ NEW: send everything to the full-page Save Prediction view
+      navigate("/predictions/save", {
+        state: {
+          predictionData: response,
+          survivalCurvesData: transformedData,
+          predictorId: parseInt(selectedPredictor.id),
+          predictorName: selectedPredictor.title,
+          datasetId: parseInt(selectedDataset.id),
+          timeUnit: selectedPredictor.dataset?.time_unit || null,
+          isLabeled: isLabeledDataset,
+        },
       });
-
-      setShowSaveModal(true);
     } catch (err: any) {
       console.error("Prediction failed", err);
-      setResults({
-        status: "error",
-        message: err.message || "Prediction failed. Please check the logs.",
-      });
+      const msg =
+        err?.message ||
+        err?.detail ||
+        "Prediction failed. Please check the logs or try again.";
+      setPredictionError(msg);
     } finally {
       setLoading(false);
     }
@@ -449,7 +460,7 @@ export default function UsePredictor() {
             </div>
           </section>
 
-          {/* Step 1: Predictor Selector (own panel) */}
+          {/* Step 1: Predictor Selector */}
           <section id="step-1">
             <Card className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-100 p-4">
               <header className="flex items-baseline justify-between gap-3">
@@ -567,7 +578,7 @@ export default function UsePredictor() {
             </Card>
           </section>
 
-          {/* Step 2: Dataset Selector (own panel) */}
+          {/* Step 2: Dataset Selector */}
           <section id="step-2">
             <Card className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-100 p-4">
               <header className="flex items-baseline justify-between gap-3">
@@ -690,7 +701,7 @@ export default function UsePredictor() {
             </Card>
           </section>
 
-          {/* Step 3: Feature Validation + Run (own panel) */}
+          {/* Step 3: Feature Validation + Run */}
           <section id="step-3">
             <Card className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-100 p-4">
               {featureStatus && (
@@ -700,7 +711,7 @@ export default function UsePredictor() {
                       Step 3
                     </p>
                     <h2 className="text-base font-semibold text-neutral-900">
-                      Check features & run prediction
+                      Check features &amp; run prediction
                     </h2>
                   </header>
 
@@ -733,7 +744,9 @@ export default function UsePredictor() {
                         {featureStatus.extra &&
                           featureStatus.extra.length > 0 && (
                             <div className="mt-1 text-sm text-neutral-700">
-                              <span className="font-medium">Ignored extra:</span>{" "}
+                              <span className="font-medium">
+                                Ignored extra:
+                              </span>{" "}
                               {truncateFeatures(featureStatus.extra)}
                             </div>
                           )}
@@ -745,21 +758,39 @@ export default function UsePredictor() {
                     <Button
                       disabled={!featureStatus.ok || loading}
                       onClick={runPrediction}
-                      className="rounded-lg px-6 py-3 text-sm font-semibold shadow-sm hover:shadow-md hover:scale-[1.01] transition-transform"
                       size="lg"
+                      className="inline-flex items-center rounded-md border border-black/10 bg-neutral-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {loading ? (
                         <>
                           <span className="mr-2 flex h-4 w-4 items-center justify-center">
-                            <span className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
                           </span>
-                          Running prediction…
+                          Run prediction…
                         </>
                       ) : (
                         "Run prediction"
                       )}
                     </Button>
                   </div>
+
+                  {/* Error state for failed predictions */}
+                  {predictionError && (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4" />
+                        <div>
+                          <p className="font-semibold text-red-900">
+                            Prediction failed
+                          </p>
+                          <p className="mt-1">{predictionError}</p>
+                          <p className="mt-2 text-[11px] text-red-700">
+                            Something went wrong. Please try again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -774,23 +805,6 @@ export default function UsePredictor() {
           </section>
         </div>
       </div>
-
-      {/* Save Modal */}
-      {showSaveModal &&
-        selectedPredictor &&
-        selectedDataset &&
-        results?.data && (
-          <PredictionSaveModal
-            predictionData={results.data}
-            survivalCurvesData={survivalCurvesData}
-            predictorId={parseInt(selectedPredictor.id)}
-            predictorName={selectedPredictor.title}
-            datasetId={parseInt(selectedDataset.id)}
-            timeUnit={selectedPredictor.dataset?.time_unit || null}
-            isLabeled={isLabeledDataset}
-            onClose={() => setShowSaveModal(false)}
-          />
-        )}
     </div>
   );
 }
