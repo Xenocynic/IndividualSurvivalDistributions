@@ -62,30 +62,59 @@ export default function DatasetView() {
   };
 
   // Print handler for a specific section only
-  const handlePrintSection = useCallback((sectionId: string) => {
-    if (typeof window === "undefined") return;
-    const section = document.getElementById(sectionId);
-    if (!section) return;
+  function handlePrintSection(sectionId: string) {
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    console.error("Print section not found:", sectionId);
+    return;
+  }
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+  // Create hidden iframe so we don't touch the main window
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
 
-    printWindow.document.write(`
-      <!doctype html>
-      <html>
-        <head>
-          ${document.head.innerHTML}
-        </head>
-        <body class="bg-white">
-          ${section.outerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
-  }, []);
+  const iframeWindow = iframe.contentWindow;
+  if (!iframeWindow) {
+    console.error("No iframe contentWindow for printing");
+    document.body.removeChild(iframe);
+    return;
+  }
+
+  const doc = iframeWindow.document;
+  doc.open();
+  doc.write(`
+    <html>
+      <head>
+        <title>Print</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            padding: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        ${section.innerHTML}
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  iframe.onload = () => {
+    iframeWindow.focus();
+    iframeWindow.print();
+    // Remove iframe after print; small timeout so print dialog can open
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 500);
+  };
+}
 
   // Fetch dataset details
   useEffect(() => {
@@ -547,10 +576,12 @@ export default function DatasetView() {
               </h2>
               <button
                 type="button"
-                onClick={() =>
-                  handlePrintSection("dataset-feature-correlations-section")
-                }
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-900 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-200 active:translate-y-[0.5px]"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePrintSection("dataset-feature-correlations-section");
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-neutral-900 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-200 active:translate-y-[0.5px]"
               >
                 <Printer className="h-3 w-3" aria-hidden="true" />
               </button>
@@ -577,7 +608,11 @@ export default function DatasetView() {
               </h2>
               <button
                 type="button"
-                onClick={() => handlePrintSection("dataset-event-time-section")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePrintSection("dataset-event-time-section");
+                }}
                 className="inline-flex items-center gap-1 rounded-md border border-neutral-900 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-200 active:translate-y-[0.5px]"
               >
                 <Printer className="h-3 w-3" aria-hidden="true" />
