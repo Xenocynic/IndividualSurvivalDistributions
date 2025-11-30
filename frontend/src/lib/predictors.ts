@@ -370,9 +370,10 @@ export async function retrainPredictorAsync(
  * Make a prediction using a trained predictor's ML model
  */
 export async function predictWithPredictor(
+  predictorId: number,
   datasetId: number,
 ): Promise<PredictionResult> {
-  return api.post(`/api/predictors/ml/predict/`, {
+  return api.post(`/api/predictors/${predictorId}/ml/predict/`, {
     dataset_id: datasetId,
   });
 }

@@ -306,7 +306,7 @@ export default function UsePredictor() {
       }
 
       const response: any = await api.post(
-        "/api/predictors/ml/predict/",
+        `/api/predictors/${selectedPredictor.id}/ml/predict/`,
         payload
       );
 
