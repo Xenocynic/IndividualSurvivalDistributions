@@ -17,7 +17,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card } from "../components/use_predictor/card";
 import { Button } from "../components/use_predictor/button";
 import {
   Table,
@@ -169,195 +168,233 @@ export default function MyPredictions() {
   }, [predictions, labeledFilter, sortBy, sortOrder]);
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">
+    <div className="min-h-[60vh] bg-neutral-100">
+      {/* Sticky sub-header, matching Use Predictor / Dataset pages */}
+      <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-3">
+          <div className="text-lg font-semibold tracking-wide text-center">
             My Predictions
-          </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            View and manage the survival predictions you&apos;ve run across
-            datasets.
-          </p>
+          </div>
         </div>
-        <Button
-          onClick={() => navigate("/use-predictor")}
-          className="border border-black/10 bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-black hover:text-white"
-        >
-          + New Prediction
-        </Button>
+        <div className="h-1 w-full bg-neutral-600" />
       </div>
 
-      {/* Search and Filter Bar */}
-      <Card className="border border-black/10 bg-white p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          {/* Search */}
-          <input
-            type="text"
-            placeholder="Search by name, dataset, or model"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
-          />
-
-          {/* Labeled Filter */}
-          <select
-            value={labeledFilter}
-            onChange={(e) =>
-              setLabeledFilter(
-                e.target.value as "all" | "labeled" | "unlabeled",
-              )
-            }
-            className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
-          >
-            <option value="all">All predictions</option>
-            <option value="labeled">Labeled only</option>
-            <option value="unlabeled">Unlabeled only</option>
-          </select>
-
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) =>
-              setSortBy(e.target.value as "name" | "created" | "model")
-            }
-            className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
-          >
-            <option value="created">Sort by created</option>
-            <option value="name">Sort by name</option>
-            <option value="model">Sort by model</option>
-          </select>
-
-          {/* Sort Order */}
-          <select
-            value={sortOrder}
-            onChange={(e) =>
-              setSortOrder(e.target.value as "asc" | "desc")
-            }
-            className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
-          >
-            <option value="desc">Newest first</option>
-            <option value="asc">Oldest first</option>
-          </select>
-        </div>
-      </Card>
-
-      {/* Predictions Table */}
-      <Card className="border border-black/10 bg-white">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-sm text-neutral-600">
-            <span className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
-            <span>Loading predictions...</span>
+      {/* Main content panel */}
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <div className="space-y-6 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+          {/* Header row inside panel */}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold text-neutral-900">
+                Saved predictions
+              </h1>
+              <p className="mt-1 text-sm text-neutral-600">
+                Review, explore, and manage the survival predictions you&apos;ve
+                run across your datasets.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/use-predictor")}
+              className="border border-black/10 bg-neutral-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-black hover:text-white"
+            >
+              + New prediction
+            </Button>
           </div>
-        ) : filteredAndSortedPredictions.length === 0 ? (
-          <div className="px-6 py-10 text-center text-neutral-600">
-            <p className="mb-1 text-sm font-medium">
-              No predictions found.
-            </p>
-            <p className="text-xs">
-              {searchQuery
-                ? "Try a different search term."
-                : "Run your first prediction to get started."}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Name
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Model
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Dataset
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Created
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Labeled
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    C-index
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    IBS
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap text-right text-xs font-medium uppercase tracking-wide text-neutral-500">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedPredictions.map((prediction) => (
-                  <TableRow key={prediction.prediction_id}>
-                    <TableCell className="max-w-xs truncate text-sm font-medium text-neutral-900">
-                      {prediction.name}
-                    </TableCell>
-                    <TableCell className="text-sm text-neutral-800">
-                      {prediction.predictor.name}
-                    </TableCell>
-                    <TableCell className="text-sm text-neutral-800">
-                      {prediction.dataset.dataset_name}
-                    </TableCell>
-                    <TableCell className="text-xs text-neutral-600">
-                      {formatDate(prediction.created_at)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span
-                        className={[
-                          "inline-flex rounded-full px-2 py-[3px] text-[11px] font-medium",
-                          prediction.is_labeled
-                            ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border border-neutral-200 bg-neutral-50 text-neutral-700",
-                        ].join(" ")}
+
+          {/* Search & filters toolbar */}
+          <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              {/* Search */}
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name, dataset, or model"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
+                />
+              </div>
+
+              {/* Labeled filter */}
+              <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Dataset type
+                </label>
+                <select
+                  value={labeledFilter}
+                  onChange={(e) =>
+                    setLabeledFilter(
+                      e.target.value as "all" | "labeled" | "unlabeled",
+                    )
+                  }
+                  className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
+                >
+                  <option value="all">All predictions</option>
+                  <option value="labeled">Labeled only</option>
+                  <option value="unlabeled">Unlabeled only</option>
+                </select>
+              </div>
+
+              {/* Sort by */}
+              <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Sort by
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) =>
+                    setSortBy(e.target.value as "name" | "created" | "model")
+                  }
+                  className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
+                >
+                  <option value="created">Created date</option>
+                  <option value="name">Name</option>
+                  <option value="model">Model</option>
+                </select>
+              </div>
+
+              {/* Sort order */}
+              <div className="flex flex-1 flex-col gap-1 md:max-w-[11rem]">
+                <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Order
+                </label>
+                <select
+                  value={sortOrder}
+                  onChange={(e) =>
+                    setSortOrder(e.target.value as "asc" | "desc")
+                  }
+                  className="rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/70"
+                >
+                  <option value="desc">Newest first</option>
+                  <option value="asc">Oldest first</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* Table / list area */}
+          <section className="rounded-lg border border-neutral-200 bg-neutral-50">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-sm text-neutral-600">
+                <span className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-800" />
+                <span>Loading your predictions…</span>
+              </div>
+            ) : filteredAndSortedPredictions.length === 0 ? (
+              <div className="px-6 py-10 text-center text-neutral-600">
+                <p className="mb-1 text-sm font-medium">
+                  No predictions found.
+                </p>
+                <p className="text-xs">
+                  {searchQuery
+                    ? "Try a different search term or clear your filters."
+                    : "Run your first prediction from the Use Predictor page to see it here."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-white/60">
+                      <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Name
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Model
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Dataset
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Created
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Labeled
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        C-index
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-center text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        IBS
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap text-right text-xs font-medium uppercase tracking-wide text-neutral-500">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAndSortedPredictions.map((prediction) => (
+                      <TableRow
+                        key={prediction.prediction_id}
+                        className="bg-white hover:bg-neutral-50"
                       >
-                        {prediction.is_labeled ? "True" : "False"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-neutral-800">
-                      {prediction.c_index !== null
-                        ? prediction.c_index.toFixed(3)
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-neutral-800">
-                      {prediction.ibs_score !== null
-                        ? prediction.ibs_score.toFixed(3)
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-black/10 text-xs text-neutral-800 hover:bg-neutral-100"
-                          onClick={() => handleView(prediction)}
-                        >
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100"
-                          onClick={() =>
-                            setDeletingId(prediction.prediction_id)
-                          }
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </Card>
+                        <TableCell className="max-w-xs truncate text-sm font-medium text-neutral-900">
+                          {prediction.name}
+                        </TableCell>
+                        <TableCell className="text-sm text-neutral-800">
+                          {prediction.predictor.name}
+                        </TableCell>
+                        <TableCell className="text-sm text-neutral-800">
+                          {prediction.dataset.dataset_name}
+                        </TableCell>
+                        <TableCell className="text-xs text-neutral-600">
+                          {formatDate(prediction.created_at)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className={[
+                              "inline-flex rounded-full px-2 py-[3px] text-[11px] font-medium",
+                              prediction.is_labeled
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+                                : "border border-neutral-200 bg-neutral-50 text-neutral-700",
+                            ].join(" ")}
+                          >
+                            {prediction.is_labeled ? "True" : "False"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-neutral-800">
+                          {prediction.c_index !== null
+                            ? prediction.c_index.toFixed(3)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-neutral-800">
+                          {prediction.ibs_score !== null
+                            ? prediction.ibs_score.toFixed(3)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-black/10 text-xs text-neutral-800 hover:bg-neutral-100"
+                              onClick={() => handleView(prediction)}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-red-200 bg-red-50 text-xs text-red-700 hover:bg-red-100"
+                              onClick={() =>
+                                setDeletingId(prediction.prediction_id)
+                              }
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
 
       {/* View Modal */}
       {viewingPrediction && (
@@ -370,7 +407,7 @@ export default function MyPredictions() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-black/10 px-6 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-black/10 bg-neutral-50 px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold text-neutral-900">
                   {viewingPrediction.name}
@@ -391,7 +428,7 @@ export default function MyPredictions() {
 
             {/* Tabs for labeled predictions */}
             {viewingPrediction.is_labeled && (
-              <div className="flex gap-1 border-b border-black/10 px-6 pt-3">
+              <div className="flex gap-1 border-b border-black/10 bg-white px-6 pt-3">
                 <button
                   onClick={() => setActiveTab("individual")}
                   className={[
@@ -429,7 +466,7 @@ export default function MyPredictions() {
             )}
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto bg-white px-6 py-4">
               {activeTab === "individual" && (() => {
                 const survivalData = getSurvivalCurvesData(
                   viewingPrediction,
@@ -472,7 +509,7 @@ export default function MyPredictions() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end border-t border-black/10 px-6 py-3">
+            <div className="flex justify-end border-t border-black/10 bg-neutral-50 px-6 py-3">
               <Button
                 variant="outline"
                 className="border-black/10 text-sm text-neutral-800 hover:bg-neutral-100"

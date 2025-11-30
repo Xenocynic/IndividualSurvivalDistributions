@@ -10,7 +10,7 @@
  * - Visibility: public / private toggle (matches datasets)
  * - Manage permissions table:
  *   - Add usernames and choose role (Owner / Viewer)
- * 
+ *
  * Flow:
  * 1. Fill out form → Click "Train & Save"
  * 2. Creates predictor in database
@@ -37,6 +37,7 @@ import {
 } from "../components/UserSearchInput";
 import { resolveUsernameToId } from "../lib/users";
 import TrainingModal from "../components/TrainingModal";
+import { AlertTriangle, AlertCircle, ChevronDown, X } from "lucide-react";
 
 type PermRow = {
   id: number;
@@ -50,7 +51,8 @@ type TrainingStep = "idle" | "creating" | "training" | "complete" | "error";
 export default function PredictorCreate() {
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectedFromUsePredictor = location.state?.from === "use-predictor";
+  const cameFromUsePredictor  =
+    location.state?.from === "use-predictor";
 
   // form state
   const [name, setName] = useState("");
@@ -81,27 +83,38 @@ export default function PredictorCreate() {
   // training state
   const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [createdPredictorId, setCreatedPredictorId] = useState<number | null>(null);
+  const [createdPredictorId, setCreatedPredictorId] =
+    useState<number | null>(null);
   const [showTrainingModal, setShowTrainingModal] = useState(false);
 
   // advanced settings state
   const [numTimePoints, setNumTimePoints] = useState<string | number>("");
   const [regularization, setRegularization] = useState<"l1" | "l2">("l2");
-  const [objectiveFunction, setObjectiveFunction] = useState<"log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML">("log-likelihood");
-  const [marginalLossType, setMarginalLossType] = useState<"weighted" | "unweighted">("weighted");
-  const [cParamSearchScope, setCParamSearchScope] = useState<"basic" | "fine" | "extremely fine">("basic");
+  const [objectiveFunction, setObjectiveFunction] = useState<
+    "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
+  >("log-likelihood");
+  const [marginalLossType, setMarginalLossType] = useState<
+    "weighted" | "unweighted"
+  >("weighted");
+  const [cParamSearchScope, setCParamSearchScope] = useState<
+    "basic" | "fine" | "extremely fine"
+  >("basic");
   const [coxFeatureSelection, setCoxFeatureSelection] = useState(false);
   const [mrmrFeatureSelection, setMrmrFeatureSelection] = useState(false);
-  const [mtlrPredictor, setMtlrPredictor] = useState<"stable" | "testing1">("stable");
+  const [mtlrPredictor, setMtlrPredictor] =
+    useState<"stable" | "testing1">("stable");
   const [tuneParameters, setTuneParameters] = useState(false);
-  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] = useState(false);
+  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] =
+    useState(false);
   const [usePredefinedFolds, setUsePredefinedFolds] = useState(false);
   const [runCrossValidation, setRunCrossValidation] = useState(true);
   const [standardizeFeatures, setStandardizeFeatures] = useState(true);
 
   // feature selection state
   const [availableFeatures, setAvailableFeatures] = useState<string[]>([]);
-  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(new Set());
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
+    new Set()
+  );
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [featuresError, setFeaturesError] = useState<string | null>(null);
 
@@ -191,16 +204,19 @@ export default function PredictorCreate() {
       try {
         const stats = await getDatasetStats(Number(selectedDatasetId));
         if (cancelled) return;
-        
+
         // Extract feature names from feature_correlations
-        const features = stats.feature_correlations?.map(fc => fc.feature) ?? [];
+        const features =
+          stats.feature_correlations?.map((fc) => fc.feature) ?? [];
         setAvailableFeatures(features);
         // Select all features by default
         setSelectedFeatures(new Set(features));
       } catch (err) {
         if (cancelled) return;
         console.error("Failed to load dataset features:", err);
-        setFeaturesError("Failed to load features. You can still proceed with training.");
+        setFeaturesError(
+          "Failed to load features. You can still proceed with training."
+        );
         setAvailableFeatures([]);
         setSelectedFeatures(new Set());
       } finally {
@@ -215,9 +231,7 @@ export default function PredictorCreate() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return datasets.filter((d) =>
-      q ? d.title.toLowerCase().includes(q) : true
-    );
+    return datasets.filter((d) => (q ? d.title.toLowerCase().includes(q) : true));
   }, [datasets, query]);
 
   const canSave =
@@ -227,7 +241,7 @@ export default function PredictorCreate() {
   async function onTrainAndSave() {
     if (!canSave) return;
 
-    setTrainingStep('creating');
+    setTrainingStep("creating");
     setTrainingError(null);
 
     try {
@@ -240,11 +254,14 @@ export default function PredictorCreate() {
         dataset_id: datasetId,
         folder_id: selectedFolderId || undefined,
         is_private: !isPublic,
-        ml_training_status: 'not_trained',
+        ml_training_status: "not_trained",
         // Advanced settings
-        num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0
-          ? Number(numTimePoints)
-          : undefined,
+        num_time_points:
+          numTimePoints !== "" &&
+          !isNaN(Number(numTimePoints)) &&
+          Number(numTimePoints) > 0
+            ? Number(numTimePoints)
+            : undefined,
         regularization,
         objective_function: objectiveFunction,
         marginal_loss_type: marginalLossType,
@@ -275,7 +292,7 @@ export default function PredictorCreate() {
       }
 
       // Step 3: Start async training
-      setTrainingStep('training');
+      setTrainingStep("training");
       setShowTrainingModal(true);
 
       await trainPredictorAsync(datasetId, created.predictor_id, {
@@ -285,9 +302,12 @@ export default function PredictorCreate() {
           neurons: [64, 64],
           n_exp: 10,
           // Advanced settings
-          num_time_points: numTimePoints !== '' && !isNaN(Number(numTimePoints)) && Number(numTimePoints) > 0
-            ? Number(numTimePoints)
-            : undefined,
+          num_time_points:
+            numTimePoints !== "" &&
+            !isNaN(Number(numTimePoints)) &&
+            Number(numTimePoints) > 0
+              ? Number(numTimePoints)
+              : undefined,
           regularization,
           objective_function: objectiveFunction,
           marginal_loss_type: marginalLossType,
@@ -301,14 +321,18 @@ export default function PredictorCreate() {
           run_cross_validation: runCrossValidation,
           standardize_features: standardizeFeatures,
           // Feature selection
-          selected_features: selectedFeatures.size > 0 ? Array.from(selectedFeatures) : undefined,
+          selected_features:
+            selectedFeatures.size > 0
+              ? Array.from(selectedFeatures)
+              : undefined,
         },
       });
-
     } catch (error: any) {
-      setTrainingStep('error');
-      setTrainingError(error.message || 'Failed to create predictor and start training!');
-      console.error('Training error:', error);
+      setTrainingStep("error");
+      setTrainingError(
+        error.message || "Failed to create predictor and start training!"
+      );
+      console.error("Training error:", error);
     }
   }
 
@@ -331,7 +355,7 @@ export default function PredictorCreate() {
     setRows((r) => r.filter((x) => x.id !== id));
   }
   function updateRow(id: number, patch: Partial<PermRow>) {
-    setRows((r) => (r.map((x) => (x.id === id ? { ...x, ...patch } : x))));
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
   function handleUserSelect(id: number, user: UserSuggestion) {
     updateRow(id, { username: user.username, userId: user.id });
@@ -370,16 +394,18 @@ export default function PredictorCreate() {
       </div>
 
       {/* Notification Banner - Only shown when redirected from use-predictor */}
-      {redirectedFromUsePredictor && (
+      {cameFromUsePredictor  && (
         <div className="mx-auto max-w-3xl px-4 pt-4">
-          <div className="rounded-lg border-l-4 border-yellow-400 bg-yellow-50 p-4">
+          <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-4">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-2xl">⚠️</div>
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-neutral-700" />
               <div className="flex-1">
-                <h3 className="font-semibold text-yellow-900">No Trained Predictors Available</h3>
-                <p className="mt-1 text-sm text-yellow-900">
-                  You must create a predictor before making any predictions. 
-                  
+                <h3 className="text-sm font-semibold text-neutral-900">
+                  No trained predictors available
+                </h3>
+                <p className="mt-1 text-sm text-neutral-700">
+                  You must create and train a predictor before you can make
+                  predictions.
                 </p>
               </div>
             </div>
@@ -392,12 +418,13 @@ export default function PredictorCreate() {
         <div className="space-y-8 rounded-xl border border-black/5 bg-white p-5 shadow-sm">
           {/* Page heading */}
           <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-200 p-4">
-          <header className="space-y-1">
-            <p className="text-sm text-neutral-600">
-              Name your predictor, choose a dataset, then configure who can
-              see and use it.
-            </p>
-          </header></section>
+            <header className="space-y-1">
+              <p className="text-sm text-neutral-600">
+                Name your predictor, choose a dataset, then configure who can
+                see and use it.
+              </p>
+            </header>
+          </section>
 
           {/* Name */}
           <section className="space-y-2">
@@ -468,15 +495,15 @@ export default function PredictorCreate() {
               ownedOnly={true}
             />
             <div className="rounded-md bg-neutral-50 p-2 text-xs text-neutral-700">
-              Organize your predictor by adding it to a folder. You can create
-              a new folder or select an existing one.
+              Organize your predictor by adding it to a folder. You can create a
+              new folder or select an existing one.
             </div>
           </section>
 
           {/* Dataset picker */}
           <section className="space-y-4 rounded-lg border border-black/10 bg-neutral-50 p-4">
             <div className="flex items-center justify-between gap-3">
-              <label className="pl-1 block uppercase text-sm font-semibold text-neutral-900">
+              <label className="block pl-1 text-sm font-semibold uppercase text-neutral-900">
                 Choose a dataset
               </label>
               <div className="w-64">
@@ -621,12 +648,13 @@ export default function PredictorCreate() {
                     >
                       <div className="flex items-center gap-2">
                         <button
-                          className="rounded-md border border-neutral-300 px-2 py-1 text-xs transition hover:bg-neutral-50 disabled:opacity-50"
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-neutral-300 text-neutral-600 transition hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-50"
                           title="Remove"
                           onClick={() => removeRow(r.id)}
                           disabled={isProcessing}
+                          aria-label="Remove user"
                         >
-                          ✕
+                          <X className="h-3.5 w-3.5" />
                         </button>
                         <UserSearchInput
                           value={r.username}
@@ -680,13 +708,15 @@ export default function PredictorCreate() {
       </div>
 
       {/* Creating Predictor Modal */}
-      {trainingStep === 'creating' && (
+      {trainingStep === "creating" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900"></div>
-              <h3 className="text-lg font-semibold">Creating Predictor...</h3>
-              <p className="mt-2 text-sm text-neutral-600">Setting up your predictor in the database.</p>
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+              <h3 className="text-lg font-semibold">Creating predictor…</h3>
+              <p className="mt-2 text-sm text-neutral-600">
+                Setting up your predictor in the database.
+              </p>
             </div>
           </div>
         </div>
@@ -705,24 +735,26 @@ export default function PredictorCreate() {
       )}
 
       {/* Error Modal */}
-      {trainingStep === 'error' && (
+      {trainingStep === "error" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-                ✕
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-800">
+                <AlertCircle className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold">Training Failed</h3>
-              <p className="mt-2 text-sm text-red-600">{trainingError}</p>
-              <div className="mt-4 flex gap-2 justify-center">
+              <h3 className="text-lg font-semibold text-neutral-900">
+                Training failed
+              </h3>
+              <p className="mt-2 text-sm text-neutral-700">{trainingError}</p>
+              <div className="mt-4 flex justify-center gap-2">
                 <button
                   onClick={() => {
-                    setTrainingStep('idle');
+                    setTrainingStep("idle");
                     setTrainingError(null);
                   }}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                  className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
                 >
-                  Try Again
+                  Try again
                 </button>
               </div>
             </div>
@@ -733,7 +765,9 @@ export default function PredictorCreate() {
       {showLeavePrompt && (
         <ConfirmLeave
           onCancel={() => setShowLeavePrompt(false)}
-          onContinue={() => navigate("/dashboard", { state: { tab: "predictors" } })}
+          onContinue={() =>
+            navigate("/dashboard", { state: { tab: "predictors" } })
+          }
         />
       )}
     </div>
@@ -779,8 +813,13 @@ interface AdvancedSettingsProps {
   setNumTimePoints: (v: string | number) => void;
   regularization: "l1" | "l2";
   setRegularization: (v: "l1" | "l2") => void;
-  objectiveFunction: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML";
-  setObjectiveFunction: (v: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML") => void;
+  objectiveFunction:
+    | "log-likelihood"
+    | "l2 marginal loss"
+    | "log-likelihood & L2ML";
+  setObjectiveFunction: (
+    v: "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML"
+  ) => void;
   marginalLossType: "weighted" | "unweighted";
   setMarginalLossType: (v: "weighted" | "unweighted") => void;
   cParamSearchScope: "basic" | "fine" | "extremely fine";
@@ -842,18 +881,23 @@ function AdvancedSettingsSection({
         disabled={disabled}
         className="flex w-full items-center justify-between text-left disabled:opacity-60"
       >
-        <h2 className="block uppercase text-sm font-semibold text-neutral-900">
+        <h2 className="block text-sm font-semibold uppercase text-neutral-900">
           Advanced Settings
         </h2>
-        <span className={`transform transition-transform text-neutral-600 ${showAdvanced ? "rotate-180" : ""}`}>
-          ▼
-        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-neutral-600 transition-transform ${
+            showAdvanced ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {showAdvanced && (
         <div className="grid grid-cols-1 gap-6 pt-2 sm:grid-cols-2">
           <div>
-            <label htmlFor="num_time_points" className="block text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="num_time_points"
+              className="block text-sm font-medium text-neutral-700"
+            >
               Number of Time Points
             </label>
             <input
@@ -865,17 +909,24 @@ function AdvancedSettingsSection({
               placeholder="Optional"
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             />
-            <p className="mt-1 text-xs text-neutral-500">Leave blank to use default (sqrt of sample size).</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Leave blank to use default (sqrt of sample size).
+            </p>
           </div>
 
           <div>
-            <label htmlFor="regularization" className="block text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="regularization"
+              className="block text-sm font-medium text-neutral-700"
+            >
               Regularization
             </label>
             <select
               id="regularization"
               value={regularization}
-              onChange={(e) => setRegularization(e.target.value as "l1" | "l2")}
+              onChange={(e) =>
+                setRegularization(e.target.value as "l1" | "l2")
+              }
               disabled={disabled}
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             >
@@ -885,30 +936,49 @@ function AdvancedSettingsSection({
           </div>
 
           <div>
-            <label htmlFor="objective_function" className="block text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="objective_function"
+              className="block text-sm font-medium text-neutral-700"
+            >
               Objective Function
             </label>
             <select
               id="objective_function"
               value={objectiveFunction}
-              onChange={(e) => setObjectiveFunction(e.target.value as "log-likelihood" | "l2 marginal loss" | "log-likelihood & L2ML")}
+              onChange={(e) =>
+                setObjectiveFunction(
+                  e.target.value as
+                    | "log-likelihood"
+                    | "l2 marginal loss"
+                    | "log-likelihood & L2ML"
+                )
+              }
               disabled={disabled}
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             >
-              <option value="log-likelihood">Log-Likelihood</option>
-              <option value="l2 marginal loss">L2 Marginal Loss</option>
-              <option value="log-likelihood & L2ML">Log-Likelihood & L2ML</option>
+              <option value="log-likelihood">Log-likelihood</option>
+              <option value="l2 marginal loss">L2 marginal loss</option>
+              <option value="log-likelihood & L2ML">
+                Log-likelihood &amp; L2ML
+              </option>
             </select>
           </div>
 
           <div>
-            <label htmlFor="marginal_loss_type" className="block text-sm font-medium text-neutral-700">
+            <label
+              htmlFor="marginal_loss_type"
+              className="block text-sm font-medium text-neutral-700"
+            >
               Marginal Loss Type
             </label>
             <select
               id="marginal_loss_type"
               value={marginalLossType}
-              onChange={(e) => setMarginalLossType(e.target.value as "weighted" | "unweighted")}
+              onChange={(e) =>
+                setMarginalLossType(
+                  e.target.value as "weighted" | "unweighted"
+                )
+              }
               disabled={disabled}
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             >
@@ -918,30 +988,42 @@ function AdvancedSettingsSection({
           </div>
 
           <div>
-            <label htmlFor="c_param_search_scope" className="block text-sm font-medium text-neutral-700">
-              C-Param Search Scope
+            <label
+              htmlFor="c_param_search_scope"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              C-parameter search scope
             </label>
             <select
               id="c_param_search_scope"
               value={cParamSearchScope}
-              onChange={(e) => setCParamSearchScope(e.target.value as "basic" | "fine" | "extremely fine")}
+              onChange={(e) =>
+                setCParamSearchScope(
+                  e.target.value as "basic" | "fine" | "extremely fine"
+                )
+              }
               disabled={disabled}
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             >
               <option value="basic">Basic</option>
               <option value="fine">Fine</option>
-              <option value="extremely fine">Extremely Fine</option>
+              <option value="extremely fine">Extremely fine</option>
             </select>
           </div>
 
           <div>
-            <label htmlFor="mtlr_predictor" className="block text-sm font-medium text-neutral-700">
-              MTLR Predictor
+            <label
+              htmlFor="mtlr_predictor"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              MTLR predictor
             </label>
             <select
               id="mtlr_predictor"
               value={mtlrPredictor}
-              onChange={(e) => setMtlrPredictor(e.target.value as "stable" | "testing1")}
+              onChange={(e) =>
+                setMtlrPredictor(e.target.value as "stable" | "testing1")
+              }
               disabled={disabled}
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm shadow-sm focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:bg-gray-100"
             >
@@ -952,13 +1034,48 @@ function AdvancedSettingsSection({
 
           <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
             {[
-              { state: coxFeatureSelection, setState: setCoxFeatureSelection, label: "Use Cox Feature Selection", id: "cox_feature_selection_create" },
-              { state: mrmrFeatureSelection, setState: setMrmrFeatureSelection, label: "Use MRMR Feature Selection", id: "mrmr_feature_selection_create" },
-              { state: tuneParameters, setState: setTuneParameters, label: "Tune Parameters", id: "tune_parameters_create" },
-              { state: useSmoothedLogLikelihood, setState: setUseSmoothedLogLikelihood, label: "Use Smoothed Log-Likelihood", id: "use_smoothed_log_likelihood_create" },
-              { state: usePredefinedFolds, setState: setUsePredefinedFolds, label: "Use Predefined Folds", id: "use_predefined_folds_create" },
-              { state: runCrossValidation, setState: setRunCrossValidation, label: "Run Cross Validation", id: "run_cross_validation_create" },
-              { state: standardizeFeatures, setState: setStandardizeFeatures, label: "Standardize Features", id: "standardize_features_create" },
+              {
+                state: coxFeatureSelection,
+                setState: setCoxFeatureSelection,
+                label: "Use Cox feature selection",
+                id: "cox_feature_selection_create",
+              },
+              {
+                state: mrmrFeatureSelection,
+                setState: setMrmrFeatureSelection,
+                label: "Use MRMR feature selection",
+                id: "mrmr_feature_selection_create",
+              },
+              {
+                state: tuneParameters,
+                setState: setTuneParameters,
+                label: "Tune parameters",
+                id: "tune_parameters_create",
+              },
+              {
+                state: useSmoothedLogLikelihood,
+                setState: setUseSmoothedLogLikelihood,
+                label: "Use smoothed log-likelihood",
+                id: "use_smoothed_log_likelihood_create",
+              },
+              {
+                state: usePredefinedFolds,
+                setState: setUsePredefinedFolds,
+                label: "Use predefined folds",
+                id: "use_predefined_folds_create",
+              },
+              {
+                state: runCrossValidation,
+                setState: setRunCrossValidation,
+                label: "Run cross-validation",
+                id: "run_cross_validation_create",
+              },
+              {
+                state: standardizeFeatures,
+                setState: setStandardizeFeatures,
+                label: "Standardize features",
+                id: "standardize_features_create",
+              },
             ].map((cb) => (
               <div className="flex items-center" key={cb.id}>
                 <input
@@ -969,7 +1086,10 @@ function AdvancedSettingsSection({
                   disabled={disabled}
                   className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 disabled:opacity-50"
                 />
-                <label htmlFor={cb.id} className="ml-2 block text-sm text-neutral-900">
+                <label
+                  htmlFor={cb.id}
+                  className="ml-2 block text-sm text-neutral-900"
+                >
                   {cb.label}
                 </label>
               </div>
@@ -1052,16 +1172,19 @@ function FeatureSelectionSection({
         className="flex w-full items-center justify-between text-left disabled:opacity-60"
       >
         <div>
-          <h2 className="block uppercase text-sm font-semibold text-neutral-900">
+          <h2 className="block text-sm font-semibold uppercase text-neutral-900">
             Feature Selection
           </h2>
-          <p className="text-xs text-neutral-500 mt-1">
-            {selectedFeatures.size} / {availableFeatures.length} features selected
+          <p className="mt-1 text-xs text-neutral-500">
+            {selectedFeatures.size} / {availableFeatures.length} features
+            selected
           </p>
         </div>
-        <span className={`transform transition-transform text-neutral-600 ${showFeatures ? "rotate-180" : ""}`}>
-          ▼
-        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-neutral-600 transition-transform ${
+            showFeatures ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {showFeatures && (
@@ -1069,18 +1192,21 @@ function FeatureSelectionSection({
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
-              <span className="ml-2 text-sm text-neutral-500">Loading features...</span>
+              <span className="ml-2 text-sm text-neutral-500">
+                Loading features…
+              </span>
             </div>
           ) : error ? (
-            <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
-              {error}
+            <div className="flex items-start gap-2 rounded-md border border-neutral-300 bg-neutral-50 p-3 text-sm text-neutral-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-700" />
+              <span>{error}</span>
             </div>
           ) : availableFeatures.length === 0 ? (
-            <div className="rounded-md bg-neutral-100 p-3 text-sm text-neutral-500 text-center">
+            <div className="rounded-md bg-neutral-100 p-3 text-center text-sm text-neutral-500">
               No features available for this dataset.
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border border-neutral-300 bg-white">
               {/* Search and actions bar */}
               <div className="flex items-center gap-2 border-b bg-neutral-50 p-2">
                 <input
@@ -1095,22 +1221,22 @@ function FeatureSelectionSection({
                   type="button"
                   onClick={handleSelectAll}
                   disabled={disabled}
-                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                  className="text-sm text-neutral-800 underline-offset-2 hover:underline disabled:opacity-50"
                 >
-                  Select All
+                  Select all
                 </button>
                 <button
                   type="button"
                   onClick={handleDeselectAll}
                   disabled={disabled}
-                  className="text-sm text-blue-700 hover:underline disabled:opacity-50"
+                  className="text-sm text-neutral-800 underline-offset-2 hover:underline disabled:opacity-50"
                 >
-                  Deselect All
+                  Deselect all
                 </button>
               </div>
 
               {/* Feature list */}
-              <div className="max-h-72 overflow-y-auto bg-white">
+              <div className="max-h-72 overflow-y-auto">
                 {currentFeatures.map((feature) => (
                   <label
                     key={feature}
@@ -1127,12 +1253,14 @@ function FeatureSelectionSection({
                   </label>
                 ))}
                 {currentFeatures.length === 0 && (
-                  <p className="p-4 text-center text-sm text-neutral-500">No features found.</p>
+                  <p className="p-4 text-center text-sm text-neutral-500">
+                    No features found.
+                  </p>
                 )}
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between border-t p-2">
+              <div className="flex items-center justify-between border-t bg-neutral-50 p-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span>Entries per page:</span>
                   <select
@@ -1152,11 +1280,11 @@ function FeatureSelectionSection({
                   {page > 1 && (
                     <button
                       type="button"
-                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={disabled}
                     >
-                      PREV
+                      Prev
                     </button>
                   )}
                   <span className="px-2 text-sm text-neutral-600">
@@ -1165,11 +1293,11 @@ function FeatureSelectionSection({
                   {page < totalPages && (
                     <button
                       type="button"
-                      className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                      className="rounded-md border border-neutral-300 px-2 py-1 text-sm hover:bg-neutral-50 disabled:opacity-50"
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={disabled}
                     >
-                      NEXT
+                      Next
                     </button>
                   )}
                 </div>
