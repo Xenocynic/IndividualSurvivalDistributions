@@ -86,6 +86,16 @@ class Predictor(models.Model):
         blank=True,
         help_text="List of features used in ML model training"
     )
+    ml_training_progress = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Training progress information (current_epoch, total_epochs, time_per_epoch, etc.)"
+    )
+    ml_training_error = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Error message if training failed"
+    )
 
     def __str__(self):
         return self.name
