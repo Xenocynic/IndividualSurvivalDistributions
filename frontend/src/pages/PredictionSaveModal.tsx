@@ -43,7 +43,7 @@ import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
 import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 import type { SurvivalCurvesData } from "../lib/predictors";
-import { AlertTriangle, Download } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 /** Location state passed from UsePredictor when navigating here */
 interface PredictionSaveLocationState {
@@ -189,35 +189,6 @@ export default function PredictionSavePage() {
         ? "bg-neutral-900 text-white shadow-sm"
         : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
     }`;
-
-  const exportContainerCanvasAsPng = (
-    container: HTMLDivElement | null,
-    filename: string
-  ) => {
-    if (!container) return;
-    const canvas = container.querySelector("canvas") as HTMLCanvasElement | null;
-    if (!canvas) return;
-
-    try {
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = filename;
-      link.click();
-    } catch (e) {
-      console.error("Failed to export chart PNG", e);
-    }
-  };
-
-  const handleDownloadChartPng = (chart: "dcalibration" | "kaplan-meier") => {
-    if (chart === "dcalibration") {
-      exportContainerCanvasAsPng(dcalRef.current, "dcalibration_histogram.png");
-    } else {
-      exportContainerCanvasAsPng(
-        kmRef.current,
-        "kaplan_meier_visualization.png"
-      );
-    }
-  };
 
   return (
     <div className="min-h-[60vh] bg-neutral-100">
