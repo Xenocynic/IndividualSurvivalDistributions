@@ -17,9 +17,9 @@ export default function AppLayout(): JSX.Element {
   const hideFooter =
     isAuthRoute ||
     pathname === "/datasets/new" ||
-    pathname.startsWith("/datasets/") && pathname.endsWith("/edit") ||
+    (pathname.startsWith("/datasets/") && pathname.endsWith("/edit")) ||
     pathname === "/predictors/new" ||
-    pathname.startsWith("/predictors/") && pathname.endsWith("/edit");
+    (pathname.startsWith("/predictors/") && pathname.endsWith("/edit"));
 
   const useGray = !user || isAuthRoute;
 
@@ -31,7 +31,7 @@ export default function AppLayout(): JSX.Element {
     >
       <Navbar />
 
-      <main className="mx-auto w-full flex-1]">
+      <main className="mx-auto w-full flex-1">
         <Outlet />
       </main>
 
