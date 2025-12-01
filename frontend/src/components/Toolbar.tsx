@@ -111,6 +111,7 @@ const Toolbar: FC<ToolbarProps> = ({
             className="relative inline-block text-left"
           >
             <button
+            title="Create"
               type="button"
               className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-700"
               onClick={(e) => {
@@ -138,6 +139,7 @@ const Toolbar: FC<ToolbarProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <button
+                title="Create_Predictor"
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
                 onClick={() => {
@@ -148,6 +150,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 New predictor
               </button>
               <button
+                title="Create_Dataset"
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
                 onClick={() => {
@@ -158,6 +161,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 New dataset
               </button>
               <button
+                title="Create_Folder"
                 type="button"
                 className="flex w-full items-center px-3 py-1.5 text-left text-neutral-800 hover:bg-neutral-50"
                 onClick={() => {

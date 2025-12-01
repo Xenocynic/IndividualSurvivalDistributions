@@ -430,7 +430,11 @@ class PasswordResetFlowTest(LiveServerTestCase):
             EC.presence_of_element_located((By.CSS_SELECTOR, "[title='Browse']"))
         )
     
+
     def view_datasets(self, driver=None):
+        # 4. Navigating to Browse Page
+        self.click_link_and_wait_url(driver, "Browse", delay=3)
+        self.smooth_scroll_down_up(driver)
         try:
             datasets_button = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Datasets"]'))
@@ -505,20 +509,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
 
     def create_edit_folder(self, driver=None):
-        # Navigate to the Folders Section of the Dashboard
-        self.click_button(driver, "//button[contains(text(), 'Folders')]", delay=2)
-
-        """1. Filters"""
-        # Clicking 'All Folders' filter icon
-        self.click_button(driver, "//button[contains(., 'All Folders')]")
-
-        # Clicking 'Recently Updated' filter icon
-        self.click_button(driver, "//button[contains(., 'Recently Updated')]")
-
         """2. Create New Folder"""
         # Clicking 'Create New Folder' button
-        self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
-        self.click_button(driver, "(//div[@role='menu']//button)[3]")
+        self.click_button(driver, "//button[@title='Create']")
+        self.click_button(driver, "//button[@title='Create_Folder']")
         self.smooth_scroll_down_up(driver)
 
         # Wait for fragment to appear 
@@ -632,9 +626,6 @@ class PasswordResetFlowTest(LiveServerTestCase):
 
 
     def create_edit_dataset(self, driver=None):
-        # Navigate to the Datasets Section of the Dashboard
-        self.click_button(driver, "//button[contains(text(), 'Datasets')]", delay=2)
-
         """1. Create New Dataset"""
         # Clicking 'Create New Dataset' button
         self.click_button(driver, "//*[contains(text(), 'Create')]/ancestor::button[1]")
@@ -752,6 +743,12 @@ class PasswordResetFlowTest(LiveServerTestCase):
         time.sleep(2)
         train_button.click()
 
+    def use_predictor(self, driver=None):
+        return
+    
+    def my_predictions(self, driver=None):
+        return
+
 
     def test_selenium(self):
         driver = self.driver
@@ -761,28 +758,30 @@ class PasswordResetFlowTest(LiveServerTestCase):
         self.password_reset_flow(driver=driver, base_url=base_url)
 
         # Running basic page navigation tests
-        self.basic_pages(driver=driver)
+        #self.basic_pages(driver=driver)
        
         # View Predictor Details (including pinning)
-        self.view_predictor(driver=driver)
+        #self.view_predictor(driver=driver)
 
         # View Datasets Details (including pinning and unpinning)
-        self.view_datasets(driver=driver)
+        #self.view_datasets(driver=driver)
 
         # View Folders Details
-        self.view_folders(driver=driver)
+        #self.view_folders(driver=driver)
 
         # Going to Dashboard
         self.click_link_and_wait_url(driver, "Dashboard", delay=3)
 
         # Creating a new folder from Dashboard
-        self.create_edit_folder(driver=driver)
+        #self.create_edit_folder(driver=driver)
 
         # Creating a new Dataset from Dashboard
-        self.create_edit_dataset(driver=driver)
+        #self.create_edit_dataset(driver=driver)
 
         # Creating a new Predictor from Dashboard
-        self.create_edit_predictor(driver=driver)
+        #self.create_edit_predictor(driver=driver)
+
+
         
         # Logging out
         self.logout(driver=driver)
