@@ -317,7 +317,7 @@ export default function Landing() {
                 What PSSP provides
               </h3>
               <p className="mt-2 text-[12px] text-neutral-600">
-                Built for academic and professional work: exportable models,
+                Built for academic and professional work: reusable models,
                 reproducible experiments, and publication-ready curves.
               </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -450,7 +450,7 @@ export default function Landing() {
                 <WorkflowTile
                   label="Model"
                   title="PSSP model, θ"
-                  body="The trained PSSP model encodes how risk evolves over time for different feature combinations. It can be exported, shared, and reused on other datasets with matching features."
+                  body="The trained PSSP model encodes how risk evolves over time for different feature combinations. It can be expanded to be exported, shared, and reused on other datasets with matching features."
                   align="center"
                 >
                   <div className="flex items-center justify-center">
@@ -467,7 +467,7 @@ export default function Landing() {
                 <WorkflowTile
                   label="Output"
                   title="Individual survival curve"
-                  body="For each patient, the model produces a full survival distribution over time. These curves can be summarized, compared across subgroups, or exported for downstream analyses."
+                  body="For each patient, the model produces a full survival distribution over time. These curves can be summarized, compared across subgroups, or expanded for exports for downstream analyses."
                   align="right"
                 >
                   <div className="max-w-[220px]">
