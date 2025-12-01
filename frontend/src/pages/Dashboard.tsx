@@ -163,6 +163,8 @@ export default function Dashboard() {
     select: (data) => data.map((it) => mapApiPredictorToUi(it, currentUserId)),
     enabled: activeTab === "predictors",
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   const {
@@ -177,6 +179,8 @@ export default function Dashboard() {
     select: (data) => data.map((it) => mapApiDatasetToUi(it, currentUserId)),
     enabled: activeTab === "datasets",
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Folders are always fetched; they are used in sidebar and as drag targets
@@ -188,6 +192,8 @@ export default function Dashboard() {
     queryFn: listMyFolders,
     select: (data) => (Array.isArray(data) ? data.map(mapApiFolderToUi) : []),
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   const isLoading =

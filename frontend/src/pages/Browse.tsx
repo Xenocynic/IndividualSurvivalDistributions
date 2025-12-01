@@ -280,6 +280,8 @@ export default function Browse() {
     },
     enabled: activeTab === "predictors",
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Datasets
@@ -328,6 +330,8 @@ export default function Browse() {
     },
     enabled: activeTab === "datasets",
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Folders
@@ -370,6 +374,8 @@ export default function Browse() {
     },
     enabled: activeTab === "folders",
     staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
