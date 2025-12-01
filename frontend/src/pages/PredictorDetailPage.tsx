@@ -11,7 +11,7 @@ import {
   Legend,
 } from "recharts";
 import type { TooltipProps } from "recharts";
-import { Printer, Download, Eye } from "lucide-react";
+import { Printer, Download, Eye, FileDown } from "lucide-react";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
@@ -85,49 +85,6 @@ function handlePrintSection(sectionId: string) {
     }, 500);
   };
 }
-
-// Function to download a section as file
-function handleDownloadSection(sectionId: string, filename: string) {
-  if (typeof document === "undefined") return; // safety for non-browser env
-
-  const section = document.getElementById(sectionId);
-  if (!section) {
-    console.error("Download section not found:", sectionId);
-    return;
-  }
-
-  const html = `
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>${document.title} – Export</title>
-    <style>
-      body {
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        padding: 16px;
-      }
-    </style>
-  </head>
-  <body>
-    ${section.innerHTML}
-  </body>
-</html>
-`;
-
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  URL.revokeObjectURL(url);
-}
-
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -740,7 +697,8 @@ function DatasetTab({
     if (isInitialLoading) {
       return (
         <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-          <p>Loading dataset statistics…</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+          <p className="mt-2">Loading dataset statistics…</p>
         </div>
       );
     }
@@ -804,22 +762,23 @@ function DatasetTab({
           <div className="space-y-4">
             {/* Dataset Name Header */}
             <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
-              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-2">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
                 Dataset
               </div>
               <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-base font-semibold text-neutral-900 break-words">
+                <div className="min-w-0 flex-1">
+                  <div className="break-words text-base font-semibold text-neutral-900">
                     {predictor.dataset.dataset_name}
                   </div>
-                  <div className="mt-1 font-mono text-xs text-neutral-500 break-all">
+                  <div className="mt-1 break-all font-mono text-xs text-neutral-500">
                     ID: {predictor.dataset.dataset_id}
                   </div>
                 </div>
                 <Link
                   to={`/datasets/${predictor.dataset.dataset_id}/view`}
                   state={{ from: navOrigin }}
-                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50"
+                  title="View dataset details"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   View
@@ -828,12 +787,12 @@ function DatasetTab({
             </div>
 
             {/* Time Unit */}
-            <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
-              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-2">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
                 Time Unit
               </div>
               {isInitialLoading ? (
-                <div className="h-5 w-24 bg-neutral-200 animate-pulse rounded"></div>
+                <div className="h-5 w-24 animate-pulse rounded bg-neutral-200" />
               ) : (
                 <div className="text-sm font-medium text-neutral-900">
                   {timeUnitLabel}
@@ -844,7 +803,7 @@ function DatasetTab({
         </Card>
 
         <Card className="lg:col-span-2">
-          <h4 className="text-sm font-semibold text-neutral-900 mb-4">
+          <h4 className="mb-4 text-sm font-semibold text-neutral-900">
             General Statistics
           </h4>
           {statsError && (
@@ -854,116 +813,171 @@ function DatasetTab({
             <div className="space-y-5">
               {/* Loading skeleton for Sample & Events */}
               <div>
-                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Sample & Events</h5>
+                <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Sample & Events
+                </h5>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="space-y-1">
-                      <div className="h-3 w-20 bg-neutral-200 animate-pulse rounded"></div>
-                      <div className="h-6 w-16 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-200" />
+                      <div className="h-6 w-16 animate-pulse rounded bg-neutral-200" />
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="border-t border-neutral-200"></div>
+              <div className="border-t border-neutral-200" />
               {/* Loading skeleton for Features */}
               <div>
-                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Features</h5>
+                <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Features
+                </h5>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="space-y-1">
-                      <div className="h-3 w-24 bg-neutral-200 animate-pulse rounded"></div>
-                      <div className="h-6 w-16 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-3 w-24 animate-pulse rounded bg-neutral-200" />
+                      <div className="h-6 w-16 animate-pulse rounded bg-neutral-200" />
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="border-t border-neutral-200"></div>
+              <div className="border-t border-neutral-200" />
               {/* Loading skeleton for Time Statistics */}
               <div>
-                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Time Statistics</h5>
+                <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Time Statistics
+                </h5>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="space-y-1">
-                      <div className="h-3 w-16 bg-neutral-200 animate-pulse rounded"></div>
-                      <div className="h-6 w-20 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-3 w-16 animate-pulse rounded bg-neutral-200" />
+                      <div className="h-6 w-20 animate-pulse rounded bg-neutral-200" />
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
-          <div className="space-y-5">
-            {/* Sample & Event Statistics */}
-            <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Sample & Events</h5>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Samples</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_samples)}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Censored</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_censored)}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Events</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_events)}</dd>
-                </div>
-              </dl>
+            <div className="space-y-5">
+              {/* Sample & Event Statistics */}
+              <div>
+                <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Sample & Events
+                </h5>
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      # Samples
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {formatInteger(generalStats?.num_samples)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      # Censored
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {formatInteger(generalStats?.num_censored)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      # Events
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {formatInteger(generalStats?.num_events)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Separator */}
+              <div className="border-t border-neutral-200" />
+
+              {/* Feature Statistics */}
+              <div>
+                <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Features
+                </h5>
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      # Features
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {formatInteger(generalStats?.num_features)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      # Numeric Features
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {formatInteger(generalStats?.num_numeric_features)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      Time Unit
+                    </dt>
+                    <dd className="text-base font-semibold text-neutral-900">
+                      {timeUnitLabel}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {hasTimeStats && (
+                <>
+                  {/* Separator */}
+                  <div className="border-t border-neutral-200" />
+
+                  {/* Time Statistics */}
+                  <div>
+                    <h5 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                      Time Statistics
+                    </h5>
+                    <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="space-y-1">
+                        <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                          Min
+                        </dt>
+                        <dd className="text-base font-semibold text-neutral-900">
+                          {formatWithUnit(generalStats?.time_min, timeUnitLabel)}
+                        </dd>
+                      </div>
+                      <div className="space-y-1">
+                        <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                          Max
+                        </dt>
+                        <dd className="text-base font-semibold text-neutral-900">
+                          {formatWithUnit(generalStats?.time_max, timeUnitLabel)}
+                        </dd>
+                      </div>
+                      <div className="space-y-1">
+                        <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                          Mean
+                        </dt>
+                        <dd className="text-base font-semibold text-neutral-900">
+                          {formatWithUnit(generalStats?.time_mean, timeUnitLabel)}
+                        </dd>
+                      </div>
+                      <div className="space-y-1">
+                        <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                          Median
+                        </dt>
+                        <dd className="text-base font-semibold text-neutral-900">
+                          {formatWithUnit(
+                            generalStats?.time_median,
+                            timeUnitLabel
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </>
+              )}
             </div>
-
-            {/* Separator */}
-            <div className="border-t border-neutral-200"></div>
-
-            {/* Feature Statistics */}
-            <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Features</h5>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Features</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_features)}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Numeric Features</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_numeric_features)}</dd>
-                </div>
-                <div className="space-y-1">
-                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Time Unit</dt>
-                  <dd className="text-base font-semibold text-neutral-900">{timeUnitLabel}</dd>
-                </div>
-              </dl>
-            </div>
-
-            {hasTimeStats && (
-              <>
-                {/* Separator */}
-                <div className="border-t border-neutral-200"></div>
-
-                {/* Time Statistics */}
-                <div>
-                  <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Time Statistics</h5>
-                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1">
-                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Min</dt>
-                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_min, timeUnitLabel)}</dd>
-                    </div>
-                    <div className="space-y-1">
-                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Max</dt>
-                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_max, timeUnitLabel)}</dd>
-                    </div>
-                    <div className="space-y-1">
-                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Mean</dt>
-                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_mean, timeUnitLabel)}</dd>
-                    </div>
-                    <div className="space-y-1">
-                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Median</dt>
-                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_median, timeUnitLabel)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              </>
-            )}
-          </div>
           )}
         </Card>
       </div>
@@ -1158,7 +1172,10 @@ export function FeatureCorrelationTable({
       {/* Info text and pagination */}
       <div className="flex flex-col gap-2 border-t bg-neutral-50 px-3 py-2 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-shrink-0 text-neutral-600">
-          Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredRows.length)} of {filteredRows.length} {filteredRows.length === 1 ? 'feature' : 'features'}
+          Showing {startIndex + 1}-
+          {Math.min(startIndex + rowsPerPage, filteredRows.length)} of{" "}
+          {filteredRows.length}{" "}
+          {filteredRows.length === 1 ? "feature" : "features"}
           {search && ` (filtered from ${rows.length} total)`}
         </div>
         <div className="overflow-x-auto">
@@ -1167,9 +1184,7 @@ export function FeatureCorrelationTable({
             totalPages={totalPages}
             onPrev={() => setPage((current) => Math.max(1, current - 1))}
             onNext={() =>
-              setPage((current) =>
-                Math.min(totalPages, current + 1)
-              )
+              setPage((current) => Math.min(totalPages, current + 1))
             }
             onJump={(n) => setPage(n)}
           />
@@ -1339,7 +1354,7 @@ function PredictedSurvivalHistogram({
     return (
       <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
-        <p>Loading predicted survival distribution…</p>
+        <p className="mt-2">Loading predicted survival distribution…</p>
       </div>
     );
   }
@@ -1389,9 +1404,7 @@ function PredictedSurvivalHistogram({
   const barSize = Math.max(8, Math.floor(600 / bins.length));
 
   return (
-    <div
-      id="predictor-survival-histogram-section"
-      className="space-y-4">
+    <div id="predictor-survival-histogram-section" className="space-y-4">
       <div className="rounded-lg border border-neutral-200 bg-white p-4">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-neutral-900">
@@ -1400,22 +1413,16 @@ function PredictedSurvivalHistogram({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-survival-histogram-section") }}
-              aria-label="Print predicted survival histogram"
-              className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
-            >
-              <Printer className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                handleDownloadSection("predictor-survival-histogram-section", "survival-histogram.html");
+                handlePrintSection("predictor-survival-histogram-section");
               }}
-              aria-label="Download survival histogram"
-              className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]">
-              <Download className="h-4 w-4" />
+              aria-label="Print predicted survival histogram"
+              title="Print predicted survival histogram"
+              className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
+            >
+              <Printer className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -1695,6 +1702,52 @@ function getNiceCeiling(value: number): number {
   return niceNormalized * magnitude;
 }
 
+function escapeCsvCell(value: string): string {
+  const safe = value.replace(/"/g, '""');
+  return `"${safe}"`;
+}
+
+function downloadCvMetricsCsv(predictor: PredictorDetail) {
+  if (typeof document === "undefined") return;
+  if (!predictor.ml_model_metrics) return;
+
+  const m = predictor.ml_model_metrics;
+
+  const rows: string[][] = [];
+  const addRow = (label: string, metric: any) => {
+    rows.push([label, formatMetricWithStd(metric, 3)]);
+  };
+
+  addRow("Concordance Index (C-index)", m.Cindex);
+  addRow("Integrated Brier Score (IBS)", m.IBS);
+  addRow("MAE Hinge", m.MAE_Hinge);
+  addRow("MAE PO", m.MAE_PO);
+  addRow("KM Calibration", m.KM_cal);
+  addRow("X-Calibration Statistics", m.xCal_stats);
+  addRow("WSC X-Calibration Statistics", m.wsc_xCal_stats);
+  addRow("D-Calibration p-value", m.dcal_p);
+  addRow("D-Calibration χ² statistic", m.dcal_Chi);
+  addRow("Training Time (seconds)", m.train_times);
+  addRow("Inference Time (seconds)", m.infer_times);
+
+  const header = ["Metric", "Value (mean ± std)"];
+  const allRows = [header, ...rows];
+
+  const csv = allRows
+    .map((cols) => cols.map(escapeCsvCell).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `predictor-${predictor.predictor_id}-cv-metrics.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function getNiceFloor(value: number): number {
   if (!Number.isFinite(value)) return 0;
   if (value <= 0) return 0;
@@ -1733,7 +1786,7 @@ function getPercentile(sortedValues: number[], percentile: number): number {
 
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   const navigate = useNavigate();
-  
+
   // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
 
@@ -1744,17 +1797,19 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   // Retrain Modal State
   const [showRetrainModal, setShowRetrainModal] = useState(false);
-  const [retrainStep, setRetrainStep] = useState<"training" | "complete" | "error">("training");
+  const [retrainStep, setRetrainStep] = useState<
+    "training" | "complete" | "error"
+  >("training");
   const [retrainError, setRetrainError] = useState<string | null>(null);
-  
+
   // Warning modal state
   const [showWarningModal, setShowWarningModal] = useState(false);
-  
+
   // --- Retrain In Place Handler ---
   const handleRetrainInPlace = () => {
     setShowWarningModal(true);
   };
-  
+
   const confirmRetrainInPlace = async () => {
     setShowWarningModal(false);
     setIsRetraining(true);
@@ -1824,7 +1879,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
 
   const handleDownloadMtlrFile = () => {
     if (!mtlrFileContent) return;
-    
+
     const blob = new Blob([mtlrFileContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1847,146 +1902,222 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
           </p>
 
           {/* Scrollable content area with max-height matching Training Results */}
-          <div className="mt-4 space-y-4 max-h-[400px] overflow-y-auto pr-2">
-            {((predictor as any).model || (predictor as any).post_process || (predictor as any).n_exp !== undefined) && (
+          <div className="mt-4 max-h-[400px] space-y-4 overflow-y-auto pr-2">
+            {((predictor as any).model ||
+              (predictor as any).post_process ||
+              (predictor as any).n_exp !== undefined) && (
               <>
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Model & General</h4>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                    Model & General
+                  </h4>
                   <div className="space-y-2 rounded-md bg-neutral-50 p-3">
                     {(predictor as any).model && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Model:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).model}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Model:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).model}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).post_process && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Post Process:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).post_process}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Post Process:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).post_process}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).n_exp !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Experiments:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_exp}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Experiments:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).n_exp}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).seed !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Seed:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).seed}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Seed:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).seed}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).time_bins && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Time Bins:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).time_bins}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Time Bins:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).time_bins}
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
                 {/* Separator line */}
-                <div className="border-t border-neutral-200"></div>
+                <div className="border-t border-neutral-200" />
               </>
             )}
 
             {/* Conformalization Settings */}
-            {((predictor as any).error_f || (predictor as any).decensor_method) && (
+            {((predictor as any).error_f ||
+              (predictor as any).decensor_method) && (
               <>
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Conformalization</h4>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                    Conformalization
+                  </h4>
                   <div className="space-y-2 rounded-md bg-neutral-50 p-3">
                     {(predictor as any).error_f && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Error Function:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).error_f}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Error Function:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).error_f}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).decensor_method && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Decensor:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).decensor_method}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Decensor:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).decensor_method}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).mono_method && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Monotonization:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).mono_method}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Monotonization:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).mono_method}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).n_quantiles !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Quantiles:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_quantiles}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Quantiles:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).n_quantiles}
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
                 {/* Separator line */}
-                <div className="border-t border-neutral-200"></div>
+                <div className="border-t border-neutral-200" />
               </>
             )}
 
             {/* Neural Network Architecture */}
-            {((predictor as any).neurons || (predictor as any).activation) && (
+            {((predictor as any).neurons ||
+              (predictor as any).activation) && (
               <>
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Neural Network</h4>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                    Neural Network
+                  </h4>
                   <div className="space-y-2 rounded-md bg-neutral-50 p-3">
                     {(predictor as any).neurons && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Hidden Layers:</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Hidden Layers:
+                        </span>
                         <span className="font-mono text-sm font-medium text-neutral-900">
-                          {Array.isArray((predictor as any).neurons) ? (predictor as any).neurons.join(', ') : (predictor as any).neurons}
+                          {Array.isArray((predictor as any).neurons)
+                            ? (predictor as any).neurons.join(", ")
+                            : (predictor as any).neurons}
                         </span>
                       </div>
                     )}
                     {(predictor as any).activation && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Activation:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).activation}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Activation:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).activation}
+                        </span>
                       </div>
                     )}
                     {(predictor as any).dropout !== undefined && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-neutral-600">Dropout:</span>
-                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).dropout}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-neutral-600">
+                          Dropout:
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {(predictor as any).dropout}
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
                 {/* Separator line */}
-                <div className="border-t border-neutral-200"></div>
+                <div className="border-t border-neutral-200" />
               </>
             )}
 
             {/* Training Hyperparameters */}
             {((predictor as any).n_epochs || (predictor as any).lr) && (
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Training</h4>
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Training
+                </h4>
                 <div className="space-y-2 rounded-md bg-neutral-50 p-3">
                   {(predictor as any).n_epochs !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-neutral-600">Epochs:</span>
-                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_epochs}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">
+                        Epochs:
+                      </span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">
+                        {(predictor as any).n_epochs}
+                      </span>
                     </div>
                   )}
                   {(predictor as any).batch_size !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-neutral-600">Batch Size:</span>
-                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).batch_size}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">
+                        Batch Size:
+                      </span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">
+                        {(predictor as any).batch_size}
+                      </span>
                     </div>
                   )}
                   {(predictor as any).lr !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-neutral-600">Learning Rate:</span>
-                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).lr}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">
+                        Learning Rate:
+                      </span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">
+                        {(predictor as any).lr}
+                      </span>
                     </div>
                   )}
                   {(predictor as any).early_stop !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-neutral-600">Early Stop:</span>
-                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).early_stop ? 'Yes' : 'No'}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-neutral-600">
+                        Early Stop:
+                      </span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">
+                        {(predictor as any).early_stop ? "Yes" : "No"}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1996,14 +2127,14 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
         </Card>
 
         <Card>
-          <h3 className="text-base font-semibold text-neutral-900 mb-4">
+          <h3 className="mb-4 text-base font-semibold text-neutral-900">
             Training Results
           </h3>
           {predictor.ml_model_metrics ? (
             <div className="space-y-4">
               {/* Training Information Section */}
-              <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">
+              <div className="rounded-lg border border-neutral-200 bg-gradient-to-br from-neutral-50 to-neutral-100 p-4">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
                   Training Information
                 </h4>
                 <div className="grid grid-cols-1 gap-3">
@@ -2013,16 +2144,18 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                       {predictor.dataset?.dataset_name ? "time" : "N/A"}
                     </span>
                   </div>
-                  <div className="h-px bg-neutral-200"></div>
+                  <div className="h-px bg-neutral-200" />
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Duration</span>
                     <span className="text-sm font-medium text-neutral-900">
                       {predictor.ml_model_metrics.train_duration
-                        ? `${predictor.ml_model_metrics.train_duration.toFixed(2)}s`
+                        ? `${predictor.ml_model_metrics.train_duration.toFixed(
+                            2
+                          )}s`
                         : "N/A"}
                     </span>
                   </div>
-                  <div className="h-px bg-neutral-200"></div>
+                  <div className="h-px bg-neutral-200" />
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Started</span>
                     <span className="text-sm font-medium text-neutral-900">
@@ -2030,8 +2163,8 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                         ? new Date(
                             predictor.ml_model_metrics.train_start_time
                           ).toLocaleString(undefined, {
-                            dateStyle: 'short',
-                            timeStyle: 'short'
+                            dateStyle: "short",
+                            timeStyle: "short",
                           })
                         : "N/A"}
                     </span>
@@ -2040,43 +2173,46 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               </div>
 
               {/* Model Artifacts Section */}
-              <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">
+              <div className="rounded-lg border border-neutral-200 bg-gradient-to-br from-neutral-50 to-neutral-100 p-4">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">
                   Model Artifacts
                 </h4>
                 <div className="space-y-3">
                   <div>
-                    <div className="text-xs text-neutral-600 mb-1">Model Version</div>
-                    <div className="font-mono text-xs text-neutral-900 bg-white rounded px-2 py-1.5 break-all border border-neutral-200">
+                    <div className="mb-1 text-xs text-neutral-600">
+                      Model Version
+                    </div>
+                    <div className="break-all rounded border border-neutral-200 bg-white px-2 py-1.5 font-mono text-xs text-neutral-900">
                       {predictor.model_id || "N/A"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-neutral-600 mb-1">MTLR Model File</div>
+                    <div className="mb-1 text-xs text-neutral-600">
+                      MTLR Model File
+                    </div>
                     <div className="flex items-center gap-2">
                       {predictor.model_id ? (
                         <button
                           onClick={handleViewMtlrFile}
                           disabled={isLoadingMtlr}
-                          className="flex-1 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="View MTLR model file"
+                          aria-label="View MTLR model file"
                         >
                           {isLoadingMtlr ? (
                             <span className="flex items-center justify-center gap-2">
-                              <svg className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Loading...
+                              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+                              <span>Loading…</span>
                             </span>
                           ) : (
                             <span className="flex items-center justify-center gap-2">
                               <Eye className="h-4 w-4" />
-                              View File
+                              <span>View File</span>
                             </span>
                           )}
                         </button>
                       ) : (
-                        <div className="flex-1 rounded-md bg-white px-3 py-2 text-sm text-neutral-500 text-center border border-neutral-200">
+                        <div className="flex-1 rounded-md border border-neutral-200 bg-white px-3 py-2 text-center text-sm text-neutral-500">
                           N/A
                         </div>
                       )}
@@ -2086,7 +2222,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               </div>
             </div>
           ) : (
-            <div className="rounded-lg bg-neutral-50 p-6 text-center border border-neutral-200">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-6 text-center">
               <p className="text-sm text-neutral-500">
                 No training results available yet.
               </p>
@@ -2106,9 +2242,12 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               <div className="flex gap-2">
                 <button
                   onClick={handleDownloadMtlrFile}
-                  className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white transition hover:bg-neutral-700"
+                  className="inline-flex items-center gap-1.5 rounded bg-neutral-900 px-3 py-1.5 text-sm text-white transition hover:bg-neutral-700"
+                  title="Download MTLR model file"
+                  aria-label="Download MTLR model file"
                 >
-                  Download
+                  <Download className="h-4 w-4" />
+                  <span>Download</span>
                 </button>
                 <button
                   onClick={() => setShowMtlrModal(false)}
@@ -2119,7 +2258,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               </div>
             </div>
             <div className="max-h-[60vh] overflow-y-auto p-4">
-              <pre className="whitespace-pre-wrap break-words rounded bg-neutral-50 p-4 text-xs font-mono text-neutral-900">
+              <pre className="whitespace-pre-wrap break-words rounded bg-neutral-50 p-4 font-mono text-xs text-neutral-900">
                 {mtlrFileContent}
               </pre>
             </div>
@@ -2130,28 +2269,30 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
       {/* Action Buttons */}
       <div className="space-y-4">
         <div className="rounded-lg border border-neutral-200 bg-white p-6">
-          <h3 className="text-base font-semibold text-neutral-900 mb-2">
+          <h3 className="mb-2 text-base font-semibold text-neutral-900">
             Retrain Options
           </h3>
-          <p className="text-sm text-neutral-600 mb-6">
+          <p className="mb-6 text-sm text-neutral-600">
             Choose how you want to retrain this predictor
           </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* Retrain with Selected Options */}
             <div className="group relative">
               <button
-                onClick={() => navigate(`/predictors/${predictor.predictor_id}/select-features`)}
+                onClick={() =>
+                  navigate(`/predictors/${predictor.predictor_id}/select-features`)
+                }
                 className="w-full rounded-lg border-2 border-neutral-300 bg-white px-6 py-4 text-left transition hover:border-neutral-900 hover:bg-neutral-50"
               >
-                <div className="font-semibold text-neutral-900 mb-1">
+                <div className="mb-1 font-semibold text-neutral-900">
                   Retrain with Selected Options
                 </div>
                 <div className="text-xs text-neutral-600">
                   Create a new predictor with custom features
                 </div>
               </button>
-              <div className="invisible group-hover:visible absolute left-0 top-full mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg z-10">
+              <div className="invisible absolute left-0 top-full z-10 mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg group-hover:visible">
                 Re-train the predictor using only a subset of the features
               </div>
             </div>
@@ -2161,39 +2302,56 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               <button
                 onClick={handleRetrainInPlace}
                 disabled={isRetraining}
-                className="w-full rounded-lg border-2 border-neutral-300 bg-white px-6 py-4 text-left transition hover:border-neutral-900 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border-2 border-neutral-300 bg-white px-6 py-4 text-left transition hover:border-neutral-900 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <div className="font-semibold text-neutral-900 mb-1">
+                <div className="mb-1 font-semibold text-neutral-900">
                   Re-train Predictor
                 </div>
                 <div className="text-xs text-neutral-600">
-                  {isRetraining ? "Retraining..." : "Re-run training with current settings"}
+                  {isRetraining
+                    ? "Retraining..."
+                    : "Re-run training with current settings"}
                 </div>
               </button>
-              <div className="invisible group-hover:visible absolute left-0 top-full mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg z-10">
-                Delete all results and re-run the entire training process on this data set, using existing settings
+              <div className="invisible absolute left-0 top-full z-10 mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg group-hover:visible">
+                Delete all results and re-run the entire training process on
+                this data set, using existing settings
               </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Warning Modal */}
       {showWarningModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="mb-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100">
-                <svg className="h-6 w-6 text-neutral-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                <svg
+                  className="h-6 w-6 text-neutral-900"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900">Confirm Re-training</h3>
+              <h3 className="text-lg font-semibold text-neutral-900">
+                Confirm Re-training
+              </h3>
             </div>
-            <p className="text-sm text-neutral-600 mb-6">
-              This will delete all existing training results and re-run the entire training process on this data set using the current settings. This action cannot be undone.
+            <p className="mb-6 text-sm text-neutral-600">
+              This will delete all existing training results and re-run the
+              entire training process on this data set using the current
+              settings. This action cannot be undone.
             </p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowWarningModal(false)}
                 className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
@@ -2210,7 +2368,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
           </div>
         </div>
       )}
-      
+
       {/* Retrain Modal - Using TrainingModal for async progress tracking */}
       {showRetrainModal && retrainStep === "training" && (
         <TrainingModal
@@ -2232,7 +2390,9 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
                 ✕
               </div>
-              <h3 className="mt-4 text-lg font-semibold">Re-training Failed</h3>
+              <h3 className="mt-4 text-lg font-semibold">
+                Re-training Failed
+              </h3>
               <p className="mt-2 text-sm text-red-600">{retrainError}</p>
               <button
                 onClick={() => {
@@ -2378,7 +2538,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           ) : isLoadingCurves ? (
             <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
               <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
-              <p>Loading survival curves...</p>
+              <p className="mt-2">Loading survival curves...</p>
             </div>
           ) : survivalCurves ? (
             <IndividualSurvivalCurves
@@ -2402,8 +2562,13 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-cv-metrics-section") }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handlePrintSection("predictor-cv-metrics-section");
+                  }}
                   aria-label="Print cross-validation statistics"
+                  title="Print cross-validation statistics"
                   className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
                 >
                   <Printer className="h-4 w-4" aria-hidden="true" />
@@ -2413,12 +2578,13 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleDownloadSection("predictor-cv-metrics-section", "predictor-cv-metrics.html");
+                    downloadCvMetricsCsv(predictor);
                   }}
-                  aria-label="Download cross-validation metrics as CSV"
+                  aria-label="Download cross-validation metrics as a CSV file"
+                  title="Download cross-validation metrics (CSV)"
                   className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
                 >
-                  <Download className="h-4 w-4" />
+                  <FileDown className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -2577,65 +2743,10 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             )}
           </Card>
 
-        {/* THE FOLLOWING SECTION WAS NOT IMPLEMENTED. Commented this out in case it may be in the future. */}
+          {/* THE FOLLOWING SECTION WAS NOT IMPLEMENTED. Commented this out in case it may be in the future. */}
 
           {/* <Card>
-            <h4 className="text-sm font-semibold text-neutral-800">
-              Examine Classification Accuracy
-            </h4>
-            <div className="mt-3 flex flex-wrap items-end gap-2">
-              <label className="text-sm text-neutral-700">
-                Statistics accuracy, specificity, sensitivity (t-calibration)
-                for classifier with cutoff:
-              </label>
-              <input
-                type="number"
-                className="w-24 rounded-md border border-neutral-300 bg-white p-1 text-sm text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-500"
-                defaultValue={18.4}
-              />
-              <span className="text-sm text-neutral-700">days</span>
-              <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm">
-                Submit
-              </button>
-            </div>
-
-            <div id="predictor-generated-classifier-section" className="mt-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h5 className="text-sm font-semibold text-neutral-800">
-                  Generated Classifier Performance and Histogram
-                </h5>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
-                    aria-label="Show classifier performance"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>Show</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-generated-classifier-section");}}
-                    aria-label="Print classifier performance"
-                    className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
-                  >
-                    <Printer className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDownloadSection("predictor-generated-classifier-section", "classifier-performance.html");
-                    }}
-                    aria-label="Download classifier performance"
-                    className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
-                  >
-                    <Download className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="h-56 w-full rounded border-2 border-dashed border-neutral-300 bg-neutral-50" />
-            </div>
+            ...
           </Card> */}
         </>
       )}
