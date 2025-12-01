@@ -2,7 +2,229 @@
 
 ## Deployment Instructions 
 
-<br><br><br>
+This guide explains how to deploy the ISD application into a production environment. It ensures that all components are correctly installed, configured, secured, and running according to production standards.
+
+---
+
+## 1. Overview
+
+The ISD system consists of three major services:
+
+- **Backend:** Django application served by Gunicorn and Nginx  
+- **Frontend:** React (Vite) static build served by Nginx  
+- **ML API:** Python Flask microservice
+
+All services run on an Ubuntu virtual machine and use a Supabase PostgreSQL instance for database storage.
+
+Before deploying, ensure you have SSH access to the production server and the project repository.
+
+---
+
+## 2. Install Required Libraries
+
+The production server must have all system and application-level dependencies installed.
+
+### 2.1 System Dependencies
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git nodejs npm build-essential
+```
+
+### 2.2 Backend Dependencies
+
+```bash
+cd /home/ubuntu/f25project-DeptofComputingScience/isd
+python3 -m venv ../venv
+source ../venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2.3 Frontend Dependencies
+
+```bash
+cd /home/ubuntu/f25project-DeptofComputingScience/frontend
+npm install
+```
+
+### 2.4 ML API Dependencies
+
+```bash
+cd /home/ubuntu/f25project-DeptofComputingScience/ml_api
+pip install -r requirements.txt
+```
+
+All required dependencies must be listed in `requirements.txt` and `package.json` to ensure consistent builds.
+
+---
+
+## 3. Configure Environment Variables
+
+Production settings are stored in:
+
+```
+/home/ubuntu/f25project-DeptofComputingScience/isd/.env
+```
+
+Required environment variables:
+
+- `DEBUG=False`  
+- Strong `SECRET_KEY`  
+- PostgreSQL database credentials  
+- `ALLOWED_HOSTS` including domain and server IP  
+- `CORS_ALLOWED_ORIGINS`  
+- `DISABLE_SSL_REDIRECT=False` (set after SSL setup)
+
+Remove any test or placeholder credentials.
+
+---
+
+## 4. Deploy the Backend
+
+From the project root:
+
+```bash
+./deploy_production.sh
+```
+
+This script:
+
+- Installs backend dependencies  
+- Applies Django migrations  
+- Collects static files  
+- Builds the frontend  
+- Starts Gunicorn and ML API with systemd  
+- Reloads Nginx
+
+---
+
+## 5. Deploy the Frontend Manually (Optional)
+
+```bash
+cd /home/ubuntu/f25project-DeptofComputingScience/frontend
+npm run build
+sudo rm -rf /var/www/isd-frontend/*
+sudo cp -r dist/* /var/www/isd-frontend/
+sudo systemctl reload nginx
+```
+
+---
+
+## 6. Configure Nginx
+
+Your Nginx config file should be placed at:
+
+```
+/etc/nginx/sites-available/isd
+```
+
+Nginx is responsible for:
+
+- Serving static frontend files  
+- Reverse-proxying Django (Gunicorn)  
+- Reverse-proxying ML API  
+- Handling HTTPS termination
+
+Test and reload:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## 7. Enable HTTPS (SSL)
+
+Once DNS points to the server:
+
+```bash
+cd /home/ubuntu/f25project-DeptofComputingScience
+./setup_ssl.sh
+```
+
+This script:
+
+- Installs Certbot  
+- Generates a Let’s Encrypt SSL certificate  
+- Configures Nginx for HTTPS  
+- Enables auto-renewal
+
+After SSL is enabled, update:
+
+```
+DISABLE_SSL_REDIRECT=False
+```
+
+Restart Django:
+
+```bash
+sudo systemctl restart isd-django.service
+```
+
+---
+
+## 8. Verify Services
+
+Confirm systemd services are running:
+
+```bash
+sudo systemctl status isd-django.service
+sudo systemctl status isd-ml-api.service
+sudo systemctl status nginx
+```
+
+Check HTTP/HTTPS access:
+
+```bash
+curl -I http://localhost/admin/
+curl -I https://isd.srv.ualberta.ca/
+```
+
+---
+
+## 9. Security Checklist
+
+Before marking deployment complete, ensure:
+
+### ✔ Debug mode disabled  
+`DEBUG=False`
+
+### ✔ All testing accounts removed  
+No placeholder or test users remain.
+
+### ✔ Production secrets applied
+
+- Strong Django `SECRET_KEY`  
+- Production database credentials  
+- Strict CORS / `ALLOWED_HOSTS`
+
+### ✔ HTTPS enforced  
+Automatic Nginx redirect enabled.
+
+### ✔ Sensitive files protected
+
+```bash
+chmod 600 /home/ubuntu/f25project-DeptofComputingScience/isd/.env
+```
+
+### ✔ Admin panel access secured  
+Use strong passwords and (optionally) firewall or IP filtering.
+
+---
+
+## Deployment Complete
+
+After following this guide:
+
+- All services will be installed and running  
+- The system will be deployed with production configuration  
+- Security defaults will be enforced  
+- The application will be reachable over HTTPS
+
+The ISD system is fully deployed and ready for production use.
+
+---
 
 ## User Manual
 

@@ -112,21 +112,12 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
-| US 2.1.2 | Save Predictors After Runs | 3 | Selena | 
-| US 2.1.3 | Re-Train Predictors | 2 | Excel, Alex, Selena | 
-| US 2.2 |  Implement Learning Tools | 5 | Excel | 
-| US 2.3 | Cross-Validation Evaluation of Predictor | 8 | Alex, Excel | 
-| US 3.1 | Run Predictors on Unlabeled Data | 2 | Alex, Advi |
-| US 3.2 | Prediction Display Formats | 5 | Hoang |
-| US 3.3 | Quality Evaluation of Predictors | 3 | Hoang | 
-| US 3.4 | Dataset Metrics / Analysis | 3 | Hoang |
-| US 3.5 | Print Results | 2 | Shahmeer | 
-| US 3.6 | Download Results | 2 | Shahmeer | 
-| US 3.7 | Superuser-Specific Analysis Tools | 5 | Advi | 
-| US 4.2 | Guided Tour / Demo Implementation | 3 | Yaatheshini, Alex | 
-| US 6.3 | Frontend tests for Sprint 4 | 5 | Yaatheshini | 
+| US 2.1.3 | Re-Train Predictors | 8 | Excel, Selena | 
+| US 2.2 |  Implement Learning Tools | 8 | Excel, Alex | 
+| US 3.4 | Dataset Metrics / Analysis | 8 | Hoang, Advi |
+| US 6.3 | Frontend tests for Sprint 4 | 8 | Yaatheshini | 
 
-**Estimated sprint velocity**: 48
+**Estimated sprint velocity**: 32
 
 * > Initial Check-In - **November 2nd**
 
@@ -143,14 +134,17 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 
 | User Story Number | Description | Story Points | Assignee(s) |
 |-|-|-|-|
-| US 1.3.8 | Save My Draft Predictors  | 3 | **TBD** | 
-| US 2.1 | Recommendation System | 8 | **TBD** | 
-| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | **TBD** |  
-| US 5.1 | PSSP Package Download | 8 | **TBD** |
-| US 5.2 | Handle Censored Data | 8 | **TBD** | 
-| US 6.4 | Frontend tests for Sprint 5 | 5 | **TBD** | 
+| US 1.3.8 | Save My Draft Predictors  | 3 | Advi, Yaatheshini | 
+| US 2.1.2 | Save Predictions After Runs on Lablled Data  | 3 | Excel, Selena | 
+| US 2.3 | Cross-Validation Evaluation of Predictor | 3 | Alex, Excel | 
+| US 3.1| Run Predictors on Unlabeled Data  | 5 | Excel | \
+| US 3.2 | Prediction Display Formats  | 5 | Hoang | 
+| US 3.3| Quality Evaluation of Predictors  | 3 | Excel | 
+| US 3.7 | Superuser-Specific Analysis Tools  | 3 | Advi | 
+| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | Selena |  
+| US 6.4 | Frontend tests for Sprint 5 | 5 | yaatheshini | 
 
-**Estimated sprint velocity**: 26
+**Estimated sprint velocity**: 32
 
 * > Initial Check-In - **November 23th**
 
