@@ -19,7 +19,7 @@ import {
   getPredictorFullPredictions,
   getPredictorSurvivalCurves,
   getPredictorMtlrFile,
-  trainPredictor,
+  retrainPredictorAsync,
   updatePredictor,
   retrainPredictorAsync,
   type CvPredictions,
@@ -1655,46 +1655,39 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
     setShowRetrainModal(true);
     setRetrainStep("training");
     setRetrainError(null);
-    
+
     try {
-      // Call the training API with existing settings
-      const trainingResult = await trainPredictor(predictor.dataset.dataset_id, {
-        parameters: {
-          num_time_points: predictor.num_time_points || undefined,
-          regularization: predictor.regularization,
-          objective_function: predictor.objective_function,
-          marginal_loss_type: predictor.marginal_loss_type,
-          c_param_search_scope: predictor.c_param_search_scope,
-          cox_feature_selection: predictor.cox_feature_selection,
-          mrmr_feature_selection: predictor.mrmr_feature_selection,
-          mtlr_predictor: predictor.mtlr_predictor,
-          tune_parameters: predictor.tune_parameters,
-          use_smoothed_log_likelihood: predictor.use_smoothed_log_likelihood,
-          use_predefined_folds: predictor.use_predefined_folds,
-          run_cross_validation: predictor.run_cross_validation !== false,
-          standardize_features: predictor.standardize_features !== false,
-          selected_features: predictor.features,
-        },
-      });
-      
-      if (!trainingResult || !trainingResult.model_id) {
-        throw new Error("Training did not return a valid model_id");
-      }
-      
-      // Update the predictor with new model data
+      // Update predictor status to "training" first
       await updatePredictor(predictor.predictor_id, {
-        model_id: trainingResult.model_id,
-        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
-        ml_training_status: "trained",
-        ml_model_metrics: trainingResult.metrics || {},
+        ml_training_status: "training",
       });
-      
-      setRetrainStep("complete");
-      
-      // Refresh the page after a short delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+
+      // Start async retraining with existing settings
+      await retrainPredictorAsync(
+        predictor.predictor_id,
+        predictor.model_id || "",
+        {
+          selected_features: predictor.features,
+          parameters: {
+            num_time_points: predictor.num_time_points || undefined,
+            regularization: predictor.regularization,
+            objective_function: predictor.objective_function,
+            marginal_loss_type: predictor.marginal_loss_type,
+            c_param_search_scope: predictor.c_param_search_scope,
+            cox_feature_selection: predictor.cox_feature_selection,
+            mrmr_feature_selection: predictor.mrmr_feature_selection,
+            mtlr_predictor: predictor.mtlr_predictor,
+            tune_parameters: predictor.tune_parameters,
+            use_smoothed_log_likelihood: predictor.use_smoothed_log_likelihood,
+            use_predefined_folds: predictor.use_predefined_folds,
+            run_cross_validation: predictor.run_cross_validation !== false,
+            standardize_features: predictor.standardize_features !== false,
+          },
+        }
+      );
+
+      // Keep modal open - it will track progress via TrainingModal component
+      // The modal handles completion and navigation
     } catch (err: any) {
       console.error("Retrain failed:", err);
       setRetrainStep("error");
@@ -2112,50 +2105,40 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
         </div>
       )}
       
-      {/* Retrain Modal */}
-      {showRetrainModal && (
+      {/* Retrain Modal - Using TrainingModal for async progress tracking */}
+      {showRetrainModal && retrainStep === "training" && (
+        <TrainingModal
+          predictorId={predictor.predictor_id}
+          onClose={() => {
+            setShowRetrainModal(false);
+            setIsRetraining(false);
+            window.location.reload();
+          }}
+          autoNavigateOnComplete={false}
+        />
+      )}
+
+      {/* Retrain Error Modal */}
+      {showRetrainModal && retrainStep === "error" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            {retrainStep === "training" && (
-              <div className="text-center">
-                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-                <h3 className="mt-4 text-lg font-semibold">Re-training Predictor...</h3>
-                <p className="mt-2 text-sm text-neutral-600">
-                  This may take several minutes. Please don't close this page.
-                </p>
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
+                ✕
               </div>
-            )}
-            
-            {retrainStep === "complete" && (
-              <div className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-2xl text-green-600">
-                  ✓
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">Re-training Complete!</h3>
-                <p className="mt-2 text-sm text-neutral-600">
-                  Reloading page with updated results...
-                </p>
-              </div>
-            )}
-            
-            {retrainStep === "error" && (
-              <div className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-                  ✕
-                </div>
-                <h3 className="mt-4 text-lg font-semibold">Re-training Failed</h3>
-                <p className="mt-2 text-sm text-red-600">{retrainError}</p>
-                <button
-                  onClick={() => {
-                    setShowRetrainModal(false);
-                    setRetrainError(null);
-                  }}
-                  className="mt-4 rounded-md bg-neutral-900 px-4 py-2 text-white transition hover:bg-neutral-800"
-                >
-                  Close
-                </button>
-              </div>
-            )}
+              <h3 className="mt-4 text-lg font-semibold">Re-training Failed</h3>
+              <p className="mt-2 text-sm text-red-600">{retrainError}</p>
+              <button
+                onClick={() => {
+                  setShowRetrainModal(false);
+                  setRetrainError(null);
+                  setIsRetraining(false);
+                }}
+                className="mt-4 rounded-md bg-neutral-900 px-4 py-2 text-white transition hover:bg-neutral-800"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { X, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getTrainingStatus } from "../lib/predictors";
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
+import { getTrainingStatus } from '../lib/predictors';
 
 interface TrainingProgress {
   current_experiment?: number;
@@ -24,11 +24,25 @@ export default function TrainingModal({
   autoNavigateOnComplete = false,
 }: TrainingModalProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [progress, setProgress] = useState<TrainingProgress | null>(null);
   const [status, setStatus] = useState<"training" | "complete" | "failed">(
     "training"
   );
   const [error, setError] = useState<string | null>(null);
+
+  // Check if we're already on the predictor details page
+  const isOnPredictorPage = location.pathname === `/predictors/${predictorId}`;
+
+  const handlePredictorDetailsClick = () => {
+    if (isOnPredictorPage && onClose) {
+      // If already on predictor details page, just close the modal
+      onClose();
+    } else {
+      // Otherwise navigate to the page
+      navigate(`/predictors/${predictorId}`);
+    }
+  };
 
   useEffect(() => {
     let pollInterval: number;
@@ -74,35 +88,21 @@ export default function TrainingModal({
     return () => clearInterval(pollInterval);
   }, [predictorId, autoNavigateOnComplete, navigate]);
 
-  const formatTime = (seconds?: number) => {
-    if (seconds === undefined || seconds === null || seconds < 0) return "—";
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
+    const secs = seconds % 60;
     return `${mins}m ${secs}s`;
   };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="relative w-full max-w-md rounded-xl border border-black/10 bg-white p-6 shadow-2xl">
-        {/* Close button (only if onClose is provided and training not complete) */}
-        {onClose && status !== "complete" && (
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 text-neutral-400 transition hover:text-neutral-700"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-
-        {status === "training" && (
+      <div className="relative w-full max-w-md rounded-md border border-neutral-300 bg-white p-6 shadow-xl">
+        {status === 'training' && (
           <div className="text-center">
-            {/* Correct spinner */}
-            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />
+            {/* Spinner from AuthLoadingScreen */}
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800"></div>
 
-            <h3 className="text-base font-semibold text-neutral-900">
-              Training ML model…
-            </h3>
+            <h3 className="text-lg font-semibold text-neutral-900">Training ML Model</h3>
             <p className="mt-2 text-sm text-neutral-600">
               {progress?.message || "Training in progress."}
             </p>
@@ -112,11 +112,11 @@ export default function TrainingModal({
               <div className="mt-4">
                 <div className="mb-2 flex justify-between text-xs text-neutral-600">
                   <span>Progress</span>
-                  <span>{progress.estimated_progress}%</span>
+                  <span className="font-medium">{progress.estimated_progress}%</span>
                 </div>
-                <div className="h-3 w-full overflow-hidden rounded-md border border-neutral-300 bg-neutral-50">
+                <div className="h-2 w-full overflow-hidden rounded-md bg-neutral-200">
                   <div
-                    className="h-full rounded-md bg-neutral-800 transition-all duration-500"
+                    className="h-full bg-neutral-800 transition-all duration-500"
                     style={{ width: `${progress.estimated_progress}%` }}
                   />
                 </div>
@@ -125,17 +125,25 @@ export default function TrainingModal({
 
             {/* Detailed Progress Info */}
             {progress && progress.current_experiment && (
-              <div className="mt-4 space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-left text-xs text-neutral-700">
-                {progress.current_experiment &&
-                  progress.total_experiments && (
-                    <div className="font-medium">
-                      Cross-validation: fold {progress.current_experiment} of{" "}
-                      {progress.total_experiments}
+              <div className="mt-4 space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs">
+                {progress.current_experiment && progress.total_experiments && (
+                  <div className="flex items-center gap-2 font-medium text-neutral-800">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>Cross-validation: Fold {progress.current_experiment} of {progress.total_experiments}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3 text-neutral-600">
+                  {progress.elapsed_seconds !== undefined && (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Elapsed: {formatTime(progress.elapsed_seconds)}</span>
                     </div>
                   )}
-                <div className="flex justify-between gap-4 text-neutral-600">
-                  {progress.elapsed_seconds !== undefined && (
-                    <div>Elapsed: {formatTime(progress.elapsed_seconds)}</div>
+                  {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Remaining: ~{formatTime(progress.eta_seconds)}</span>
+                    </div>
                   )}
                   {progress.eta_seconds !== undefined &&
                     progress.eta_seconds > 0 && (
@@ -144,24 +152,38 @@ export default function TrainingModal({
                       </div>
                     )}
                 </div>
-                <div className="mt-2 text-neutral-600">
+                <div className="mt-2 border-t border-neutral-200 pt-2 text-neutral-600">
                   {onClose
                     ? "You can close this window; training will continue in the background."
                     : "The model is training on your dataset. This may take a few minutes."}
                 </div>
               </div>
             )}
+
+            {/* Navigation Buttons - Available during training */}
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={() => navigate('/dashboard', { state: { tab: 'predictors' } })}
+                className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 active:translate-y-[0.5px]"
+              >
+                Back to Dashboard
+              </button>
+              <button
+                onClick={handlePredictorDetailsClick}
+                className="flex-1 rounded-md border border-black/10 bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+              >
+                Predictor Details
+              </button>
+            </div>
           </div>
         )}
 
         {status === "complete" && (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-neutral-300 bg-neutral-50 text-neutral-800">
-              <CheckCircle2 className="h-5 w-5" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+              <CheckCircle className="h-12 w-12 text-neutral-800" />
             </div>
-            <h3 className="text-base font-semibold text-neutral-900">
-              Training complete
-            </h3>
+            <h3 className="text-lg font-semibold text-neutral-900">Training Complete!</h3>
             <p className="mt-2 text-sm text-neutral-600">
               Your predictor has been trained successfully.
             </p>
@@ -170,32 +192,36 @@ export default function TrainingModal({
                 Redirecting to predictor details…
               </p>
             )}
-            {onClose && !autoNavigateOnComplete && (
-              <button
-                onClick={onClose}
-                className="mt-4 inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
-              >
-                Close
-              </button>
+            {!autoNavigateOnComplete && (
+              <div className="mt-6 flex gap-2">
+                <button
+                  onClick={() => navigate('/dashboard', { state: { tab: 'predictors' } })}
+                  className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 active:translate-y-[0.5px]"
+                >
+                  Back to Dashboard
+                </button>
+                <button
+                  onClick={handlePredictorDetailsClick}
+                  className="flex-1 rounded-md border border-black/10 bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
+                >
+                  Predictor Details
+                </button>
+              </div>
             )}
           </div>
         )}
 
         {status === "failed" && (
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
-              <AlertTriangle className="h-5 w-5" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+              <XCircle className="h-12 w-12 text-neutral-700" />
             </div>
-            <h3 className="text-base font-semibold text-neutral-900">
-              Training failed
-            </h3>
-            <p className="mt-2 text-sm text-red-600">
-              {error || "An error occurred while training this predictor."}
-            </p>
+            <h3 className="text-lg font-semibold text-neutral-900">Training Failed</h3>
+            <p className="mt-2 text-sm text-neutral-600">{error}</p>
             {onClose && (
               <button
                 onClick={onClose}
-                className="mt-4 inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
+                className="mt-6 w-full rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 active:translate-y-[0.5px]"
               >
                 Close
               </button>
