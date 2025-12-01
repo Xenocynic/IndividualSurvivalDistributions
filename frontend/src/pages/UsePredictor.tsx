@@ -217,6 +217,30 @@ export default function UsePredictor() {
       return;
     }
 
+    // get features
+    const rawFeatures = selectedPredictor.ml_selected_features;
+    let requiredFeatures: string[] = [];
+
+    if (Array.isArray(rawFeatures)) {
+      // already an array, just use it
+      requiredFeatures = rawFeatures;
+    } else if (typeof rawFeatures === "string") {
+      // string, parse it
+      try {
+        // replace single quotes with double quotes
+        const cleanedString = rawFeatures.replace(/'/g, '"'); 
+        const parsed = JSON.parse(cleanedString);
+        
+        // ensure the parsed result is actually an array
+        requiredFeatures = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error("Failed to parse ml_selected_features:", rawFeatures);
+        requiredFeatures = [];
+      }
+    }
+    // null/undefined, requiredFeatures stays []
+
+
     // Check if dataset is labeled (has time and censored columns which are case-insensitive)
     const hasTimeColumn = datasetPreview.columns.some((col) =>
       /time/i.test(col)
@@ -227,8 +251,6 @@ export default function UsePredictor() {
 
     const isLabeled = hasTimeColumn && hasCensoredColumn;
     setIsLabeledDataset(isLabeled);
-
-    const requiredFeatures = selectedPredictor.ml_selected_features || [];
 
     // Filter out time and censored columns from available features
     const availableFeatures = datasetPreview.columns.filter(
