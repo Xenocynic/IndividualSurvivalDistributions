@@ -64,6 +64,50 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#deployment-instructions">Deployment Instructions</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#1-overview">1. Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#2-install-required-libraries">2. Install Required Libraries</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#21-system-dependencies">2.1 System Dependencies</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#22-backend-dependencies">2.2 Backend Dependencies</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#23-frontend-dependencies">2.3 Frontend Dependencies</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#24-ml-api-dependencies">2.4 ML API Dependencies</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#3-configure-environment-variables">3. Configure Environment Variables</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#4-deploy-the-backend">4. Deploy the Backend</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#6-configure-nginx">6. Configure Nginx</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#7-enable-https-ssl">7. Enable HTTPS (SSL)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#8-verify-services">8. Verify Services</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#9-security-checklist">9. Security Checklist</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#debug-mode-disabled">✔ Debug mode disabled</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#all-testing-accounts-removed">✔ All testing accounts removed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#production-secrets-applied">✔ Production secrets applied</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#https-enforced">✔ HTTPS enforced</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#sensitive-files-protected">✔ Sensitive files protected</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#admin-panel-access-secured">✔ Admin panel access secured</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#deployment-complete">Deployment Complete</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#user-manual">User Manual</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#1-getting-started">1. Getting Started</a>
@@ -164,7 +208,153 @@
               
                 <h1 id="project-management"><strong>Project Management</strong></h1>
 <h2 id="deployment-instructions">Deployment Instructions</h2>
-<p><br><br><br></p>
+<p>This guide explains how to deploy the ISD application into a production environment. It ensures that all components are correctly installed, configured, secured, and running according to production standards.</p>
+<hr />
+<h2 id="1-overview">1. Overview</h2>
+<p>The ISD system consists of three major services:</p>
+<ul>
+<li><strong>Backend:</strong> Django application served by Gunicorn and Nginx  </li>
+<li><strong>Frontend:</strong> React (Vite) static build served by Nginx  </li>
+<li><strong>ML API:</strong> Python Flask microservice</li>
+</ul>
+<p>All services run on an Ubuntu virtual machine and use a Supabase PostgreSQL instance for database storage.</p>
+<p>Before deploying, ensure you have SSH access to the production server and the project repository.</p>
+<hr />
+<h2 id="2-install-required-libraries">2. Install Required Libraries</h2>
+<p>The production server must have all system and application-level dependencies installed.</p>
+<h3 id="21-system-dependencies">2.1 System Dependencies</h3>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git nodejs npm build-essential
+</code></pre>
+<h3 id="22-backend-dependencies">2.2 Backend Dependencies</h3>
+<pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/isd
+python3 -m venv ../venv
+source ../venv/bin/activate
+pip install -r requirements.txt
+</code></pre>
+<h3 id="23-frontend-dependencies">2.3 Frontend Dependencies</h3>
+<pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/frontend
+npm install
+</code></pre>
+<h3 id="24-ml-api-dependencies">2.4 ML API Dependencies</h3>
+<pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/ml_api
+pip install -r requirements.txt
+</code></pre>
+<p>All required dependencies must be listed in <code>requirements.txt</code> and <code>package.json</code> to ensure consistent builds.</p>
+<hr />
+<h2 id="3-configure-environment-variables">3. Configure Environment Variables</h2>
+<p>Production settings are stored in:</p>
+<pre><code>/home/ubuntu/f25project-DeptofComputingScience/isd/.env
+</code></pre>
+<p>Required environment variables:</p>
+<ul>
+<li><code>DEBUG=False</code>  </li>
+<li>Strong <code>SECRET_KEY</code>  </li>
+<li>PostgreSQL database credentials  </li>
+<li><code>ALLOWED_HOSTS</code> including domain and server IP  </li>
+<li><code>CORS_ALLOWED_ORIGINS</code>  </li>
+<li><code>DISABLE_SSL_REDIRECT=False</code> (set after SSL setup)</li>
+</ul>
+<p>Remove any test or placeholder credentials.</p>
+<hr />
+<h2 id="4-deploy-the-backend">4. Deploy the Backend</h2>
+<p>From the project root:</p>
+<pre><code class="language-bash">./deploy_production.sh
+</code></pre>
+<p>This script:</p>
+<ul>
+<li>Installs backend dependencies  </li>
+<li>Applies Django migrations  </li>
+<li>Collects static files  </li>
+<li>Builds the frontend  </li>
+<li>Starts Gunicorn and ML API with systemd  </li>
+<li>Reloads Nginx</li>
+</ul>
+<hr />
+<h2 id="5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</h2>
+<pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/frontend
+npm run build
+sudo rm -rf /var/www/isd-frontend/*
+sudo cp -r dist/* /var/www/isd-frontend/
+sudo systemctl reload nginx
+</code></pre>
+<hr />
+<h2 id="6-configure-nginx">6. Configure Nginx</h2>
+<p>Your Nginx config file should be placed at:</p>
+<pre><code>/etc/nginx/sites-available/isd
+</code></pre>
+<p>Nginx is responsible for:</p>
+<ul>
+<li>Serving static frontend files  </li>
+<li>Reverse-proxying Django (Gunicorn)  </li>
+<li>Reverse-proxying ML API  </li>
+<li>Handling HTTPS termination</li>
+</ul>
+<p>Test and reload:</p>
+<pre><code class="language-bash">sudo nginx -t
+sudo systemctl reload nginx
+</code></pre>
+<hr />
+<h2 id="7-enable-https-ssl">7. Enable HTTPS (SSL)</h2>
+<p>Once DNS points to the server:</p>
+<pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience
+./setup_ssl.sh
+</code></pre>
+<p>This script:</p>
+<ul>
+<li>Installs Certbot  </li>
+<li>Generates a Let’s Encrypt SSL certificate  </li>
+<li>Configures Nginx for HTTPS  </li>
+<li>Enables auto-renewal</li>
+</ul>
+<p>After SSL is enabled, update:</p>
+<pre><code>DISABLE_SSL_REDIRECT=False
+</code></pre>
+<p>Restart Django:</p>
+<pre><code class="language-bash">sudo systemctl restart isd-django.service
+</code></pre>
+<hr />
+<h2 id="8-verify-services">8. Verify Services</h2>
+<p>Confirm systemd services are running:</p>
+<pre><code class="language-bash">sudo systemctl status isd-django.service
+sudo systemctl status isd-ml-api.service
+sudo systemctl status nginx
+</code></pre>
+<p>Check HTTP/HTTPS access:</p>
+<pre><code class="language-bash">curl -I http://localhost/admin/
+curl -I https://isd.srv.ualberta.ca/
+</code></pre>
+<hr />
+<h2 id="9-security-checklist">9. Security Checklist</h2>
+<p>Before marking deployment complete, ensure:</p>
+<h3 id="debug-mode-disabled">✔ Debug mode disabled</h3>
+<p><code>DEBUG=False</code></p>
+<h3 id="all-testing-accounts-removed">✔ All testing accounts removed</h3>
+<p>No placeholder or test users remain.</p>
+<h3 id="production-secrets-applied">✔ Production secrets applied</h3>
+<ul>
+<li>Strong Django <code>SECRET_KEY</code>  </li>
+<li>Production database credentials  </li>
+<li>Strict CORS / <code>ALLOWED_HOSTS</code></li>
+</ul>
+<h3 id="https-enforced">✔ HTTPS enforced</h3>
+<p>Automatic Nginx redirect enabled.</p>
+<h3 id="sensitive-files-protected">✔ Sensitive files protected</h3>
+<pre><code class="language-bash">chmod 600 /home/ubuntu/f25project-DeptofComputingScience/isd/.env
+</code></pre>
+<h3 id="admin-panel-access-secured">✔ Admin panel access secured</h3>
+<p>Use strong passwords and (optionally) firewall or IP filtering.</p>
+<hr />
+<h2 id="deployment-complete">Deployment Complete</h2>
+<p>After following this guide:</p>
+<ul>
+<li>All services will be installed and running  </li>
+<li>The system will be deployed with production configuration  </li>
+<li>Security defaults will be enforced  </li>
+<li>The application will be reachable over HTTPS</li>
+</ul>
+<p>The ISD system is fully deployed and ready for production use.</p>
+<hr />
 <h2 id="user-manual">User Manual</h2>
 <p>This user manual is designed for clinicians, medical researchers, engineers, analysts, and other professionals who work with spreadsheets but may not have programming experience. The goal is to provide clear, task-oriented steps to help you upload survival datasets, build predictive models, and generate Individual Survival Distributions (ISDs) using the EZ Survival Prediction platform.</p>
 <p>If you need assistance beyond what is covered here, contact the system administrators or refer to the support section.</p>
