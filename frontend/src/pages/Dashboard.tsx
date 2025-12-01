@@ -1,17 +1,23 @@
 /**
  * DASHBOARD
  *
- * Predictors, Datasets, and Folders workspace.
+ * Purpose:
+ * - Renders a three-tab workspace: "Predictors", "Datasets", and "Folders".
+ * - Shares a single search box and filters across tabs.
+ * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
+ * - Grid shows cards; clicking a card toggles its "selected" state.
+ * - "Create" menu can add a Predictor, Dataset, or Folder.
+ *   - The new item is inserted at the top,
+ *   - The page switches to the corresponding tab (for datasets),
+ *   - The new card is selected.
  *
- * Features:
- * - Three tabs: Predictors, Datasets, Folders
- * - Shared search box and filter controls per tab
- * - Sticky toolbar with tabs, search, filters, and Create menu
- * - Cards grid with selectable items and per-item actions (view, edit, delete, download)
- * - Folder sidebar and folder cards with drag-and-drop organization
- * - Folder creation, editing, sharing, and deletion flows
- * - Advanced filtering for all tabs (ownership, search target, time window, sorting)
- * - Delete confirmation dialogs and optimistic updates for folder deletion
+ * Implementation notes (UPDATED):
+ * - TanStack Query (useQuery) manages data fetching and caching.
+ * - TanStack Query (useMutation) handles server-side updates.
+ * - Local state holds UI state (activeTab, query, ownership, selection, etc.).
+ * - useMemo filters each list by query + ownership + time window.
+ * - Clicking the page background clears any selection.
+ * - A small modal handles delete confirmation.
  */
 
 import {
@@ -21,7 +27,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
@@ -122,6 +128,7 @@ export default function Dashboard() {
     [user]
   );
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Derive active tab from URL (?tab=predictors|datasets|folders)
@@ -129,6 +136,111 @@ export default function Dashboard() {
     const q = searchParams.get("tab");
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
   })();
+
+  // Track newly created items for highlighting
+  const [newlyCreatedDatasetId, setNewlyCreatedDatasetId] = useState<string | null>(null);
+  const [newlyCreatedPredictorId, setNewlyCreatedPredictorId] = useState<string | null>(null);
+  const [newlyCreatedFolderId, setNewlyCreatedFolderId] = useState<string | null>(null);
+  
+  // Track pending navigation state (to handle it after tab switch)
+  const [pendingNewDatasetId, setPendingNewDatasetId] = useState<string | null>(null);
+  const [pendingNewPredictorId, setPendingNewPredictorId] = useState<string | null>(null);
+
+  // Handle navigation state from item creation - Step 1: Switch tab
+  useEffect(() => {
+    const state = location.state as {
+      tab?: string;
+      justCreatedId?: number | string;
+    } | null;
+
+    if (state?.tab === "datasets") {
+      // Store the new dataset ID for later
+      if (state.justCreatedId) {
+        setPendingNewDatasetId(String(state.justCreatedId));
+      }
+
+      // Switch to datasets tab via URL
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "datasets");
+          return sp;
+        },
+        { replace: true }
+      );
+
+      // Clear the location state to prevent re-triggering on refresh
+      navigate(location.pathname + "?tab=datasets", { replace: true, state: null });
+    } else if (state?.tab === "predictors") {
+      // Store the new predictor ID for later
+      if (state.justCreatedId) {
+        setPendingNewPredictorId(String(state.justCreatedId));
+      }
+
+      // Switch to predictors tab via URL
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "predictors");
+          return sp;
+        },
+        { replace: true }
+      );
+
+      // Clear the location state to prevent re-triggering on refresh
+      navigate(location.pathname + "?tab=predictors", { replace: true, state: null });
+    }
+  }, [location.state, setSearchParams, navigate, location.pathname]);
+
+  // Handle navigation state - Step 2: After tab is switched to datasets, apply highlight
+  useEffect(() => {
+    if (pendingNewDatasetId && activeTab === "datasets") {
+      setNewlyCreatedDatasetId(pendingNewDatasetId);
+      setPendingNewDatasetId(null);
+      // Invalidate datasets query to fetch the new dataset
+      queryClient.invalidateQueries({ queryKey: ["datasets"] });
+    }
+  }, [pendingNewDatasetId, activeTab, queryClient]);
+
+  // Handle navigation state - Step 2: After tab is switched to predictors, apply highlight
+  useEffect(() => {
+    if (pendingNewPredictorId && activeTab === "predictors") {
+      setNewlyCreatedPredictorId(pendingNewPredictorId);
+      setPendingNewPredictorId(null);
+      // Invalidate predictors query to fetch the new predictor
+      queryClient.invalidateQueries({ queryKey: ["predictors"] });
+    }
+  }, [pendingNewPredictorId, activeTab, queryClient]);
+
+  // Clear the dataset highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedDatasetId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedDatasetId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedDatasetId]);
+
+  // Clear the predictor highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedPredictorId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedPredictorId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedPredictorId]);
+
+  // Clear the folder highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedFolderId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedFolderId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedFolderId]);
 
   const selectTab = (t: Tab) => {
     setSearchParams(
@@ -156,7 +268,9 @@ export default function Dashboard() {
     },
     select: (data) => data.map((it) => mapApiPredictorToUi(it, currentUserId)),
     enabled: activeTab === "predictors",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   const {
@@ -170,7 +284,9 @@ export default function Dashboard() {
     },
     select: (data) => data.map((it) => mapApiDatasetToUi(it, currentUserId)),
     enabled: activeTab === "datasets",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Folders are always fetched; they are used in sidebar and as drag targets
@@ -181,7 +297,9 @@ export default function Dashboard() {
     queryKey: ["folders"],
     queryFn: listMyFolders,
     select: (data) => (Array.isArray(data) ? data.map(mapApiFolderToUi) : []),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   const isLoading =
@@ -243,8 +361,12 @@ export default function Dashboard() {
 
   const createFolderMutation = useMutation({
     mutationFn: createFolder,
-    onSuccess: () => {
+    onSuccess: (createdFolder) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
+      // Set the newly created folder ID for highlighting after data is refreshed
+      if (createdFolder?.folder_id) {
+        setNewlyCreatedFolderId(String(createdFolder.folder_id));
+      }
     },
     onError: (error: any) => {
       const folderError = handleFolderApiError(error);
@@ -259,9 +381,7 @@ export default function Dashboard() {
       queryClient.setQueryData(["folders"], (prev: any) => {
         if (!Array.isArray(prev)) return prev;
         return prev.filter(
-          (f) =>
-            f.folder_id !== folderId &&
-            f.id !== folderId
+          (f) => f.folder_id !== folderId && f.id !== folderId
         );
       });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -386,6 +506,17 @@ export default function Dashboard() {
       });
     }
 
+    // If there's a newly created predictor, move it to the top
+    if (newlyCreatedPredictorId) {
+      const newPredictorIndex = sorted.findIndex(
+        (p) => String(p.id) === newlyCreatedPredictorId
+      );
+      if (newPredictorIndex > 0) {
+        const [newPredictor] = sorted.splice(newPredictorIndex, 1);
+        sorted.unshift(newPredictor);
+      }
+    }
+
     return sorted;
   }, [
     predictors,
@@ -396,6 +527,7 @@ export default function Dashboard() {
     predictorSortMode,
     predictorChronoDir,
     predictorAlphaDir,
+    newlyCreatedPredictorId,
   ]);
 
   const filteredDatasets = useMemo(() => {
@@ -441,6 +573,17 @@ export default function Dashboard() {
       });
     }
 
+    // If there's a newly created dataset, move it to the top
+    if (newlyCreatedDatasetId) {
+      const newDatasetIndex = sorted.findIndex(
+        (d) => String(d.id) === newlyCreatedDatasetId
+      );
+      if (newDatasetIndex > 0) {
+        const [newDataset] = sorted.splice(newDatasetIndex, 1);
+        sorted.unshift(newDataset);
+      }
+    }
+
     return sorted;
   }, [
     datasets,
@@ -451,6 +594,7 @@ export default function Dashboard() {
     datasetSortMode,
     datasetChronoDir,
     datasetAlphaDir,
+    newlyCreatedDatasetId,
   ]);
 
   // Pre-filter folders to only show owned or shared folders in Dashboard
@@ -488,7 +632,20 @@ export default function Dashboard() {
       );
     }
 
-    return sortFolders(list, folderSortOption);
+    const sorted = sortFolders(list, folderSortOption);
+
+    // If there's a newly created folder, move it to the top
+    if (newlyCreatedFolderId) {
+      const newFolderIndex = sorted.findIndex(
+        (f) => String(f.folder_id) === String(newlyCreatedFolderId)
+      );
+      if (newFolderIndex > 0) {
+        const [newFolder] = sorted.splice(newFolderIndex, 1);
+        sorted.unshift(newFolder);
+      }
+    }
+
+    return sorted;
   }, [
     accessibleFolders,
     tabState.folderQuery,
@@ -498,6 +655,7 @@ export default function Dashboard() {
     folderKeywordTarget,
     folderUpdatedWithin,
     currentUserId,
+    newlyCreatedFolderId,
   ]);
 
   // --- SELECTION & NAVIGATION ---
@@ -543,6 +701,16 @@ export default function Dashboard() {
     try {
       await createFolderMutation.mutateAsync(data);
       setShowFolderModal(false);
+      
+      // Switch to folders tab (highlighting is handled in mutation onSuccess)
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "folders");
+          return sp;
+        },
+        { replace: true }
+      );
     } catch {
       // Error handled in mutation onError
     }
@@ -665,6 +833,16 @@ export default function Dashboard() {
     [activeTab, navigate]
   );
 
+  // Draft edit route for predictors (used by PredictorCard via onDraftEdit)
+  const draftEditItem = useCallback(
+    (id: string) => {
+      if (activeTab === "predictors") {
+        navigate(`/predictors/draft/${id}/edit`);
+      }
+    },
+    [activeTab, navigate]
+  );
+
   const viewItem = useCallback(
     (id: string) => {
       if (activeTab === "predictors") {
@@ -681,10 +859,10 @@ export default function Dashboard() {
   async function downloadItem(
     id: string,
     allowAdminAccess: boolean,
-    isOwner: boolean
+    isOwnerFlag: boolean
   ) {
     try {
-      if (!isOwner && !allowAdminAccess) {
+      if (!isOwnerFlag && !allowAdminAccess) {
         alert(
           "Download blocked: External access to this dataset has been disabled."
         );
@@ -1090,6 +1268,7 @@ export default function Dashboard() {
                               loadingFolders.has(folder.folder_id) ||
                               removeFromFolderMutation.isPending
                             }
+                            isNew={String(folder.folder_id) === String(newlyCreatedFolderId)}
                           />
                         </div>
                       );
@@ -1128,12 +1307,14 @@ export default function Dashboard() {
                               selected={selection.predictorId === it.id}
                               onToggleSelect={toggleSelect}
                               onEdit={editItem}
+                              onDraftEdit={draftEditItem}
                               onDelete={(id) =>
                                 promptDelete(id, it.title, "predictor")
                               }
                               onView={viewItem}
                               onDrop={handleDrop}
                               isLoading={isItemLoading(it.id)}
+                              isNew={String(it.id) === newlyCreatedPredictorId}
                             />
                           ))
                       : filteredDatasets
@@ -1150,7 +1331,7 @@ export default function Dashboard() {
                               }
                               onView={viewItem}
                               onDownload={() => {
-                                const isOwner = isUserOwner(
+                                const ownerFlag = isUserOwner(
                                   it.owner,
                                   currentUserId
                                 );
@@ -1159,11 +1340,12 @@ export default function Dashboard() {
                                   "allow_admin_access" in it
                                     ? it.allow_admin_access ?? false
                                     : false,
-                                  isOwner
+                                  ownerFlag
                                 );
                               }}
                               onDrop={handleDrop}
                               isLoading={isItemLoading(it.id)}
+                              isNew={String(it.id) === newlyCreatedDatasetId}
                             />
                           ))}
 
@@ -1175,15 +1357,13 @@ export default function Dashboard() {
                       !isLoading && (
                         <div className="col-span-full flex items-center justify-center py-12 text-center">
                           <div className="max-w-sm">
-                            <div className="mb-2 text-lg text-neutral-400">
-                              <FolderOpen className="h-4 w-4 text-neutral-500" />
-                            </div>
-                            <p className="text-sm text-neutral-500">
+                            <p className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+                              <FolderOpen className="h-4 w-4" />
                               No {activeTab} in your main collection
                             </p>
                             <p className="mt-1 text-xs text-neutral-400">
                               Drag items from folders here to move them back to
-                              your main collection
+                              your main collection.
                             </p>
                           </div>
                         </div>
@@ -1192,6 +1372,7 @@ export default function Dashboard() {
                 </DroppableFolder>
               )}
 
+              {/* Delete / folder modals & folder creation */}
               <DeleteConfirmation
                 open={!!deleteContext}
                 name={deleteContext?.title ?? ""}
@@ -1747,7 +1928,7 @@ function FolderAdvancedFilterMenu({
           <button
             type="button"
             onClick={handleFolderAlphaToggle}
-            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg_WHITE text-neutral-700 hover:bg-neutral-50"
           >
             <span>{alphaLabel}</span>
             <span className="text-[11px]">{alphaArrow}</span>

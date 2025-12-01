@@ -56,6 +56,8 @@ type DatasetCardProps = {
   isPinned?: boolean;
   /** Called when the pin star is toggled. */
   onTogglePin?: (id: string, nextPinned?: boolean) => void;
+  /** If true, show a highlight animation for newly created datasets. */
+  isNew?: boolean;
 };
 
 export default function DatasetCard({
@@ -72,6 +74,7 @@ export default function DatasetCard({
   showPin = false,
   isPinned: isPinnedProp,
   onTogglePin,
+  isNew = false,
 }: DatasetCardProps) {
   const dragItem: DragItem = {
     id: item.id,
@@ -115,66 +118,90 @@ export default function DatasetCard({
   const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
 
   return (
-    <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
-      <CardShell
-        eyebrowLeft={
-          <div className="inline-flex items-center gap-2 text-xs font-medium text-neutral-800">
-            <UsernameTag name={ownerLabel} />
-          </div>
-        }
-        title={
-          <div className="truncate text-sm font-semibold text-neutral-900">
-            {item.title}
-          </div>
-        }
-        description={
-          item.notes ? (
-            <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
-              {item.notes}
+    <div
+      className={
+        isNew
+          ? "animate-highlight-new rounded-lg ring-2 ring-emerald-500 ring-offset-2"
+          : ""
+      }
+    >
+      <DraggableCard item={dragItem} onDrop={onDrop} isLoading={isLoading}>
+        <CardShell
+          eyebrowLeft={
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-neutral-800">
+              <UsernameTag name={ownerLabel} />
+              {isNew && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 animate-pulse">
+                  NEW
+                </span>
+              )}
             </div>
-          ) : (
-            <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs italic text-neutral-400">
-              No description provided.
+          }
+          title={
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-neutral-900">
+                {item.title}
+              </div>
             </div>
-          )
-        }
-        footerLeft={
-          displayUpdated ? (
-            <span className="text-[11px] text-neutral-500">
-              Updated {displayUpdated}
-            </span>
-          ) : null
-        }
-        footerRight={
-          <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
-            {/* Top row: rows / size / filename */}
-            <div className="flex w-full flex-wrap justify-end gap-2">
+          }
+          description={
+            item.notes ? (
+              <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 line-clamp-4">
+                {item.notes}
+              </div>
+            ) : (
+              <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs italic text-neutral-400">
+                No description provided.
+              </div>
+            )
+          }
+          footerLeft={
+            displayUpdated ? (
+              <span className="text-[11px] text-neutral-500">
+                Updated {displayUpdated}
+              </span>
+            ) : null
+          }
+          footerRight={
+            <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
               {typeof item.rows === "number" && (
                 <span>{item.rows.toLocaleString()} rows</span>
               )}
 
-              {typeof item.sizeMB === "number" && (
-                <span>{item.sizeMB} MB</span>
-              )}
-
               {item.hasFile && item.originalFilename && (
-                <span
-                  className="inline-flex max-w-[9rem] items-center rounded-md border bg-neutral-50 px-2 py-[1px]"
-                  title={`File: ${item.originalFilename}`}
-                >
-                  ▦
-                  <span className="ml-1 truncate">
-                    {item.originalFilename}
-                  </span>
-                </span>
-              )}
-            </div>
+                <div className="flex flex-col items-end gap-1">
+                  {typeof item.sizeMB === "number" && (
+                    <span>{item.sizeMB} MB</span>
+                  )}
 
-            {/* Bottom row: visibility pill under the size/file row */}
-            {visibilityLabel && (
-              <div className="mt-0.5">
+                  <span
+                    className="inline-flex max-w-[9rem] items-center rounded-md border bg-neutral-50 px-2 py-[1px]"
+                    title={`File: ${item.originalFilename}`}
+                  >
+                    ▦
+                    <span className="ml-1 truncate">
+                      {item.originalFilename}
+                    </span>
+                  </span>
+
+                  {visibilityLabel && (
+                    <span
+                      className={`mt-0.5 rounded-full border px-2 py-[2px] text-[10px] ${
+                        item.isPublic
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-neutral-900 bg-neutral-900 text-white"
+                      }`}
+                    >
+                      {visibilityLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* If there is no file, still show privacy underneath rows/date */}
+              {!item.hasFile && visibilityLabel && (
                 <span
-                  className={`rounded-full border px-2 py-[2px] text-[10px] ${
+                  className={`mt-0.5 rounded-full border px-2 py-[2px] text-[10px] ${
                     item.isPublic
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                       : "border-neutral-900 bg-neutral-900 text-white"
@@ -182,112 +209,114 @@ export default function DatasetCard({
                 >
                   {visibilityLabel}
                 </span>
-              </div>
-            )}
-          </div>
-        }
-        selected={selected}
-        onSelect={() => onToggleSelect?.(item.id)}
-        onActionAreaClick={(e) => {
-          e.stopPropagation();
-        }}
-        // Keep header row space always reserved; buttons control their own visibility
-        actionVisibility="always"
-      >
-        {/* View button (everyone) */}
-        <button
-          type="button"
-          onClick={() => onView?.(item.id)}
-          className={bubbleButtonClass(selected)}
-          style={bubbleDelayStyle(selected, viewDelay)}
+              )}
+            </div>
+          }
+          selected={selected}
+          onSelect={() => onToggleSelect?.(item.id)}
+          onActionAreaClick={(e) => {
+            e.stopPropagation();
+          }}
+          // Keep header row space always reserved; buttons control their own visibility
+          actionVisibility="always"
         >
-          <Eye className="h-5 w-3" />
-        </button>
-
-        {/* Pin button (Browse etc.) */}
-        {showPin && (
+          {/* View button (everyone) */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const next = !isPinned;
-              onTogglePin?.(item.id, next);
-            }}
-            className={[
-              bubbleButtonClass(selected),
-              isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
-            ].join(" ")}
-            style={bubbleDelayStyle(selected, pinDelay)}
-            title={isPinned ? "Unpin" : "Pin"}
-            aria-label={isPinned ? "Unpin dataset" : "Pin dataset"}
+            onClick={() => onView?.(item.id)}
+            className={bubbleButtonClass(selected)}
+            style={bubbleDelayStyle(selected, viewDelay)}
           >
-            <span className="text-sm" aria-hidden="true">
-              {isPinned ? "★" : "☆"}
-            </span>
+            <Eye className="h-5 w-3" />
           </button>
-        )}
 
-        {/* Owner-only controls */}
-        {item.owner && showOwnerActions && (
-          <>
+          {/* Pin button (Browse etc.) */}
+          {showPin && (
             <button
               type="button"
-              onClick={() => onEdit?.(item.id)}
-              className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, editDelay)}
+              onClick={(e) => {
+                e.stopPropagation();
+                const next = !isPinned;
+                onTogglePin?.(item.id, next);
+              }}
+              className={[
+                bubbleButtonClass(selected),
+                isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
+              ].join(" ")}
+              style={bubbleDelayStyle(selected, pinDelay)}
+              title={isPinned ? "Unpin" : "Pin"}
+              aria-label={isPinned ? "Unpin dataset" : "Pin dataset"}
             >
-              <Pencil className="h-5 w-3" />
+              <span className="text-sm" aria-hidden="true">
+                {isPinned ? "★" : "☆"}
+              </span>
             </button>
+          )}
 
-            {item.hasFile && onDownload && (
+          {/* Owner-only controls */}
+          {item.owner && showOwnerActions && (
+            <>
               <button
                 type="button"
-                onClick={() =>
-                  onDownload(item.id, item.allow_admin_access ?? true)
-                }
+                onClick={() => onEdit?.(item.id)}
                 className={bubbleButtonClass(selected)}
-                style={bubbleDelayStyle(selected, ownerDownloadDelay)}
-                title="Download file"
+                style={bubbleDelayStyle(selected, editDelay)}
               >
-                <DownloadIcon className="h-5 w-3" />
+                <Pencil className="h-5 w-3" />
               </button>
-            )}
 
+              {item.hasFile && onDownload && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onDownload(item.id, item.allow_admin_access ?? true)
+                  }
+                  className={bubbleButtonClass(selected)}
+                  style={bubbleDelayStyle(selected, ownerDownloadDelay)}
+                  title="Download file"
+                >
+                  <DownloadIcon className="h-5 w-3" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onDelete?.(item.id)}
+                className={bubbleDeleteButtonClass(selected)}
+                style={bubbleDelayStyle(selected, deleteDelay)}
+              >
+                <Trash2 className="h-5 w-3" />
+              </button>
+            </>
+          )}
+
+          {/* Viewer-only controls */}
+          {!item.owner && item.hasFile && onDownload && (
             <button
               type="button"
-              onClick={() => onDelete?.(item.id)}
-              className={bubbleDeleteButtonClass(selected)}
-              style={bubbleDelayStyle(selected, deleteDelay)}
+              onClick={() =>
+                onDownload(item.id, item.allow_admin_access ?? true)
+              }
+              className={bubbleButtonClass(selected)}
+              style={bubbleDelayStyle(selected, viewerDownloadDelay)}
+              title="Download file"
             >
-              <Trash2 className="h-5 w-3" />
+              <DownloadIcon className="h-3 w-3" />
             </button>
-          </>
-        )}
-
-        {/* Viewer-only controls */}
-        {!item.owner && item.hasFile && onDownload && (
-          <button
-            type="button"
-            onClick={() =>
-              onDownload(item.id, item.allow_admin_access ?? true)
-            }
-            className={bubbleButtonClass(selected)}
-            style={bubbleDelayStyle(selected, viewerDownloadDelay)}
-            title="Download file"
-          >
-            <DownloadIcon className="h-3 w-3" />
-          </button>
-        )}
-      </CardShell>
-    </DraggableCard>
+          )}
+        </CardShell>
+      </DraggableCard>
+    </div>
   );
 }
 
 function bubbleButtonClass(selected: boolean) {
   return [
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
+    "inline-flex items-center justify-center gap-1 rounded-md border px-2.5 py-1",
     "text-[11px] font-medium text-neutral-700 bg-white shadow-sm hover:bg-neutral-200",
-    "transform-gpu origin-left transition-all duration-200 ease-out",
+    // Let buttons wrap into a 2×2 grid when horizontal space is tight
+    "shrink-0 basis-[48%] sm:basis-auto",
+    "transform-gpu origin-right transition-all duration-200 ease-out",
     selected
       ? "opacity-100 translate-y-0 scale-100"
       : "pointer-events-none opacity-0 -translate-y-1 scale-90",
@@ -296,10 +325,12 @@ function bubbleButtonClass(selected: boolean) {
 
 function bubbleDeleteButtonClass(selected: boolean) {
   return [
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1",
+    "inline-flex items-center justify-center gap-1 rounded-md border px-2.5 py-1",
     "text-[11px] font-medium text-red-700 bg-red-50 border-red-200 shadow-sm",
     "hover:bg-red-100 hover:border-red-300 hover:text-red-800",
-    "transform-gpu origin-left transition-all duration-200 ease-out",
+    // Same wrapping behaviour as normal buttons
+    "shrink-0 basis-[48%] sm:basis-auto",
+    "transform-gpu origin-right transition-all duration-200 ease-out",
     selected
       ? "opacity-100 translate-y-0 scale-100"
       : "pointer-events-none opacity-0 -translate-y-1 scale-90",

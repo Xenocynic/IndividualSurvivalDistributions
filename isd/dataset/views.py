@@ -25,32 +25,11 @@ import logging
 import json
 import requests
 from django.conf import settings
+from .permissions import CanAccessDataset, IsDatasetOwner
 from predictors.models import Predictor
 from predictors.serializers import PredictorSerializer
-from predictors.views import CanAccessPredictor
+from predictors.permissions import CanAccessPredictor
 
-# ----------------------------
-# Custom Permissions
-# ----------------------------
-class IsDatasetOwner(permissions.BasePermission):
-    """Only dataset owners / superuser can update/delete"""
-    def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user or request.user.is_superuser
-
-
-class CanAccessDataset(permissions.BasePermission):
-    """Allow view if owner / superuser, has permission or dataset is public"""
-    def has_object_permission(self, request, view, obj):
-        # Superusers have access to all datasets
-        if request.user.is_superuser:
-            return True
-        # Owner always has access
-        if obj.owner == request.user:
-            return True
-        if obj.is_public:
-            return True
-        # Other users can access only if a DatasetPermission exists
-        return DatasetPermission.objects.filter(dataset=obj, user=request.user).exists()
 
 # ----------------------------
 # Dataset ViewSet
@@ -553,6 +532,47 @@ class DatasetViewSet(viewsets.ModelViewSet):
         serializer = PredictorSerializer(accessible_predictors, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # NEW: Preview endpoint displays first 10 rows and column names of the dataset
+    @action(detail=True, methods=['get'], url_path='preview')
+    def preview(self, request, pk=None):
+        """
+        Return the first 10 rows and column names of the dataset.
+        """
+        try:
+            dataset = self.get_object()
+            
+            if not dataset.file_path:
+                return Response(
+                    {"error": "Dataset has no associated file."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+            if not os.path.exists(full_file_path):
+                return Response(
+                    {"error": "Dataset file not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Read first 10 rows
+            with open(full_file_path, 'rb') as f:
+                df = pd.read_csv(f, nrows=10)
+            
+           
+            # Replace NaN with None for JSON compatibility
+            df = df.where(pd.notnull(df), None)
+
+            return Response({
+                "columns": df.columns.tolist(),
+                "preview_data": df.values.tolist()
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to generate preview: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 # ----------------------------
 # Dataset Permission ViewSet
@@ -863,6 +883,120 @@ def ml_train_model_async(request, dataset_id):
         )
 
 
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def ml_train_model_async(request, dataset_id):
+    """
+    Triggers ASYNCHRONOUS training job on the ML API with progress tracking.
+    Returns immediately with predictor_id, then training continues in background.
+
+    Request body:
+    {
+        "predictor_id": 123,  // REQUIRED - the predictor to train
+        "parameters": {       // Optional training parameters
+            "n_epochs": 100,
+            "dropout": 0.2,
+            "neurons": [64, 64],
+            "n_exp": 10
+        }
+    }
+
+    Response:
+    {
+        "message": "Training started",
+        "predictor_id": 123,
+        "dataset_id": 456
+    }
+
+    Use GET /api/predictors/{predictor_id}/training-status/ to poll for progress.
+    """
+    try:
+        from predictors.models import Predictor
+        from predictors.training_tasks import train_model_task
+
+        dataset = Dataset.objects.get(dataset_id=dataset_id)
+
+        if not dataset or not dataset.file_path:
+            return Response(
+                {"error": "Dataset has no associated file."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        full_file_path = os.path.join(settings.MEDIA_ROOT, dataset.file_path)
+        if not os.path.exists(full_file_path):
+            return Response(
+                {"error": f"Dataset file not found at path: {full_file_path}"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Validate dataset has enough columns
+        with open(full_file_path, 'rb') as f:
+            df = pd.read_csv(f, nrows=0)
+
+        all_cols = df.columns.tolist()
+        if len(all_cols) < 3:
+            return Response(
+                {"error": "Dataset must have at least 3 columns (time, censored, features)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get predictor_id from request
+        predictor_id = request.data.get('predictor_id')
+        if not predictor_id:
+            return Response(
+                {"error": "predictor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify predictor exists and user has access
+        try:
+            predictor = Predictor.objects.get(predictor_id=predictor_id)
+            if predictor.owner != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "Access denied"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        except Predictor.DoesNotExist:
+            return Response(
+                {"error": f"Predictor {predictor_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get parameters
+        parameters = request.data.get('parameters', {})
+
+        # Start async training
+        # Dispatch Celery task
+        task = train_model_task.delay(predictor_id, full_file_path, parameters)
+
+        # Store task ID in predictor for tracking
+        predictor.ml_training_progress = {"task_id": task.id, "status": "queued"}
+        predictor.save()
+
+        return Response({
+            "message": "Training started",
+            "predictor_id": predictor_id,
+            "dataset_id": dataset_id,
+            "status": "training",
+            "task_id": task.id
+        }, status=status.HTTP_202_ACCEPTED)
+
+    except Dataset.DoesNotExist:
+        return Response(
+            {"error": f"Dataset {dataset_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to start async training: {str(e)}")
+        return Response(
+            {"error": "Failed to start training", "details": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+
+
 def _download_model_artifacts(ml_data, model_id):
     """
     Download all model artifacts from the ML API response and save them locally.
@@ -898,13 +1032,9 @@ def _download_model_artifacts(ml_data, model_id):
     if 'model_config' in ml_data:
         download_file(ml_data['model_config'], os.path.join(model_dir, 'model_config.json'))
     
-    # Download model files (encoder and icp_state)
-    if 'model_file' in ml_data:
-        model_files = ml_data['model_file']
-        if 'encoder' in model_files:
-            download_file(model_files['encoder'], os.path.join(model_dir, 'encoder.joblib'))
-        if 'icp_state' in model_files:
-            download_file(model_files['icp_state'], os.path.join(model_dir, 'icp_state.dill'))
+    # Download model file 
+    if 'mtlr_model' in ml_data:
+        download_file(ml_data['mtlr_model'], os.path.join(model_dir, f'mtlr_model_{model_id}.mtlr'))
     
     # Download CV predictions
     if 'cv_predictions' in ml_data:
@@ -925,3 +1055,5 @@ def _download_model_artifacts(ml_data, model_id):
             download_file(full_preds['survival_curves'], os.path.join(model_dir, 'survival_curves.json'))
     
     logger.info(f"Model artifacts download completed for {model_id}")
+
+
