@@ -73,6 +73,8 @@ export interface FolderCardProps {
   showPin?: boolean;
   isPinned?: boolean;
   onTogglePin?: (folderId: string, nextPinned?: boolean) => void;
+  /** If true, show a highlight animation for newly created folders. */
+  isNew?: boolean;
 }
 
 export default function FolderCard({
@@ -97,6 +99,7 @@ export default function FolderCard({
   showPin = false,
   isPinned: isPinnedProp,
   onTogglePin,
+  isNew = false,
 }: FolderCardProps) {
   const isOwner =
     currentUserId && folder?.owner?.id
@@ -198,12 +201,19 @@ export default function FolderCard({
   ].join(" ");
 
   return (
-    <DroppableFolder
-      folder={folder}
-      isLoading={(_itemId: string) => Boolean(isLoading)}
-      onDrop={onDrop}
-      className={shellClassName}
+    <div
+      className={
+        isNew
+          ? "animate-highlight-new rounded-xl ring-2 ring-emerald-500 ring-offset-2"
+          : ""
+      }
     >
+      <DroppableFolder
+        folder={folder}
+        isLoading={(_itemId: string) => Boolean(isLoading)}
+        onDrop={onDrop}
+        className={shellClassName}
+      >
       {/* Clicking anywhere in the card (except buttons) selects it */}
       <div className="p-5" onClick={handleSelectCard}>
         {/* Top row: title left, actions right */}
@@ -214,6 +224,11 @@ export default function FolderCard({
             <span className="truncate text-sm font-semibold text-neutral-900">
               {folder.name}
             </span>
+            {isNew && (
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 animate-pulse">
+                NEW
+              </span>
+            )}
           </div>
 
           {/* Right: action bubbles (Edit / Share / Pin / Delete) */}
@@ -376,7 +391,8 @@ export default function FolderCard({
           )}
         </div>
       )}
-    </DroppableFolder>
+      </DroppableFolder>
+    </div>
   );
 }
 

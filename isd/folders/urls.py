@@ -19,10 +19,11 @@ The DefaultRouter automatically creates the following endpoints:
 
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import FolderViewSet, FolderPermissionViewSet, list_public_folders, get_public_folder_contents
+from .views import FolderViewSet, FolderPermissionViewSet, PinnedFolderViewSet, list_public_folders, get_public_folder_contents
 
 router = DefaultRouter()
 router.register("permissions", FolderPermissionViewSet, basename="folder-permission")
+router.register("pins", PinnedFolderViewSet, basename="pinned-folder")
 router.register("", FolderViewSet, basename="folder")
 
 urlpatterns = [

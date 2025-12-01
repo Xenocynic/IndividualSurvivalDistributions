@@ -127,7 +127,7 @@ export default function MyPredictions() {
   return (
     <div className="min-h-[60vh] bg-neutral-100">
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
           <div className="text-lg font-semibold tracking-wide text-center">
             My Predictions
           </div>

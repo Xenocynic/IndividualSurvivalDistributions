@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db.models import Q, Exists, OuterRef
@@ -385,3 +386,24 @@ class FolderPermission(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.permission_type} access to {self.folder.name}"
+
+
+class PinnedFolder(models.Model):
+    """Tracks which folders a user has pinned for quick access."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pinned_folders")
+    folder = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name="pinned_by")
+    pinned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "folders_pinnedfolder"
+        unique_together = ("user", "folder")  # prevent duplicate pins
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["folder"]),
+        ]
+        verbose_name = "Pinned Folder"
+        verbose_name_plural = "Pinned Folders"
+
+    def __str__(self):
+        return f"{self.user.username} pinned {self.folder.name}"

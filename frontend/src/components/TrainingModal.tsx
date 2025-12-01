@@ -21,12 +21,14 @@ interface TrainingModalProps {
 export default function TrainingModal({
   predictorId,
   onClose,
-  autoNavigateOnComplete = false
+  autoNavigateOnComplete = false,
 }: TrainingModalProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [progress, setProgress] = useState<TrainingProgress | null>(null);
-  const [status, setStatus] = useState<'training' | 'complete' | 'failed'>('training');
+  const [status, setStatus] = useState<"training" | "complete" | "failed">(
+    "training"
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Check if we're already on the predictor details page
@@ -49,19 +51,17 @@ export default function TrainingModal({
       try {
         const statusData = await getTrainingStatus(predictorId);
 
-        // Update progress
         if (statusData.progress) {
           setProgress(statusData.progress);
         }
 
-        // Check if training is complete
-        if (statusData.status === 'trained') {
+        if (statusData.status === "trained") {
           clearInterval(pollInterval);
-          setStatus('complete');
+          setStatus("complete");
           setProgress({
             ...statusData.progress,
             estimated_progress: 100,
-            message: 'Training completed successfully!'
+            message: "Training completed successfully.",
           });
 
           if (autoNavigateOnComplete) {
@@ -69,22 +69,22 @@ export default function TrainingModal({
               navigate(`/predictors/${predictorId}`);
             }, 2000);
           }
-        } else if (statusData.status === 'failed') {
+        } else if (statusData.status === "failed") {
           clearInterval(pollInterval);
-          setStatus('failed');
-          setError(statusData.error || 'Training failed');
+          setStatus("failed");
+          setError(statusData.error || "Training failed.");
         }
-      } catch (err: any) {
-        console.error('Error polling training status:', err);
-        // Don't stop polling on error, might be temporary network issue
+      } catch (err) {
+        // Keep polling; transient errors are possible
+        // eslint-disable-next-line no-console
+        console.error("Error polling training status:", err);
       }
     };
 
     // Start polling immediately
     pollTrainingStatus();
-    pollInterval = setInterval(pollTrainingStatus, 1000); // Poll every 1 second
+    pollInterval = window.setInterval(pollTrainingStatus, 1000);
 
-    // Cleanup on unmount
     return () => clearInterval(pollInterval);
   }, [predictorId, autoNavigateOnComplete, navigate]);
 
@@ -104,7 +104,7 @@ export default function TrainingModal({
 
             <h3 className="text-lg font-semibold text-neutral-900">Training ML Model</h3>
             <p className="mt-2 text-sm text-neutral-600">
-              {progress?.message || 'Training in progress...'}
+              {progress?.message || "Training in progress."}
             </p>
 
             {/* Progress Bar */}
@@ -139,17 +139,17 @@ export default function TrainingModal({
                       <span>Elapsed: {formatTime(progress.elapsed_seconds)}</span>
                     </div>
                   )}
-                  {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Remaining: ~{formatTime(progress.eta_seconds)}</span>
-                    </div>
-                  )}
+                  {progress.eta_seconds !== undefined &&
+                    progress.eta_seconds > 0 && (
+                      <div>
+                        Estimated remaining: {formatTime(progress.eta_seconds)}
+                      </div>
+                    )}
                 </div>
                 <div className="mt-2 border-t border-neutral-200 pt-2 text-neutral-600">
                   {onClose
-                    ? "You can close this window and training will continue in the background."
-                    : "The model is learning from your dataset. This may take a few minutes."}
+                    ? "You can close this window; training will continue in the background."
+                    : "The model is training on your dataset. This may take a few minutes."}
                 </div>
               </div>
             )}
@@ -172,7 +172,7 @@ export default function TrainingModal({
           </div>
         )}
 
-        {status === 'complete' && (
+        {status === "complete" && (
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
               <CheckCircle className="h-12 w-12 text-neutral-800" />
@@ -182,7 +182,9 @@ export default function TrainingModal({
               Your predictor has been trained successfully.
             </p>
             {autoNavigateOnComplete && (
-              <p className="mt-1 text-xs text-neutral-500">Redirecting to predictor details...</p>
+              <p className="mt-1 text-xs text-neutral-500">
+                Redirecting to predictor details…
+              </p>
             )}
             {!autoNavigateOnComplete && (
               <div className="mt-6 flex gap-2">
@@ -203,7 +205,7 @@ export default function TrainingModal({
           </div>
         )}
 
-        {status === 'failed' && (
+        {status === "failed" && (
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
               <XCircle className="h-12 w-12 text-neutral-700" />
