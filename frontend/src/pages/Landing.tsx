@@ -195,8 +195,8 @@ export default function Landing() {
 
               <p className="mt-4 max-w-xl text-[13.5px] leading-relaxed text-neutral-300">
                 PSSP fits individualized survival models on historical patient
-                cohorts, then produces full survival curves for each new patient
-                using their covariates.
+                cohorts and produces an individual survival distribution (ISD)&nbsp;— 
+                a full survival curve&nbsp;— for each new patient based on their covariates.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -297,6 +297,17 @@ export default function Landing() {
                   </Link>
                   .
                 </p>
+                <p className="mt-2">
+                  For a written summary of ISDs and the PSSP system that powers this site,
+                  see the{" "}
+                  <Link
+                    to="/about"
+                    className="underline underline-offset-2"
+                  >
+                    About page
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
 
@@ -322,12 +333,12 @@ export default function Landing() {
                 />
                 <FeatureChip
                   title="Flexible outputs"
-                  text="Export curves, summary statistics, and stratified visualizations for downstream analysis."
+                  text="Visualize curves, summary statistics (e.g., median survival), and stratified plots for downstream analysis."
                   icon={<BarChart3 className="h-6 w-6" />}
                 />
                 <FeatureChip
                   title="Reproducible runs"
-                  text="Track model settings and seeds so analyses can be repeated or shared."
+                  text="Record model configurations so analyses can be repeated, compared, or shared."
                   icon={<RefreshCcw className="h-6 w-6" />}
                 />
               </div>

@@ -29,6 +29,7 @@ import DCalibrationHistogram from "../components/DCalibrationHistogram";
 import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 import TrainingModal from "../components/TrainingModal";
 import PredictorComparisonTable from "../components/PredictorComparisonTable";
+import AuthLoadingScreen from "../auth/AuthLoadingScreen";
 
 // Utility functions for Printing and Downloading sections
 function handlePrintSection(sectionId: string) {
@@ -303,12 +304,10 @@ export default function PredictorDetailPage() {
   // --- Render States ---
   if (isLoading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-neutral-100">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
-          <p className="mt-2 text-sm text-neutral-600">Loading Predictor...</p>
-        </div>
-      </div>
+      <AuthLoadingScreen
+        word="Loading"
+        message="Loading predictor details…"
+      />
     );
   }
 
@@ -2579,7 +2578,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
           </Card>
 
         {/* THE FOLLOWING SECTION WAS NOT IMPLEMENTED. Commented this out in case it may be in the future. */}
-        
+
           {/* <Card>
             <h4 className="text-sm font-semibold text-neutral-800">
               Examine Classification Accuracy
