@@ -12,6 +12,7 @@ import {
 import type { SurvivalCurvesData, PredictionsSummaryData } from "../lib/predictors";
 import { getPredictorPredictionsSummary } from "../lib/predictors";
 import PredictionsSummaryTable from "./PredictionsSummaryTable";
+import { Download, FileDown } from "lucide-react";
 
 interface IndividualSurvivalCurvesProps {
   data: SurvivalCurvesData;
@@ -31,12 +32,18 @@ export default function IndividualSurvivalCurves({
   timeUnit,
   predictorId,
 }: IndividualSurvivalCurvesProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [displayMode, setDisplayMode] = useState<"random" | "selected">("random");
+  const chartRef = useRef<HTMLDivElement | null>(null);
+
+  const [displayMode, setDisplayMode] = useState<"random" | "selected">(
+    "random",
+  );
   const [numRandomCurves, setNumRandomCurves] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIdentifiers, setSelectedIdentifiers] = useState<Set<string>>(new Set());
-  const [predictionsData, setPredictionsData] = useState<PredictionsSummaryData | null>(null);
+  const [selectedIdentifiers, setSelectedIdentifiers] = useState<Set<string>>(
+    new Set(),
+  );
+  const [predictionsData, setPredictionsData] =
+    useState<PredictionsSummaryData | null>(null);
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
   const [predictionsError, setPredictionsError] = useState<string | null>(null);
 
@@ -70,9 +77,9 @@ export default function IndividualSurvivalCurves({
   }, [displayMode, allIdentifiers, numRandomCurves, selectedIdentifiers]);
 
   const chartData = useMemo(() => {
-    // Find all unique time points across selected curves AND Kaplan-Meier
+    // Find all unique time points across selected curves
     const timePointsSet = new Set<number>();
-    
+
     displayedIdentifiers.forEach((id) => {
       data.curves[id]?.times.forEach((t) => timePointsSet.add(t));
     });
@@ -82,15 +89,14 @@ export default function IndividualSurvivalCurves({
     // Create data points for each time with interpolation for smooth curves
     return sortedTimes.map((time) => {
       const point: Record<string, number> = { time };
-      
+
       displayedIdentifiers.forEach((id) => {
         const curve = data.curves[id];
         if (!curve) return;
 
         // Find the survival probability at this time point with linear interpolation
         let survivalProb = 100;
-        
-        // Find the two points to interpolate between
+
         for (let i = 0; i < curve.times.length; i++) {
           if (curve.times[i] === time) {
             // Exact match
@@ -103,8 +109,7 @@ export default function IndividualSurvivalCurves({
               const t1 = curve.times[i];
               const p0 = curve.survival_probabilities[i - 1];
               const p1 = curve.survival_probabilities[i];
-              
-              // Linear interpolation
+
               const ratio = (time - t0) / (t1 - t0);
               survivalProb = p0 + ratio * (p1 - p0);
             } else {
@@ -116,18 +121,18 @@ export default function IndividualSurvivalCurves({
             survivalProb = curve.survival_probabilities[i];
           }
         }
-        
+
         point[`id_${id}`] = survivalProb;
       });
 
-      // Add Kaplan-Meier curve - use average of all individual curves as approximation
-      // This creates a smooth overall survival curve
+      // Overall Kaplan–Meier-like curve: average of individual curves at each time
       const individualProbs = displayedIdentifiers
-        .map(id => point[`id_${id}`])
-        .filter(p => p !== undefined);
-      
+        .map((id) => point[`id_${id}`])
+        .filter((p) => p !== undefined);
+
       if (individualProbs.length > 0) {
-        point.kaplanMeier = individualProbs.reduce((sum, p) => sum + p, 0) / individualProbs.length;
+        point.kaplanMeier =
+          individualProbs.reduce((sum, p) => sum + p, 0) / individualProbs.length;
       }
 
       return point;
@@ -135,13 +140,10 @@ export default function IndividualSurvivalCurves({
   }, [data, displayedIdentifiers]);
 
   const handleToggleIdentifier = (id: string) => {
-    const newSelected = new Set(selectedIdentifiers);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIdentifiers(newSelected);
+    const next = new Set(selectedIdentifiers);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIdentifiers(next);
   };
 
   const handleSelectAll = () => {
@@ -155,7 +157,6 @@ export default function IndividualSurvivalCurves({
   const handleDownloadChart = () => {
     if (!chartRef.current) return;
 
-    // Create a canvas to render the chart
     const svgElement = chartRef.current.querySelector("svg");
     if (!svgElement) return;
 
@@ -165,7 +166,9 @@ export default function IndividualSurvivalCurves({
     if (!ctx) return;
 
     const img = new Image();
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const svgBlob = new Blob([svgData], {
+      type: "image/svg+xml;charset=utf-8",
+    });
     const url = URL.createObjectURL(svgBlob);
 
     img.onload = () => {
@@ -214,10 +217,14 @@ export default function IndividualSurvivalCurves({
       <div className="rounded-md border bg-neutral-50 p-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-neutral-700">Display Mode:</label>
+            <label className="text-sm font-medium text-neutral-700">
+              Display Mode:
+            </label>
             <select
               value={displayMode}
-              onChange={(e) => setDisplayMode(e.target.value as "random" | "selected")}
+              onChange={(e) =>
+                setDisplayMode(e.target.value as "random" | "selected")
+              }
               className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
             >
               <option value="random">Random Sample</option>
@@ -227,13 +234,22 @@ export default function IndividualSurvivalCurves({
 
           {displayMode === "random" && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-neutral-700">Number of curves:</label>
+              <label className="text-sm text-neutral-700">
+                Number of curves:
+              </label>
               <input
                 type="number"
-                min="1"
-                max="50"
+                min={1}
+                max={50}
                 value={numRandomCurves}
-                onChange={(e) => setNumRandomCurves(Math.max(1, Math.min(50, parseInt(e.target.value) || 10)))}
+                onChange={(e) =>
+                  setNumRandomCurves(
+                    Math.max(
+                      1,
+                      Math.min(50, parseInt(e.target.value, 10) || 10),
+                    ),
+                  )
+                }
                 className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm"
               />
             </div>
@@ -241,18 +257,24 @@ export default function IndividualSurvivalCurves({
 
           <div className="ml-auto flex gap-2">
             <button
+              type="button"
               onClick={handleDownloadChart}
               disabled={!displayedIdentifiers.length}
-              className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Download chart as PNG"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Download Chart (PNG)
+              <Download className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Download chart as PNG</span>
             </button>
             <button
+              type="button"
               onClick={handleDownloadCSV}
               disabled={!displayedIdentifiers.length}
-              className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Download data as CSV"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-700 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Download Data (CSV)
+              <FileDown className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">Download data as CSV</span>
             </button>
           </div>
         </div>
@@ -268,12 +290,14 @@ export default function IndividualSurvivalCurves({
                 className="flex-1 rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
               />
               <button
+                type="button"
                 onClick={handleSelectAll}
                 className="text-sm text-blue-600 hover:underline"
               >
                 Select All
               </button>
               <button
+                type="button"
                 onClick={handleDeselectAll}
                 className="text-sm text-blue-600 hover:underline"
               >
@@ -283,7 +307,9 @@ export default function IndividualSurvivalCurves({
 
             <div className="max-h-48 overflow-y-auto rounded-md border bg-white">
               {filteredIdentifiers.length === 0 ? (
-                <p className="p-4 text-center text-sm text-neutral-500">No identifiers found</p>
+                <p className="p-4 text-center text-sm text-neutral-500">
+                  No identifiers found
+                </p>
               ) : (
                 <div className="grid grid-cols-2 gap-1 p-2 sm:grid-cols-3 md:grid-cols-4">
                   {filteredIdentifiers.map((id) => (
@@ -305,7 +331,8 @@ export default function IndividualSurvivalCurves({
             </div>
 
             <p className="text-xs text-neutral-500">
-              {selectedIdentifiers.size} of {allIdentifiers.length} identifiers selected
+              {selectedIdentifiers.size} of {allIdentifiers.length} identifiers
+              selected
             </p>
           </div>
         )}
@@ -324,7 +351,8 @@ export default function IndividualSurvivalCurves({
         <div ref={chartRef} className="rounded-md border bg-white p-4">
           <h3 className="mb-4 text-center text-sm font-semibold text-neutral-700">
             Individual Survival Curves
-            {displayMode === "random" && ` (${displayedIdentifiers.length} random samples)`}
+            {displayMode === "random" &&
+              ` (${displayedIdentifiers.length} random samples)`}
           </h3>
           <div className="h-[500px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -358,19 +386,23 @@ export default function IndividualSurvivalCurves({
                 <Tooltip
                   contentStyle={{ fontSize: 12 }}
                   formatter={(value: number) => `${value.toFixed(1)}%`}
-                  labelFormatter={(label) => `Time: ${label}${timeUnit ? ` ${timeUnit}` : ""}`}
+                  labelFormatter={(label) =>
+                    `Time: ${label}${
+                      timeUnit ? ` ${timeUnit}` : ""
+                    }`
+                  }
                 />
                 <Legend
-                  wrapperStyle={{ 
-                    fontSize: 11, 
-                    maxHeight: 100, 
+                  wrapperStyle={{
+                    fontSize: 11,
+                    maxHeight: 100,
                     overflowY: "auto",
                     paddingTop: "30px",
-                    marginTop: "20px"
+                    marginTop: "20px",
                   }}
                   iconType="line"
                 />
-                {/* Kaplan-Meier overall curve - always shown */}
+                {/* Overall curve */}
                 <Line
                   type="monotone"
                   dataKey="kaplanMeier"
@@ -401,26 +433,34 @@ export default function IndividualSurvivalCurves({
       )}
 
       <p className="text-xs text-neutral-500">
-        Each curve represents the predicted survival probability over time for an individual subject.
-        {displayMode === "random" && " Curves are randomly sampled from all available subjects."}
+        Each curve represents the predicted survival probability over time for
+        an individual subject.
+        {displayMode === "random" &&
+          " Curves are randomly sampled from all available subjects."}
       </p>
 
       {/* Predictions Summary Table */}
       <div className="mt-8 rounded-md border bg-white p-4">
         {isLoadingPredictions ? (
           <div className="flex h-48 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
-            <p className="ml-3 text-sm text-neutral-500">Loading predictions table...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+            <p className="ml-3 text-sm text-neutral-500">
+              Loading predictions table...
+            </p>
           </div>
         ) : predictionsError ? (
           <div className="flex h-48 items-center justify-center">
             <p className="text-sm text-red-600">{predictionsError}</p>
           </div>
         ) : predictionsData ? (
-          <PredictionsSummaryTable predictions={predictionsData.predictions} />
+          <PredictionsSummaryTable
+            predictions={predictionsData.predictions}
+          />
         ) : (
           <div className="flex h-48 items-center justify-center">
-            <p className="text-sm text-neutral-500">No predictions data available.</p>
+            <p className="text-sm text-neutral-500">
+              No predictions data available.
+            </p>
           </div>
         )}
       </div>

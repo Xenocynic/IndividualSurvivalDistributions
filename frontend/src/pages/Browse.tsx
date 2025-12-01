@@ -1,15 +1,53 @@
-import { useMemo, useState, useCallback } from "react";
+/**
+ * BROWSE
+ * (Public Predictors / Datasets / Folders)
+ *
+ * Purpose:
+ * - Read-only "explore" page for all public content on the platform.
+ * - Lets users search, filter, sort, and pin public predictors, datasets, and folders.
+ * - Provides a unified browse experience that mirrors Dashboard styling.
+ *
+ * High-level behavior:
+ * - Three-tab layout (Predictors / Datasets / Folders) synced to `?tab=` in the URL.
+ * - Each tab has its own search query and advanced filter state.
+ * - Uses React Query to load:
+ *     - Public predictors, datasets, and folders.
+ *     - Pinned predictors and datasets for the current user.
+ * - Left sidebar shows pinned predictors/datasets; folders use inline star pins.
+ * - Right side shows a responsive grid of cards (PredictorCard / DatasetCard / FolderCard).
+ *
+ * Implementation notes:
+ * - Local state:
+ *     - Active tab, per-tab search queries and visibility.
+ *     - Advanced filter options (keyword target, updated-within, has-file, folder type/sort).
+ *     - Pinned state for folders (local-only) and selection state for cards.
+ *     - Expanded folder IDs, so folder contents can be lazily loaded.
+ * - Derived lists:
+ *     - `filteredPredictors`, `filteredDatasets`, `filteredFolders` are memoized and apply:
+ *         - Keyword filtering, owner-name filtering, visibility and time windows.
+ *         - Tab-specific sorting (chronological and alphabetical).
+ * - Pinning:
+ *     - Predictors/datasets: backed by pin/unpin mutations and React Query invalidation.
+ *     - Folders: stars are local-only; no backend wiring yet.
+ * - Folders:
+ *     - Expanding a folder triggers `getPublicFolderContents` on first open,
+ *       then patches the `public-folders` cache with the loaded items.
+ *     - `RecentFolders` offers quick access and scrolls the selected folder into view.
+ * - Filters:
+ *     - `AdvancedFilterMenu` is a shared dropdown that adapts to the active tab
+ *       (datasets get "has file", folders get folder type + sort controls, etc.).
+ */
+
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import SearchBar from "../components/SearchBar";
-import PublicFilter, { type Visibility } from "../components/PublicFilter";
+import type { Visibility } from "../components/PublicFilter";
 import DragDropProvider from "../components/DragDropProvider";
 
 import {
   FolderCard,
-  FolderSortMenu,
-  FolderTypeFilter,
   RecentFolders,
   type FolderSortOption,
   type FolderType,
@@ -26,6 +64,9 @@ import {
   listPublicFolders,
   getPublicFolderContents,
   mapApiFolderToUi,
+  listPinnedFolders,
+  pinFolder,
+  unpinFolder,
   type Folder,
 } from "../lib/folders";
 import {
@@ -42,9 +83,7 @@ import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
 
 import {
   filterPredictors,
-  sortPredictors,
   filterDatasets,
-  sortDatasets,
   filterFolders,
 } from "../lib/filtering";
 import type {
@@ -76,16 +115,7 @@ type BrowseItem = BrowsePredictor | BrowseDataset;
 // local types for advanced filters
 type KeywordTarget = "title" | "notes" | "both";
 type TimeWindow = "any" | "7d" | "30d" | "365d";
-
-const DEFAULT_PREDICTOR_SORT = {
-  field: "updatedAt" as const,
-  direction: "desc" as const,
-};
-
-const DEFAULT_DATASET_SORT = {
-  field: "updatedAt" as const,
-  direction: "desc" as const,
-};
+type SortMode = "chrono" | "alpha";
 
 // helper: updatedWithin matcher (uses raw ISO timestamp where possible)
 function matchesUpdatedWithin(
@@ -161,14 +191,18 @@ export default function Browse() {
     useState<KeywordTarget>("both");
   const [datasetKeywordTarget, setDatasetKeywordTarget] =
     useState<KeywordTarget>("both");
+  const [folderKeywordTarget, setFolderKeywordTarget] =
+    useState<KeywordTarget>("both");
 
   // updated within time windows
   const [predictorUpdatedWithin, setPredictorUpdatedWithin] =
     useState<TimeWindow>("any");
   const [datasetUpdatedWithin, setDatasetUpdatedWithin] =
     useState<TimeWindow>("any");
+  const [folderUpdatedWithin, setFolderUpdatedWithin] =
+    useState<TimeWindow>("any");
 
-  // owner username search (shared between predictors/datasets)
+  // owner username search (shared between tabs)
   const [ownerNameQuery, setOwnerNameQuery] = useState("");
 
   // datasets: only show those with a downloadable file
@@ -179,6 +213,21 @@ export default function Browse() {
     useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
 
+  // Sort state for predictors & datasets
+  const [predictorSortMode, setPredictorSortMode] =
+    useState<SortMode>("chrono");
+  const [predictorChronoDir, setPredictorChronoDir] =
+    useState<"asc" | "desc">("desc");
+  const [predictorAlphaDir, setPredictorAlphaDir] =
+    useState<"asc" | "desc">("asc");
+
+  const [datasetSortMode, setDatasetSortMode] =
+    useState<SortMode>("chrono");
+  const [datasetChronoDir, setDatasetChronoDir] =
+    useState<"asc" | "desc">("desc");
+  const [datasetAlphaDir, setDatasetAlphaDir] =
+    useState<"asc" | "desc">("asc");
+
   const [selectedPredictorId, setSelectedPredictorId] = useState<string | null>(
     null
   );
@@ -188,11 +237,6 @@ export default function Browse() {
 
   // Folder expansion state
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
-
-  // Local state for folder pins (no backend yet)
-  const [pinnedFolderIds, setPinnedFolderIds] = useState<Set<string>>(
     new Set()
   );
 
@@ -233,7 +277,9 @@ export default function Browse() {
       });
     },
     enabled: activeTab === "predictors",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Datasets
@@ -281,7 +327,9 @@ export default function Browse() {
       });
     },
     enabled: activeTab === "datasets",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Folders
@@ -294,17 +342,44 @@ export default function Browse() {
     queryFn: async () => {
       const apiFolders = await listPublicFolders();
       return apiFolders
-        .map(mapApiFolderToUi)
-        .filter((folder) => !folder.is_private && folder.public_item_count > 0);
+        .map((f: any) => {
+          const ui = mapApiFolderToUi(f) as any;
+
+          const updatedAtRaw =
+            (f as any).updated_at ?? (ui as any).updatedAtRaw ?? null;
+          const updatedAt =
+            (ui as any).updatedAt ??
+            (updatedAtRaw
+              ? new Date(updatedAtRaw).toLocaleDateString()
+              : undefined);
+
+          const ownerName =
+            (ui as any).ownerName ??
+            (f.owner?.username ??
+              (f.owner_name as string | undefined) ??
+              "Unknown owner");
+
+          return {
+            ...ui,
+            ownerName,
+            updatedAtRaw,
+            updatedAt,
+          };
+        })
+        .filter(
+          (folder: any) => !folder.is_private && folder.public_item_count > 0
+        );
     },
     enabled: activeTab === "folders",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
 
   // Fetch Pinned Predictor IDs
-  const { data: pinnedPredictorIds = new Set<string>() } = useQuery({
+  const { data: pinnedPredictorIds = new Set<string>(), isLoading: isPinnedPredictorsLoading } = useQuery({
     queryKey: ["pinned-predictors"],
     queryFn: async () => {
       if (!user) return new Set<string>();
@@ -315,7 +390,7 @@ export default function Browse() {
   });
 
   // Fetch Pinned Dataset IDs
-  const { data: pinnedDatasetIds = new Set<string>() } = useQuery({
+  const { data: pinnedDatasetIds = new Set<string>(), isLoading: isPinnedDatasetsLoading } = useQuery({
     queryKey: ["pinned-datasets"],
     queryFn: async () => {
       if (!user) return new Set<string>();
@@ -324,6 +399,27 @@ export default function Browse() {
     },
     enabled: !!user && activeTab === "datasets",
   });
+
+  // Fetch Pinned Folder IDs
+  const { data: pinnedFolderData = [], isLoading: isPinnedFoldersLoading } = useQuery({
+    queryKey: ["pinned-folders"],
+    queryFn: async () => {
+      if (!user) return [];
+      return await listPinnedFolders();
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Sidebar loading state based on active tab
+  const isSidebarLoading =
+    (activeTab === "predictors" && isPinnedPredictorsLoading) ||
+    (activeTab === "datasets" && isPinnedDatasetsLoading) ||
+    (activeTab === "folders" && isPinnedFoldersLoading);
+
+  const pinnedFolderIds = new Set(
+    pinnedFolderData.map((pf) => String(pf.folder?.folder_id || pf.folder_id))
+  );
 
   // --- MUTATIONS FOR PINNING ---
 
@@ -343,6 +439,29 @@ export default function Browse() {
       queryClient.invalidateQueries({ queryKey: ["pinned-datasets"] });
     },
     onError: (err) => console.error("Failed to toggle dataset pin", err),
+  });
+
+  const pinFolderMutation = useMutation({
+    mutationFn: async ({ id, isPinned }: { id: string; isPinned: boolean }) => {
+      if (isPinned) {
+        // Get fresh pinned folders data
+        const currentPinned = queryClient.getQueryData<any[]>(["pinned-folders"]) || [];
+        const pinnedEntry = currentPinned.find(
+          (pf) => String(pf.folder?.folder_id || pf.folder_id) === id
+        );
+        if (pinnedEntry) {
+          await unpinFolder(String(pinnedEntry.id));
+        } else {
+          console.warn(`Could not find pinned folder entry for folder ${id}`);
+        }
+      } else {
+        await pinFolder(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pinned-folders"] });
+    },
+    onError: (err) => console.error("Failed to toggle folder pin", err),
   });
 
   // --- FILTERING ---
@@ -385,10 +504,29 @@ export default function Browse() {
       );
     }
 
-    return sortPredictors(
-      base,
-      DEFAULT_PREDICTOR_SORT
-    ) as BrowsePredictor[];
+    // Apply sort based on current predictor sort mode
+    const sorted = [...base];
+
+    if (predictorSortMode === "chrono") {
+      // sort by updatedAtRaw (fallback to 0 if missing)
+      sorted.sort((a, b) => {
+        const aTime = a.updatedAtRaw ? Date.parse(a.updatedAtRaw) : 0;
+        const bTime = b.updatedAtRaw ? Date.parse(b.updatedAtRaw) : 0;
+
+        const cmp = aTime - bTime;
+        return predictorChronoDir === "asc" ? cmp : -cmp;
+      });
+    } else {
+      // sort by title A–Z / Z–A
+      sorted.sort((a, b) => {
+        const aTitle = (a.title ?? "").toLowerCase();
+        const bTitle = (b.title ?? "").toLowerCase();
+        const cmp = aTitle.localeCompare(bTitle);
+        return predictorAlphaDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return sorted;
   }, [
     activeTab,
     predictors,
@@ -397,6 +535,9 @@ export default function Browse() {
     predictorKeywordTarget,
     predictorUpdatedWithin,
     ownerNameQuery,
+    predictorSortMode,
+    predictorChronoDir,
+    predictorAlphaDir,
   ]);
 
   const filteredDatasets = useMemo<BrowseDataset[]>(() => {
@@ -442,7 +583,26 @@ export default function Browse() {
       base = base.filter((item) => !!item.hasFile);
     }
 
-    return sortDatasets(base, DEFAULT_DATASET_SORT) as BrowseDataset[];
+    const sorted = [...base];
+
+    if (datasetSortMode === "chrono") {
+      sorted.sort((a, b) => {
+        const aTime = a.updatedAtRaw ? Date.parse(a.updatedAtRaw) : 0;
+        const bTime = b.updatedAtRaw ? Date.parse(b.updatedAtRaw) : 0;
+
+        const cmp = aTime - bTime;
+        return datasetChronoDir === "asc" ? cmp : -cmp;
+      });
+    } else {
+      sorted.sort((a, b) => {
+        const aTitle = (a.title ?? "").toLowerCase();
+        const bTitle = (b.title ?? "").toLowerCase();
+        const cmp = aTitle.localeCompare(bTitle);
+        return datasetAlphaDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return sorted;
   }, [
     activeTab,
     datasets,
@@ -452,6 +612,69 @@ export default function Browse() {
     datasetUpdatedWithin,
     ownerNameQuery,
     datasetHasFileOnly,
+    datasetSortMode,
+    datasetChronoDir,
+    datasetAlphaDir,
+  ]);
+
+  const filteredFolders = useMemo(() => {
+    if (activeTab !== "folders") return [];
+
+    const keywords = folderQuery.trim()
+      ? folderQuery.trim().split(/\s+/)
+      : [];
+
+    const filter: FolderFilterState = {
+      keywords,
+      keywordTarget: folderKeywordTarget,
+      // Browse doesn't care about owner/viewer split; we show all public folders
+      ownership: "all",
+      visibility: folderVisibility,
+      folderType: folderTypeFilter,
+    };
+
+    // base keyword + visibility + folder-type filtering
+    let base = filterFolders(folders as any[], filter) as any[];
+
+    // owner-name filter
+    if (ownerNameQuery.trim()) {
+      const needle = ownerNameQuery.trim().toLowerCase();
+      base = base.filter((folder: any) =>
+        (
+          folder.ownerName ??
+          folder.owner?.username ??
+          folder.owner_name ??
+          ""
+        )
+          .toString()
+          .toLowerCase()
+          .includes(needle)
+      );
+    }
+
+    // time window filter
+    if (folderUpdatedWithin !== "any") {
+      base = base.filter((folder: any) =>
+        matchesUpdatedWithin(
+          (folder.updatedAtRaw ??
+            (folder as any).updated_at ??
+            (folder as any).updatedAt) as string | null | undefined,
+          folderUpdatedWithin
+        )
+      );
+    }
+
+    return sortFolders(base as any[], folderSortOption);
+  }, [
+    activeTab,
+    folders,
+    folderQuery,
+    folderVisibility,
+    folderTypeFilter,
+    folderSortOption,
+    folderKeywordTarget,
+    ownerNameQuery,
+    folderUpdatedWithin,
   ]);
 
   const filtered: BrowseItem[] =
@@ -460,30 +683,6 @@ export default function Browse() {
       : activeTab === "datasets"
       ? filteredDatasets
       : [];
-
-  const filteredFolders = useMemo(() => {
-    const keywords = folderQuery.trim()
-      ? folderQuery.trim().split(/\s+/)
-      : [];
-
-    const filter: FolderFilterState = {
-      keywords,
-      keywordTarget: "both",
-      // Browse doesn't care about owner/viewer split; we show all public folders
-      ownership: "all",
-      visibility: folderVisibility,
-      folderType: folderTypeFilter,
-    };
-
-    const base = filterFolders(folders, filter);
-    return sortFolders(base, folderSortOption);
-  }, [
-    folders,
-    folderQuery,
-    folderVisibility,
-    folderTypeFilter,
-    folderSortOption,
-  ]);
 
   // Global loading/error
   const isLoading =
@@ -516,10 +715,16 @@ export default function Browse() {
       ? pinnedDatasetIds
       : pinnedFolderIds;
 
-  // For now, we only show pinned predictors/datasets in sidebar (folders use inline pins only)
+  // Pinned items for sidebar
   const pinned =
     activeTab === "folders"
-      ? []
+      ? pinnedFolderData.map((pf) => ({
+          id: String(pf.folder.folder_id),
+          title: pf.folder.name,
+          owner: false,
+          notes: pf.folder.description || "",
+          updatedAt: new Date(pf.folder.updated_at).toLocaleDateString(),
+        }))
       : baseList.filter((it) => pinnedSet.has(it.id));
 
   // --- ACTIONS ---
@@ -562,15 +767,17 @@ export default function Browse() {
     ]
   );
 
-  // Local state pin for folders
-  const toggleFolderPin = useCallback((folderId: string) => {
-    setPinnedFolderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
-      return next;
-    });
-  }, []);
+  // Folder pin toggle using backend API
+  const toggleFolderPin = useCallback(
+    (folderId: string) => {
+      if (!user) return;
+      pinFolderMutation.mutate({
+        id: folderId,
+        isPinned: pinnedFolderIds.has(folderId),
+      });
+    },
+    [user, pinnedFolderIds, pinFolderMutation]
+  );
 
   const downloadDataset = useCallback(
     async (id: string, _allowAdminAccess?: boolean) => {
@@ -655,6 +862,28 @@ export default function Browse() {
     []
   );
 
+  // --- Sort toggle handlers for predictors/datasets (AdvancedFilterMenu) ---
+
+  const handlePredictorChronoToggle = useCallback(() => {
+    setPredictorSortMode("chrono");
+    setPredictorChronoDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }, []);
+
+  const handlePredictorAlphaToggle = useCallback(() => {
+    setPredictorSortMode("alpha");
+    setPredictorAlphaDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  }, []);
+
+  const handleDatasetChronoToggle = useCallback(() => {
+    setDatasetSortMode("chrono");
+    setDatasetChronoDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }, []);
+
+  const handleDatasetAlphaToggle = useCallback(() => {
+    setDatasetSortMode("alpha");
+    setDatasetAlphaDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  }, []);
+
   const tabLabel =
     activeTab === "predictors"
       ? "Predictors"
@@ -672,7 +901,7 @@ export default function Browse() {
       {/* Sticky sub-header under global nav (leave this exactly as-is) */}
       <div className="sticky top-[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-4">
-          <div className="text-md font-semibold tracking-wide">
+          <div className="text-lg font-semibold tracking-wide">
             Browse {tabLabel}
           </div>
         </div>
@@ -755,59 +984,106 @@ export default function Browse() {
 
             {/* Right cluster: filters (single unified menu per tab) */}
             <div className="flex shrink-0 items-center gap-2">
-              {activeTab === "folders" ? (
-                <FolderAdvancedFilterMenu
-                  visibility={folderVisibility}
-                  onVisibilityChange={setFolderVisibility}
-                  folderType={folderTypeFilter}
-                  onFolderTypeChange={setFolderTypeFilter}
-                  sortOption={folderSortOption}
-                  onSortOptionChange={setFolderSortOption}
-                />
-              ) : (
-                <AdvancedFilterMenu
-                  visibility={
-                    activeTab === "predictors"
-                      ? predictorVisibility
-                      : datasetVisibility
-                  }
-                  onVisibilityChange={
-                    activeTab === "predictors"
-                      ? setPredictorVisibility
-                      : setDatasetVisibility
-                  }
-                  keywordTarget={
-                    activeTab === "predictors"
-                      ? predictorKeywordTarget
-                      : datasetKeywordTarget
-                  }
-                  onKeywordTargetChange={
-                    activeTab === "predictors"
-                      ? setPredictorKeywordTarget
-                      : setDatasetKeywordTarget
-                  }
-                  updatedWithin={
-                    activeTab === "predictors"
-                      ? predictorUpdatedWithin
-                      : datasetUpdatedWithin
-                  }
-                  onUpdatedWithinChange={
-                    activeTab === "predictors"
-                      ? setPredictorUpdatedWithin
-                      : setDatasetUpdatedWithin
-                  }
-                  ownerNameQuery={ownerNameQuery}
-                  onOwnerNameQueryChange={setOwnerNameQuery}
-                  hasFileOnly={
-                    activeTab === "datasets" ? datasetHasFileOnly : undefined
-                  }
-                  onHasFileOnlyChange={
-                    activeTab === "datasets"
-                      ? setDatasetHasFileOnly
-                      : undefined
-                  }
-                />
-              )}
+              <AdvancedFilterMenu
+                visibility={
+                  activeTab === "predictors"
+                    ? predictorVisibility
+                    : activeTab === "datasets"
+                    ? datasetVisibility
+                    : folderVisibility
+                }
+                onVisibilityChange={
+                  activeTab === "predictors"
+                    ? setPredictorVisibility
+                    : activeTab === "datasets"
+                    ? setDatasetVisibility
+                    : setFolderVisibility
+                }
+                keywordTarget={
+                  activeTab === "predictors"
+                    ? predictorKeywordTarget
+                    : activeTab === "datasets"
+                    ? datasetKeywordTarget
+                    : folderKeywordTarget
+                }
+                onKeywordTargetChange={
+                  activeTab === "predictors"
+                    ? setPredictorKeywordTarget
+                    : activeTab === "datasets"
+                    ? setDatasetKeywordTarget
+                    : setFolderKeywordTarget
+                }
+                updatedWithin={
+                  activeTab === "predictors"
+                    ? predictorUpdatedWithin
+                    : activeTab === "datasets"
+                    ? datasetUpdatedWithin
+                    : folderUpdatedWithin
+                }
+                onUpdatedWithinChange={
+                  activeTab === "predictors"
+                    ? setPredictorUpdatedWithin
+                    : activeTab === "datasets"
+                    ? setDatasetUpdatedWithin
+                    : setFolderUpdatedWithin
+                }
+                ownerNameQuery={ownerNameQuery}
+                onOwnerNameQueryChange={setOwnerNameQuery}
+                hasFileOnly={
+                  activeTab === "datasets" ? datasetHasFileOnly : undefined
+                }
+                onHasFileOnlyChange={
+                  activeTab === "datasets"
+                    ? setDatasetHasFileOnly
+                    : undefined
+                }
+                folderType={
+                  activeTab === "folders" ? folderTypeFilter : undefined
+                }
+                onFolderTypeChange={
+                  activeTab === "folders" ? setFolderTypeFilter : undefined
+                }
+                folderSortOption={
+                  activeTab === "folders" ? folderSortOption : undefined
+                }
+                onFolderSortOptionChange={
+                  activeTab === "folders" ? setFolderSortOption : undefined
+                }
+                // predictor sort props
+                predictorChronoDir={
+                  activeTab === "predictors" ? predictorChronoDir : undefined
+                }
+                predictorAlphaDir={
+                  activeTab === "predictors" ? predictorAlphaDir : undefined
+                }
+                onPredictorChronoToggle={
+                  activeTab === "predictors"
+                    ? handlePredictorChronoToggle
+                    : undefined
+                }
+                onPredictorAlphaToggle={
+                  activeTab === "predictors"
+                    ? handlePredictorAlphaToggle
+                    : undefined
+                }
+                // dataset sort props
+                datasetChronoDir={
+                  activeTab === "datasets" ? datasetChronoDir : undefined
+                }
+                datasetAlphaDir={
+                  activeTab === "datasets" ? datasetAlphaDir : undefined
+                }
+                onDatasetChronoToggle={
+                  activeTab === "datasets"
+                    ? handleDatasetChronoToggle
+                    : undefined
+                }
+                onDatasetAlphaToggle={
+                  activeTab === "datasets"
+                    ? handleDatasetAlphaToggle
+                    : undefined
+                }
+              />
             </div>
           </div>
         </div>
@@ -833,7 +1109,12 @@ export default function Browse() {
               </div>
               {pinnedOpen && (
                 <div className="space-y-2 p-2">
-                  {pinned.length === 0 ? (
+                  {isSidebarLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-neutral-700" />
+                      <span className="text-xs text-neutral-600">Loading...</span>
+                    </div>
+                  ) : pinned.length === 0 ? (
                     <div className="rounded-md bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-600">
                       Nothing pinned yet
                     </div>
@@ -843,7 +1124,18 @@ export default function Browse() {
                         (activeTab === "predictors" &&
                           pinnedPredictorIds.has(p.id)) ||
                         (activeTab === "datasets" &&
-                          pinnedDatasetIds.has(p.id));
+                          pinnedDatasetIds.has(p.id)) ||
+                        (activeTab === "folders" &&
+                          pinnedFolderIds.has(p.id));
+
+                      const handlePinClick = () => {
+                        if (activeTab === "folders") {
+                          toggleFolderPin(p.id);
+                        } else {
+                          togglePin(p.id);
+                        }
+                      };
+
                       return (
                         <div
                           key={p.id}
@@ -859,7 +1151,7 @@ export default function Browse() {
                                 : "hover:bg-neutral-50"
                             }`}
                             title={isPinned ? "Unpin" : "Pin"}
-                            onClick={() => togglePin(p.id)}
+                            onClick={handlePinClick}
                           >
                             {isPinned ? "★" : "☆"}
                           </button>
@@ -929,9 +1221,8 @@ export default function Browse() {
                     ) : (
                       <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                         {filteredFolders.map((folder: any) => {
-                          const isPinned = pinnedFolderIds.has(
-                            folder.folder_id
-                          );
+                          const folderId = String(folder.folder_id);
+                          const isPinned = pinnedFolderIds.has(folderId);
                           return (
                             <div
                               key={folder.folder_id}
@@ -1078,13 +1369,24 @@ export default function Browse() {
 }
 
 /**
- * Advanced filter menu for predictors/datasets.
- * Consolidates:
- * - Visibility (public/private/all)
- * - Search in (title/notes/both)
- * - Updated within (time window)
- * - Owner username
- * - Has file (datasets only)
+ * AdvancedFilterMenu
+ *
+ * Shared dropdown used by all three Browse tabs.
+ *
+ * Responsibilities:
+ * - Wraps all "advanced" controls that refine the main search:
+ *     - Search target (title / notes / both).
+ *     - Updated-within time windows.
+ *     - Owner username filter.
+ *     - "Has downloadable file" toggle (datasets only).
+ *     - Folder type and folder-level sort (folders only).
+ *     - Chronological and alphabetical sort controls for the active tab.
+ *
+ * Implementation notes:
+ * - Uses a controlled `open` state and click-outside detection to close the menu
+ *   when the user clicks anywhere else on the page.
+ * - Adapts its UI based on which props are provided (datasets vs folders vs predictors).
+ * - Sort controls are derived from the currently active tab and bubble up via callbacks.
  */
 type AdvancedFilterMenuProps = {
   visibility: Visibility;
@@ -1101,11 +1403,27 @@ type AdvancedFilterMenuProps = {
 
   hasFileOnly?: boolean;
   onHasFileOnlyChange?: (value: boolean) => void;
+
+  folderType?: FolderType;
+  onFolderTypeChange?: (value: FolderType) => void;
+
+  folderSortOption?: FolderSortOption;
+  onFolderSortOptionChange?: (value: FolderSortOption) => void;
+
+  // Predictors tab sort
+  predictorChronoDir?: "asc" | "desc";
+  predictorAlphaDir?: "asc" | "desc";
+  onPredictorChronoToggle?: () => void;
+  onPredictorAlphaToggle?: () => void;
+
+  // Datasets tab sort
+  datasetChronoDir?: "asc" | "desc";
+  datasetAlphaDir?: "asc" | "desc";
+  onDatasetChronoToggle?: () => void;
+  onDatasetAlphaToggle?: () => void;
 };
 
 function AdvancedFilterMenu({
-  visibility,
-  onVisibilityChange,
   keywordTarget,
   onKeywordTargetChange,
   updatedWithin,
@@ -1114,28 +1432,172 @@ function AdvancedFilterMenu({
   onOwnerNameQueryChange,
   hasFileOnly,
   onHasFileOnlyChange,
+  folderType,
+  onFolderTypeChange,
+  folderSortOption,
+  onFolderSortOptionChange,
+  predictorChronoDir,
+  predictorAlphaDir,
+  onPredictorChronoToggle,
+  onPredictorAlphaToggle,
+  datasetChronoDir,
+  datasetAlphaDir,
+  onDatasetChronoToggle,
+  onDatasetAlphaToggle,
 }: AdvancedFilterMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Close when clicking anywhere outside the filter menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!open) return;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [open]);
+
+  // Folder-type pill options (only used on folder tab)
+  const folderTypeOptions: { value: FolderType; label: string }[] = [
+    { value: "all", label: "All folders" },
+    { value: "predictor-only", label: "Predictors only" },
+    { value: "dataset-only", label: "Datasets only" },
+    { value: "mixed", label: "Mixed content" },
+  ];
+
+  // Derive folder sort directions from folderSortOption
+  const folderChronoDir: "asc" | "desc" =
+    folderSortOption && folderSortOption.field === "date"
+      ? folderSortOption.direction
+      : "desc";
+
+  const folderAlphaDir: "asc" | "desc" =
+    folderSortOption && folderSortOption.field === "name"
+      ? folderSortOption.direction
+      : "asc";
+
+  const handleFolderChronoToggle = () => {
+    if (!onFolderSortOptionChange) return;
+    const nextDirection: FolderSortOption["direction"] =
+      folderChronoDir === "desc" ? "asc" : "desc";
+    onFolderSortOptionChange({
+      field: "date",
+      direction: nextDirection,
+      label:
+        nextDirection === "desc"
+          ? "Recently updated (newest)"
+          : "Recently updated (oldest)",
+    } as FolderSortOption);
+  };
+
+  const handleFolderAlphaToggle = () => {
+    if (!onFolderSortOptionChange) return;
+    const nextDirection: FolderSortOption["direction"] =
+      folderAlphaDir === "asc" ? "desc" : "asc";
+    onFolderSortOptionChange({
+      field: "name",
+      direction: nextDirection,
+      label: nextDirection === "asc" ? "Title A–Z" : "Title Z–A",
+    } as FolderSortOption);
+  };
+
+  // Choose which context we’re in: predictors, datasets, or folders
+  let chronoDir: "asc" | "desc" | undefined;
+  let alphaDir: "asc" | "desc" | undefined;
+  let onChronoClick: (() => void) | undefined;
+  let onAlphaClick: (() => void) | undefined;
+
+  if (
+    predictorChronoDir &&
+    predictorAlphaDir &&
+    onPredictorChronoToggle &&
+    onPredictorAlphaToggle
+  ) {
+    // Predictors tab
+    chronoDir = predictorChronoDir;
+    alphaDir = predictorAlphaDir;
+    onChronoClick = onPredictorChronoToggle;
+    onAlphaClick = onPredictorAlphaToggle;
+  } else if (
+    datasetChronoDir &&
+    datasetAlphaDir &&
+    onDatasetChronoToggle &&
+    onDatasetAlphaToggle
+  ) {
+    // Datasets tab
+    chronoDir = datasetChronoDir;
+    alphaDir = datasetAlphaDir;
+    onChronoClick = onDatasetChronoToggle;
+    onAlphaClick = onDatasetAlphaToggle;
+  } else if (folderSortOption && onFolderSortOptionChange) {
+    // Folders tab
+    chronoDir = folderChronoDir;
+    alphaDir = folderAlphaDir;
+    onChronoClick = handleFolderChronoToggle;
+    onAlphaClick = handleFolderAlphaToggle;
+  }
+
+  const hasSortControls =
+    chronoDir !== undefined &&
+    alphaDir !== undefined &&
+    onChronoClick &&
+    onAlphaClick;
+
+  const chronoLabel =
+    chronoDir === "desc" ? "Newest → oldest" : "Oldest → newest";
+  const chronoArrow = chronoDir === "desc" ? "▾" : "▴";
+
+  const alphaLabel = alphaDir === "asc" ? "A–Z" : "Z–A";
+  const alphaArrow = alphaDir === "asc" ? "▴" : "▾";
+
   return (
-    <details className="group relative">
-      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+    <div ref={containerRef} className="relative inline-block text-left">
+      <button
+        type="button"
+        className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        aria-expanded={open}
+      >
         Filters
-        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
+        <span
+          className={`transition-transform text-[20px] text-neutral-500 ${
+            open ? "rotate-180" : ""
+          }`}
+        >
           ▾
         </span>
-      </summary>
-      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
+      </button>
+
+      <div
+        className={`absolute right-0 z-20 mt-1 w-72 origin-top-right transform rounded-md border bg-white p-3 text-xs shadow-lg transition-all duration-150 ease-out max-h-[50vh] overflow-y-auto ${
+            open
+              ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+          }`}
+          onClick={(e) => e.stopPropagation()}  
+      >
         {/* Info pill about how filters work */}
         <div className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-600">
-          Filters refine whatever you type into the search bar. If there
-          is nothing, it defaults to searching through everything! Start
-          typing to refine your search.
+          Filters refine whatever you type into the search bar. If there is
+          nothing, it defaults to searching through everything! Start typing to
+          refine your search.
         </div>
 
         {/* Search in */}
         <div className="mb-3">
-          <div className="mb-1 font-semibold text-neutral-700">
-            Search in
-          </div>
+          <div className="mb-1 font-semibold text-neutral-700">Search in</div>
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -1206,78 +1668,78 @@ function AdvancedFilterMenu({
 
         {/* Has file (datasets only) */}
         {typeof hasFileOnly === "boolean" && onHasFileOnlyChange && (
-          <label className="flex items-center gap-2 text-xs text-neutral-700">
-            <input
-              type="checkbox"
-              checked={hasFileOnly}
-              onChange={(e) => onHasFileOnlyChange(e.target.checked)}
-              className="h-3 w-3 rounded border-neutral-400 text-neutral-900"
-            />
-            <span>Downloadable dataset</span>
-          </label>
+          <div className="mb-3">
+            <label className="flex items-center gap-2 text-xs text-neutral-700">
+              <input
+                type="checkbox"
+                checked={hasFileOnly}
+                onChange={(e) => onHasFileOnlyChange(e.target.checked)}
+                className="h-3 w-3 rounded border-neutral-400 text-neutral-900"
+              />
+              <span>Downloadable dataset</span>
+            </label>
+          </div>
+        )}
+
+        {/* Folder-only controls */}
+        {folderType !== undefined && onFolderTypeChange && (
+          <div className="mb-3">
+            <div className="mb-1 font-semibold text-neutral-700">
+              Folder type
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {folderTypeOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onFolderTypeChange(value)}
+                  className={`rounded-md border px-2.5 py-1 text-xs ${
+                    folderType === value
+                      ? "bg-neutral-900 text-white"
+                      : "bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {hasSortControls && (
+          <>
+            {/* Chronological sort */}
+            <div className="mb-3">
+              <div className="mb-1 font-semibold text-neutral-700">
+                Chronological sort
+              </div>
+              <button
+                type="button"
+                onClick={onChronoClick}
+                className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+              >
+                <span>{chronoLabel}</span>
+                <span className="text-[11px]">{chronoArrow}</span>
+              </button>
+            </div>
+
+            {/* Alphabetical sort */}
+            <div>
+              <div className="mb-1 font-semibold text-neutral-700">
+                Alphabetical sort
+              </div>
+              <button
+                type="button"
+                onClick={onAlphaClick}
+                className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+              >
+                <span>{alphaLabel}</span>
+                <span className="text-[11px]">{alphaArrow}</span>
+              </button>
+            </div>
+          </>
         )}
       </div>
-    </details>
-  );
-}
-
-/**
- * Folder-specific filter menu.
- * Consolidates:
- * - Visibility (public/private/all)
- * - Folder type
- * - Sort option
- */
-type FolderAdvancedFilterMenuProps = {
-  visibility: Visibility;
-  onVisibilityChange: (value: Visibility) => void;
-
-  folderType: FolderType;
-  onFolderTypeChange: (value: FolderType) => void;
-
-  sortOption: FolderSortOption;
-  onSortOptionChange: (value: FolderSortOption) => void;
-};
-
-function FolderAdvancedFilterMenu({
-  folderType,
-  onFolderTypeChange,
-  sortOption,
-  onSortOptionChange,
-}: FolderAdvancedFilterMenuProps) {
-  return (
-    <details className="group relative">
-      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
-        Filters
-        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
-          ▾
-        </span>
-      </summary>
-      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
-        {/* Info pill about how filters work */}
-        <div className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[11px] text-neutral-600">
-          Filters refine whatever you type into the search bar. If there
-          is nothing, it defaults to searching through everything! Start
-          typing to refine your search.
-        </div>
-
-
-        {/* Folder type */}
-        <div className="mb-3">
-          <div className="mb-1 font-semibold text-neutral-700">
-            Folder type
-          </div>
-          <FolderTypeFilter value={folderType} onChange={onFolderTypeChange} />
-        </div>
-
-        {/* Sort */}
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-semibold text-neutral-700">Sort by</span>
-          </div>
-          <FolderSortMenu value={sortOption} onChange={onSortOptionChange} />
-        </div>
-      </div>
-    </details>
+    </div>
   );
 }

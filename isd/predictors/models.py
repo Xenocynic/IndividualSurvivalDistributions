@@ -32,29 +32,114 @@ class Predictor(models.Model):
         verbose_name = "Predictor"
         verbose_name_plural = "Predictors"
 
-    # --- Advanced configuration fields ---
-    time_unit = models.CharField(
-        max_length=10,
-        choices=[('day', 'Day'), ('hour', 'Hour'), ('month', 'Month'), ('year', 'Year')],
-        default='day'
+    # --- ML Model Configuration ---
+    # Model & Experiment Settings
+    model = models.CharField(
+        max_length=50,
+        choices=[
+            ('MTLR', 'MTLR'),
+            ('DeepHit', 'DeepHit'),
+            ('CoxPH', 'CoxPH'),
+            ('AFT', 'AFT'),
+            ('GB', 'GB'),
+            ('CoxTime', 'CoxTime'),
+            ('CQRNN', 'CQRNN'),
+            ('LogNormalNN', 'LogNormalNN'),
+            ('KM', 'KM'),
+        ],
+        default='MTLR',
+        help_text='Survival analysis model type'
     )
-
-    num_time_points = models.PositiveIntegerField(blank=True, null=True)
-    regularization = models.CharField(max_length=5, choices=[('l1', 'L1'), ('l2', 'L2')], default='l2')
-    objective_function = models.CharField(max_length=50, default='log-likelihood')
-    marginal_loss_type = models.CharField(max_length=50, default='weighted')
-    c_param_search_scope = models.CharField(max_length=20, default='basic')
-
-    cox_feature_selection = models.BooleanField(default=False)
-    mrmr_feature_selection = models.BooleanField(default=False)
-    mtlr_predictor = models.CharField(max_length=50, default='stable')
-
-    # --- Recommended settings ---
-    standardize_features = models.BooleanField(default=True)
-    run_cross_validation = models.BooleanField(default=True)
-    tune_parameters = models.BooleanField(default=True)
-    use_smoothed_log_likelihood = models.BooleanField(default=False)
-    use_predefined_folds = models.BooleanField(default=False)
+    post_process = models.CharField(
+        max_length=20,
+        choices=[('CSD', 'CSD'), ('CSD-iPOT', 'CSD-iPOT')],
+        default='CSD',
+        help_text='Post-processing method for predictions'
+    )
+    n_exp = models.PositiveIntegerField(default=1, help_text='Number of experimental runs')
+    seed = models.IntegerField(default=0, help_text='Random seed for reproducibility')
+    time_bins = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text='Number of time bins (for MTLR, CoxPH, CQRNN, LogNormalNN)'
+    )
+    
+    # Conformalization Settings
+    error_f = models.CharField(
+        max_length=50,
+        default='Quantile',
+        help_text='Error function for conformal prediction'
+    )
+    decensor_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('uncensored', 'Uncensored'),
+            ('margin', 'Margin'),
+            ('PO', 'PO'),
+            ('sampling', 'Sampling'),
+        ],
+        default='uncensored',
+        help_text='Method for handling censored data'
+    )
+    mono_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('ceil', 'Ceil'),
+            ('floor', 'Floor'),
+            ('bootstrap', 'Bootstrap'),
+        ],
+        default='ceil',
+        help_text='Method for ensuring monotonicity'
+    )
+    interpolate = models.CharField(
+        max_length=20,
+        choices=[('Linear', 'Linear'), ('Pchip', 'Pchip')],
+        default='Pchip',
+        help_text='Interpolation method for predictions'
+    )
+    n_quantiles = models.PositiveIntegerField(default=49, help_text='Number of quantiles')
+    use_train = models.BooleanField(default=True, help_text='Include training data in conformal prediction')
+    n_sample = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Number of samples when using sampling decensor method'
+    )
+    
+    # Neural Network Architecture (for applicable models)
+    neurons = models.JSONField(
+        default=list,
+        help_text='Hidden layer sizes as array, e.g. [64, 64]'
+    )
+    norm = models.BooleanField(default=True, help_text='Use batch normalization')
+    dropout = models.FloatField(default=0.4, help_text='Dropout rate (0-1)')
+    activation = models.CharField(
+        max_length=20,
+        choices=[
+            ('ReLU', 'ReLU'),
+            ('LeakyReLU', 'LeakyReLU'),
+            ('PReLU', 'PReLU'),
+            ('Tanh', 'Tanh'),
+            ('Sigmoid', 'Sigmoid'),
+            ('ELU', 'ELU'),
+            ('SELU', 'SELU'),
+        ],
+        default='ReLU',
+        help_text='Activation function'
+    )
+    
+    # Training Hyperparameters (for neural network models)
+    n_epochs = models.PositiveIntegerField(default=10000, help_text='Maximum training iterations')
+    early_stop = models.BooleanField(default=True, help_text='Enable early stopping')
+    batch_size = models.PositiveIntegerField(default=128, help_text='Batch size for training')
+    lr = models.FloatField(default=0.001, help_text='Learning rate')
+    weight_decay = models.FloatField(default=0.0, help_text='L2 regularization strength')
+    lam = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Lambda parameter for LogNormalNN d-calibration'
+    )
+    
+    # --- System Settings ---
     allow_admin_access = models.BooleanField(default=False)
 
     # --- System metadata ---

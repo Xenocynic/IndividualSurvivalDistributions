@@ -1,13 +1,12 @@
 /**
  * DASHBOARD
- * (Predictors & Datasets)
  *
  * Purpose:
- * - Renders a two-tab workspace: "Predictors" and "Datasets".
+ * - Renders a three-tab workspace: "Predictors", "Datasets", and "Folders".
  * - Shares a single search box and filters across tabs.
  * - Has a sticky toolbar (tabs + search + filter + create) that stays visible while scrolling.
- * - Grid shows cards; clicking a card toggles its "selected" state:
- * - "Create" menu can add a Predictor or Dataset; after creating:
+ * - Grid shows cards; clicking a card toggles its "selected" state.
+ * - "Create" menu can add a Predictor, Dataset, or Folder.
  *   - The new item is inserted at the top,
  *   - The page switches to the corresponding tab (for datasets),
  *   - The new card is selected.
@@ -16,14 +15,19 @@
  * - TanStack Query (useQuery) manages data fetching and caching.
  * - TanStack Query (useMutation) handles server-side updates.
  * - Local state holds UI state (activeTab, query, ownership, selection, etc.).
- * - useMemo filters each list by query + ownership.
+ * - useMemo filters each list by query + ownership + time window.
  * - Clicking the page background clears any selection.
  * - A small modal handles delete confirmation.
- *
  */
 
-import { useMemo, useState, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Toolbar from "../components/Toolbar";
 import PredictorCard, { type PredictorItem } from "../components/PredictorCard";
@@ -34,7 +38,6 @@ import {
   FolderSidebar,
   RecentFolders,
   DroppableFolder,
-  FolderSortMenu,
 } from "../components/folder";
 import FolderEditModal from "../components/folder/modals/FolderEditModal";
 import FolderSharingModal from "../components/folder/modals/FolderSharingModal";
@@ -68,16 +71,13 @@ import {
 import { sortFolders, DEFAULT_FOLDER_SORT } from "../lib/folderUtils";
 import {
   filterPredictors,
-  sortPredictors,
   filterDatasets,
-  sortDatasets,
   filterFolders,
 } from "../lib/filtering";
 import type {
   PredictorFilterState,
   DatasetFilterState,
   FolderFilterState,
-  SortOption,
 } from "../types/flitering";
 import type { FolderSortOption, FolderType } from "../components/folder";
 import { FolderOpen } from "lucide-react";
@@ -86,18 +86,9 @@ type Tab = "predictors" | "datasets" | "folders";
 type DeleteType = "predictor" | "dataset" | "folder";
 type KeywordTarget = "title" | "notes" | "both";
 type TimeWindow = "any" | "7d" | "30d" | "365d";
+type SortMode = "chrono" | "alpha";
 
-const DEFAULT_PREDICTOR_SORT: SortOption = {
-  field: "updatedAt",
-  direction: "desc",
-};
-
-const DEFAULT_DATASET_SORT: SortOption = {
-  field: "updatedAt",
-  direction: "desc",
-};
-
-// helper: updatedWithin matcher
+// Helper: match items updated within a time window
 function matchesUpdatedWithin(
   updatedAt: string | null | undefined,
   window: TimeWindow
@@ -105,7 +96,6 @@ function matchesUpdatedWithin(
   if (!updatedAt || window === "any") return true;
 
   const parsed = Date.parse(updatedAt);
-  // if we can't parse the date, don't exclude it
   if (Number.isNaN(parsed)) return true;
 
   const now = Date.now();
@@ -117,6 +107,19 @@ function matchesUpdatedWithin(
   return parsed >= cutoff;
 }
 
+// Helper: derive a sortable timestamp from item fields
+function getItemTimestamp(item: any): number {
+  const raw =
+    item.updatedAtRaw ??
+    item.updatedAtSort ??
+    item.updated_at ??
+    item.updatedAt ??
+    null;
+  if (!raw) return 0;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -125,15 +128,120 @@ export default function Dashboard() {
     [user]
   );
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // derive activeTab from URL (?tab=predictors|datasets|folders)
+  // Derive active tab from URL (?tab=predictors|datasets|folders)
   const activeTab: Tab = (() => {
     const q = searchParams.get("tab");
     return q === "datasets" || q === "folders" ? (q as Tab) : "predictors";
   })();
 
-  // when a tab button is clicked, update the URL
+  // Track newly created items for highlighting
+  const [newlyCreatedDatasetId, setNewlyCreatedDatasetId] = useState<string | null>(null);
+  const [newlyCreatedPredictorId, setNewlyCreatedPredictorId] = useState<string | null>(null);
+  const [newlyCreatedFolderId, setNewlyCreatedFolderId] = useState<string | null>(null);
+  
+  // Track pending navigation state (to handle it after tab switch)
+  const [pendingNewDatasetId, setPendingNewDatasetId] = useState<string | null>(null);
+  const [pendingNewPredictorId, setPendingNewPredictorId] = useState<string | null>(null);
+
+  // Handle navigation state from item creation - Step 1: Switch tab
+  useEffect(() => {
+    const state = location.state as {
+      tab?: string;
+      justCreatedId?: number | string;
+    } | null;
+
+    if (state?.tab === "datasets") {
+      // Store the new dataset ID for later
+      if (state.justCreatedId) {
+        setPendingNewDatasetId(String(state.justCreatedId));
+      }
+
+      // Switch to datasets tab via URL
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "datasets");
+          return sp;
+        },
+        { replace: true }
+      );
+
+      // Clear the location state to prevent re-triggering on refresh
+      navigate(location.pathname + "?tab=datasets", { replace: true, state: null });
+    } else if (state?.tab === "predictors") {
+      // Store the new predictor ID for later
+      if (state.justCreatedId) {
+        setPendingNewPredictorId(String(state.justCreatedId));
+      }
+
+      // Switch to predictors tab via URL
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "predictors");
+          return sp;
+        },
+        { replace: true }
+      );
+
+      // Clear the location state to prevent re-triggering on refresh
+      navigate(location.pathname + "?tab=predictors", { replace: true, state: null });
+    }
+  }, [location.state, setSearchParams, navigate, location.pathname]);
+
+  // Handle navigation state - Step 2: After tab is switched to datasets, apply highlight
+  useEffect(() => {
+    if (pendingNewDatasetId && activeTab === "datasets") {
+      setNewlyCreatedDatasetId(pendingNewDatasetId);
+      setPendingNewDatasetId(null);
+      // Invalidate datasets query to fetch the new dataset
+      queryClient.invalidateQueries({ queryKey: ["datasets"] });
+    }
+  }, [pendingNewDatasetId, activeTab, queryClient]);
+
+  // Handle navigation state - Step 2: After tab is switched to predictors, apply highlight
+  useEffect(() => {
+    if (pendingNewPredictorId && activeTab === "predictors") {
+      setNewlyCreatedPredictorId(pendingNewPredictorId);
+      setPendingNewPredictorId(null);
+      // Invalidate predictors query to fetch the new predictor
+      queryClient.invalidateQueries({ queryKey: ["predictors"] });
+    }
+  }, [pendingNewPredictorId, activeTab, queryClient]);
+
+  // Clear the dataset highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedDatasetId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedDatasetId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedDatasetId]);
+
+  // Clear the predictor highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedPredictorId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedPredictorId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedPredictorId]);
+
+  // Clear the folder highlight after 5 seconds
+  useEffect(() => {
+    if (newlyCreatedFolderId) {
+      const timer = setTimeout(() => {
+        setNewlyCreatedFolderId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [newlyCreatedFolderId]);
+
   const selectTab = (t: Tab) => {
     setSearchParams(
       (prev) => {
@@ -142,15 +250,13 @@ export default function Dashboard() {
         return sp;
       },
       { replace: true }
-    ); // avoid history spam
+    );
     clearSelection();
-    // Smooth scroll to top on tab change
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // --- TANSTACK QUERY INTEGRATION ---
+  // --- DATA FETCHING (TanStack Query) ---
 
-  // 1. Fetch Predictors
   const {
     data: predictors = [],
     isLoading: isPredictorsLoading,
@@ -162,10 +268,11 @@ export default function Dashboard() {
     },
     select: (data) => data.map((it) => mapApiPredictorToUi(it, currentUserId)),
     enabled: activeTab === "predictors",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
-  // 2. Fetch Datasets
   const {
     data: datasets = [],
     isLoading: isDatasetsLoading,
@@ -177,11 +284,12 @@ export default function Dashboard() {
     },
     select: (data) => data.map((it) => mapApiDatasetToUi(it, currentUserId)),
     enabled: activeTab === "datasets",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
-  // 3. Fetch Folders
-  // Note: We always fetch folders because the Sidebar might need them, or for drag/drop targets
+  // Folders are always fetched; they are used in sidebar and as drag targets
   const {
     data: folders = [],
     isLoading: isFoldersLoading,
@@ -189,16 +297,18 @@ export default function Dashboard() {
     queryKey: ["folders"],
     queryFn: listMyFolders,
     select: (data) => (Array.isArray(data) ? data.map(mapApiFolderToUi) : []),
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
-  // Determine global loading state based on active tab
   const isLoading =
     (activeTab === "predictors" && isPredictorsLoading) ||
     (activeTab === "datasets" && isDatasetsLoading) ||
     (activeTab === "folders" && isFoldersLoading);
 
-  // separate keyword target states for each tab
+  // --- FILTER STATE ---
+
   const [predictorKeywordTarget, setPredictorKeywordTarget] =
     useState<KeywordTarget>("title");
   const [datasetKeywordTarget, setDatasetKeywordTarget] =
@@ -206,7 +316,6 @@ export default function Dashboard() {
   const [folderKeywordTarget, setFolderKeywordTarget] =
     useState<KeywordTarget>("both");
 
-  // UPDATED WITHIN states per tab
   const [predictorUpdatedWithin, setPredictorUpdatedWithin] =
     useState<TimeWindow>("any");
   const [datasetUpdatedWithin, setDatasetUpdatedWithin] =
@@ -214,11 +323,23 @@ export default function Dashboard() {
   const [folderUpdatedWithin, setFolderUpdatedWithin] =
     useState<TimeWindow>("any");
 
-  // separate ownership filters for each tab
   const [predictorOwnership, setPredictorOwnership] =
     useState<Ownership>("all");
   const [datasetOwnership, setDatasetOwnership] = useState<Ownership>("all");
   const [folderOwnership, setFolderOwnership] = useState<Ownership>("all");
+
+  const [predictorSortMode, setPredictorSortMode] =
+    useState<SortMode>("chrono");
+  const [predictorChronoDir, setPredictorChronoDir] =
+    useState<"asc" | "desc">("desc");
+  const [predictorAlphaDir, setPredictorAlphaDir] =
+    useState<"asc" | "desc">("asc");
+
+  const [datasetSortMode, setDatasetSortMode] = useState<SortMode>("chrono");
+  const [datasetChronoDir, setDatasetChronoDir] =
+    useState<"asc" | "desc">("desc");
+  const [datasetAlphaDir, setDatasetAlphaDir] =
+    useState<"asc" | "desc">("asc");
 
   // --- MUTATIONS ---
 
@@ -240,8 +361,12 @@ export default function Dashboard() {
 
   const createFolderMutation = useMutation({
     mutationFn: createFolder,
-    onSuccess: () => {
+    onSuccess: (createdFolder) => {
       queryClient.invalidateQueries({ queryKey: ["folders"] });
+      // Set the newly created folder ID for highlighting after data is refreshed
+      if (createdFolder?.folder_id) {
+        setNewlyCreatedFolderId(String(createdFolder.folder_id));
+      }
     },
     onError: (error: any) => {
       const folderError = handleFolderApiError(error);
@@ -252,13 +377,11 @@ export default function Dashboard() {
   const deleteFolderMutation = useMutation({
     mutationFn: deleteFolder,
     onSuccess: (_data, folderId) => {
-      // Optimistically drop the deleted folder from cache for instant UI update
+      // Optimistically remove deleted folder from cache
       queryClient.setQueryData(["folders"], (prev: any) => {
         if (!Array.isArray(prev)) return prev;
         return prev.filter(
-          (f) =>
-            f.folder_id !== folderId &&
-            f.id !== folderId // fallback if backend uses id
+          (f) => f.folder_id !== folderId && f.id !== folderId
         );
       });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -285,9 +408,8 @@ export default function Dashboard() {
     },
   });
 
-  // --- LOCAL STATE ---
+  // --- LOCAL UI STATE ---
 
-  // Combined selection state
   const [selection, setSelection] = useState<{
     predictorId: string | null;
     datasetId: string | null;
@@ -296,28 +418,24 @@ export default function Dashboard() {
     datasetId: null,
   });
 
-  // Combined tab state (queries only)
   const [tabState, setTabState] = useState({
     predictorQuery: "",
     datasetQuery: "",
     folderQuery: "",
   });
 
-  // UNIFIED DELETE STATE
   const [deleteContext, setDeleteContext] = useState<{
     id: string;
     title: string;
     type: DeleteType;
   } | null>(null);
 
-  // folder management
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
 
-  // folder edit / share modals
   const [editingFolder, setEditingFolder] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [sharingFolder, setSharingFolder] = useState<any | null>(null);
@@ -328,7 +446,6 @@ export default function Dashboard() {
   } | null>(null);
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
-  // folder-specific filters
   const [folderSortOption, setFolderSortOption] =
     useState<FolderSortOption>(DEFAULT_FOLDER_SORT);
   const [folderTypeFilter, setFolderTypeFilter] = useState<FolderType>("all");
@@ -336,7 +453,6 @@ export default function Dashboard() {
     null
   );
 
-  // drag and drop
   const [loadingFolders, setLoadingFolders] = useState<Set<string>>(new Set());
 
   const { moveItem, isItemLoading } = useDragDrop(() => {
@@ -345,7 +461,7 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ["datasets"] });
   });
 
-  // --- FILTERED LISTS (advanced system) ---
+  // --- FILTERED LISTS ---
 
   const filteredPredictors = useMemo(() => {
     const keywords = tabState.predictorQuery.trim()
@@ -372,13 +488,46 @@ export default function Dashboard() {
       );
     }
 
-    return sortPredictors(base, DEFAULT_PREDICTOR_SORT);
+    const sorted = [...base];
+
+    if (predictorSortMode === "chrono") {
+      sorted.sort((a, b) => {
+        const aTime = getItemTimestamp(a);
+        const bTime = getItemTimestamp(b);
+        const cmp = aTime - bTime;
+        return predictorChronoDir === "asc" ? cmp : -cmp;
+      });
+    } else {
+      sorted.sort((a, b) => {
+        const aTitle = (a.title ?? "").toLowerCase();
+        const bTitle = (b.title ?? "").toLowerCase();
+        const cmp = aTitle.localeCompare(bTitle);
+        return predictorAlphaDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    // If there's a newly created predictor, move it to the top
+    if (newlyCreatedPredictorId) {
+      const newPredictorIndex = sorted.findIndex(
+        (p) => String(p.id) === newlyCreatedPredictorId
+      );
+      if (newPredictorIndex > 0) {
+        const [newPredictor] = sorted.splice(newPredictorIndex, 1);
+        sorted.unshift(newPredictor);
+      }
+    }
+
+    return sorted;
   }, [
     predictors,
     tabState.predictorQuery,
     predictorOwnership,
     predictorKeywordTarget,
     predictorUpdatedWithin,
+    predictorSortMode,
+    predictorChronoDir,
+    predictorAlphaDir,
+    newlyCreatedPredictorId,
   ]);
 
   const filteredDatasets = useMemo(() => {
@@ -406,16 +555,49 @@ export default function Dashboard() {
       );
     }
 
-    return sortDatasets(base, DEFAULT_DATASET_SORT);
+    const sorted = [...base];
+
+    if (datasetSortMode === "chrono") {
+      sorted.sort((a, b) => {
+        const aTime = getItemTimestamp(a);
+        const bTime = getItemTimestamp(b);
+        const cmp = aTime - bTime;
+        return datasetChronoDir === "asc" ? cmp : -cmp;
+      });
+    } else {
+      sorted.sort((a, b) => {
+        const aTitle = (a.title ?? "").toLowerCase();
+        const bTitle = (b.title ?? "").toLowerCase();
+        const cmp = aTitle.localeCompare(bTitle);
+        return datasetAlphaDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    // If there's a newly created dataset, move it to the top
+    if (newlyCreatedDatasetId) {
+      const newDatasetIndex = sorted.findIndex(
+        (d) => String(d.id) === newlyCreatedDatasetId
+      );
+      if (newDatasetIndex > 0) {
+        const [newDataset] = sorted.splice(newDatasetIndex, 1);
+        sorted.unshift(newDataset);
+      }
+    }
+
+    return sorted;
   }, [
     datasets,
     tabState.datasetQuery,
     datasetOwnership,
     datasetKeywordTarget,
     datasetUpdatedWithin,
+    datasetSortMode,
+    datasetChronoDir,
+    datasetAlphaDir,
+    newlyCreatedDatasetId,
   ]);
 
-  // Pre-filter folders to only show owned or shared (with permissions) folders in Dashboard
+  // Pre-filter folders to only show owned or shared folders in Dashboard
   const accessibleFolders = useMemo(() => {
     if (!currentUserId) return [];
     return folders.filter((folder) =>
@@ -450,7 +632,20 @@ export default function Dashboard() {
       );
     }
 
-    return sortFolders(list, folderSortOption);
+    const sorted = sortFolders(list, folderSortOption);
+
+    // If there's a newly created folder, move it to the top
+    if (newlyCreatedFolderId) {
+      const newFolderIndex = sorted.findIndex(
+        (f) => String(f.folder_id) === String(newlyCreatedFolderId)
+      );
+      if (newFolderIndex > 0) {
+        const [newFolder] = sorted.splice(newFolderIndex, 1);
+        sorted.unshift(newFolder);
+      }
+    }
+
+    return sorted;
   }, [
     accessibleFolders,
     tabState.folderQuery,
@@ -460,9 +655,10 @@ export default function Dashboard() {
     folderKeywordTarget,
     folderUpdatedWithin,
     currentUserId,
+    newlyCreatedFolderId,
   ]);
 
-  // --- SELECTION & NAV ---
+  // --- SELECTION & NAVIGATION ---
 
   const toggleSelect = useCallback(
     (id: string) => {
@@ -505,8 +701,18 @@ export default function Dashboard() {
     try {
       await createFolderMutation.mutateAsync(data);
       setShowFolderModal(false);
+      
+      // Switch to folders tab (highlighting is handled in mutation onSuccess)
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("tab", "folders");
+          return sp;
+        },
+        { replace: true }
+      );
     } catch {
-      // handled in onError of mutation
+      // Error handled in mutation onError
     }
   }
 
@@ -554,7 +760,6 @@ export default function Dashboard() {
     setIsDeletingFolder(true);
     setLoadingFolders((prev) => new Set(prev).add(folderId));
 
-    // Optimistically remove from cache so UI drops immediately
     queryClient.setQueryData(["folders"], (prev: any) => {
       if (!Array.isArray(prev)) return prev;
       return prev.filter(
@@ -572,7 +777,6 @@ export default function Dashboard() {
       setPendingFolderDelete(null);
     } catch (error: any) {
       console.error("Failed to delete folder:", error);
-      // Roll back optimistic removal if it fails
       queryClient.setQueryData(["folders"], prevFolders);
     } finally {
       setLoadingFolders((prev) => {
@@ -629,6 +833,16 @@ export default function Dashboard() {
     [activeTab, navigate]
   );
 
+  // Draft edit route for predictors (used by PredictorCard via onDraftEdit)
+  const draftEditItem = useCallback(
+    (id: string) => {
+      if (activeTab === "predictors") {
+        navigate(`/predictors/draft/${id}/edit`);
+      }
+    },
+    [activeTab, navigate]
+  );
+
   const viewItem = useCallback(
     (id: string) => {
       if (activeTab === "predictors") {
@@ -645,10 +859,10 @@ export default function Dashboard() {
   async function downloadItem(
     id: string,
     allowAdminAccess: boolean,
-    isOwner: boolean
+    isOwnerFlag: boolean
   ) {
     try {
-      if (!isOwner && !allowAdminAccess) {
+      if (!isOwnerFlag && !allowAdminAccess) {
         alert(
           "Download blocked: External access to this dataset has been disabled."
         );
@@ -671,9 +885,8 @@ export default function Dashboard() {
     }
   }
 
-  // --- UNIFIED DELETE HANDLERS ---
+  // --- DELETE HANDLERS ---
 
-  // prompt delete
   const promptDelete = useCallback(
     (id: string, title: string, type: DeleteType) => {
       setDeleteContext({ id, title, type });
@@ -681,7 +894,6 @@ export default function Dashboard() {
     []
   );
 
-  // confirm delete
   async function handleConfirmDelete() {
     if (!deleteContext) return;
     const { id, type } = deleteContext;
@@ -706,7 +918,7 @@ export default function Dashboard() {
         });
       }
 
-      setDeleteContext(null); // close modal on success
+      setDeleteContext(null);
     } catch (error: any) {
       const msg =
         error?.details?.error || error?.message || "Failed to delete item";
@@ -714,11 +926,32 @@ export default function Dashboard() {
     }
   }
 
-  // Determine if any delete operation is in progress
   const isDeleteLoading =
     deletePredictorMutation.isPending ||
     deleteDatasetMutation.isPending ||
     deleteFolderMutation.isPending;
+
+  // --- SORT TOGGLES (PREDICTORS / DATASETS) ---
+
+  const handlePredictorChronoToggle = useCallback(() => {
+    setPredictorSortMode("chrono");
+    setPredictorChronoDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }, []);
+
+  const handlePredictorAlphaToggle = useCallback(() => {
+    setPredictorSortMode("alpha");
+    setPredictorAlphaDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  }, []);
+
+  const handleDatasetChronoToggle = useCallback(() => {
+    setDatasetSortMode("chrono");
+    setDatasetChronoDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }, []);
+
+  const handleDatasetAlphaToggle = useCallback(() => {
+    setDatasetSortMode("alpha");
+    setDatasetAlphaDir((prev) => (prev === "asc" ? "desc" : "asc"));
+  }, []);
 
   // --- RENDER ---
 
@@ -729,7 +962,7 @@ export default function Dashboard() {
         onClick={clearSelection}
         role="presentation"
       >
-        {/* welcome header */}
+        {/* Welcome header */}
         <div
           className="mx-auto max-w-6xl px-3 pt-8 pb-4 text-center"
           onClick={(e) => e.stopPropagation()}
@@ -749,7 +982,7 @@ export default function Dashboard() {
           </h2>
         </div>
 
-        {/* sticky toolbar under navbar (aligned with Browse width / colors) */}
+        {/* Sticky toolbar under navbar */}
         <div
           className="sticky top-[var(--app-nav-h,3.7rem)] z-40 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75"
           onClick={(e) => e.stopPropagation()}
@@ -825,6 +1058,31 @@ export default function Dashboard() {
                         ? setPredictorOwnership
                         : setDatasetOwnership
                     }
+                    sortMode={
+                      activeTab === "predictors"
+                        ? predictorSortMode
+                        : datasetSortMode
+                    }
+                    chronoDir={
+                      activeTab === "predictors"
+                        ? predictorChronoDir
+                        : datasetChronoDir
+                    }
+                    alphaDir={
+                      activeTab === "predictors"
+                        ? predictorAlphaDir
+                        : datasetAlphaDir
+                    }
+                    onChronoToggle={
+                      activeTab === "predictors"
+                        ? handlePredictorChronoToggle
+                        : handleDatasetChronoToggle
+                    }
+                    onAlphaToggle={
+                      activeTab === "predictors"
+                        ? handlePredictorAlphaToggle
+                        : handleDatasetAlphaToggle
+                    }
                   />
                 )
               }
@@ -832,9 +1090,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Main Content Area */}
+        {/* Main content area */}
         <div className="mx-auto flex max-w-6xl gap-4 px-3 pb-6">
-          {/* Folder sidebar - always rendered for predictors/datasets tabs */}
           <FolderSidebar
             onItemMoved={async (_itemId, _folderId) => {
               queryClient.invalidateQueries({ queryKey: ["folders"] });
@@ -846,7 +1103,6 @@ export default function Dashboard() {
             }
           />
 
-          {/* Loading skeleton - shown when loading with no data */}
           {isLoading &&
           ((activeTab === "predictors" && predictors.length === 0) ||
             (activeTab === "datasets" && datasets.length === 0) ||
@@ -858,7 +1114,13 @@ export default function Dashboard() {
                   Loading {activeTab}...
                 </div>
               </div>
-              <div className={`mt-4 grid gap-4 ${activeTab === "folders" ? "sm:grid-cols-1 lg:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+              <div
+                className={`mt-4 grid gap-4 ${
+                  activeTab === "folders"
+                    ? "sm:grid-cols-1 lg:grid-cols-2"
+                    : "sm:grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
@@ -872,306 +1134,310 @@ export default function Dashboard() {
               </div>
             </div>
           ) : (
-
-          <div className="min-w-0 flex-1 transition-all duration-300">
-            {activeTab === "folders" ? (
-              <div
-                className="space-y-6"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div>
-                  <RecentFolders
-                    onFolderSelect={handleRecentFolderSelect}
-                    currentFolderId={currentFolderView || undefined}
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                  {filteredFolders.map((folder) => {
-                    const isFolderOwner = isOwner(folder, currentUserId);
-
-                    return (
-                      <div
-                        key={`folder-${folder.folder_id}`}
-                        id={`folder-${folder.folder_id}`}
-                        className={
-                          currentFolderView === folder.folder_id
-                            ? "rounded-xl ring-2 ring-neutral-500"
-                            : ""
-                        }
-                      >
-                        <FolderCard
-                          folder={folder}
-                          expanded={expandedFolders.has(folder.folder_id)}
-                          onToggleExpand={handleToggleFolderExpansion}
-                          onEdit={
-                            isFolderOwner
-                              ? (folderId) => {
-                                  const f = folders.find(
-                                    (x) => x.folder_id === folderId
-                                  );
-                                  if (f) {
-                                    setEditingFolder(f);
-                                    setIsEditModalOpen(true);
-                                  }
-                                }
-                              : undefined
-                          }
-                          onDelete={
-                            isFolderOwner ? handleFolderDelete : undefined
-                          }
-                          onShare={
-                            isFolderOwner
-                              ? (folderId) => {
-                                  const f = folders.find(
-                                    (x) => x.folder_id === folderId
-                                  );
-                                  if (f) {
-                                    setSharingFolder(f);
-                                    setIsSharingModalOpen(true);
-                                  }
-                                }
-                              : undefined
-                          }
-                          // enable drag-and-drop directly on folder cards
-                          onDrop={handleDrop}
-                          onItemSelect={(itemId, itemType) => {
-                            if (itemType === "predictor") {
-                              setSelection((prev) => ({
-                                predictorId:
-                                  prev.predictorId === itemId ? null : itemId,
-                                datasetId: null,
-                              }));
-                            } else {
-                              setSelection((prev) => ({
-                                datasetId:
-                                  prev.datasetId === itemId ? null : itemId,
-                                predictorId: null,
-                              }));
-                            }
-                          }}
-                          onItemEdit={
-                            isFolderOwner
-                              ? (itemId) => editItem(itemId)
-                              : undefined
-                          }
-                          onItemDelete={
-                            isFolderOwner
-                              ? (itemId, itemType) => {
-                                  const item =
-                                    itemType === "predictor"
-                                      ? predictors.find((p) => p.id === itemId)
-                                      : datasets.find((d) => d.id === itemId);
-                                  const foundItem =
-                                    item ||
-                                    (folder.items?.find(
-                                      (i) => i.id === itemId
-                                    ) as any);
-                                  if (foundItem) {
-                                    promptDelete(
-                                      itemId,
-                                      foundItem.title ?? "Item",
-                                      itemType
-                                    );
-                                  }
-                                }
-                              : undefined
-                          }
-                          onItemView={(itemId) => viewItem(itemId)}
-                          onRemoveFromFolder={
-                            isFolderOwner
-                              ? (itemId, itemType) =>
-                                  handleRemoveFromFolder(
-                                    itemId,
-                                    itemType,
-                                    folder.folder_id
-                                  )
-                              : undefined
-                          }
-                          selectedItems={
-                            new Set([
-                              ...(selection.predictorId
-                                ? [selection.predictorId]
-                                : []),
-                              ...(selection.datasetId
-                                ? [selection.datasetId]
-                                : []),
-                            ])
-                          }
-                          currentUserId={currentUserId}
-                          canEdit={isFolderOwner}
-                          isLoading={
-                            loadingFolders.has(folder.folder_id) ||
-                            removeFromFolderMutation.isPending
-                          }
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {filteredFolders.length === 0 && !isLoading && (
-                  <div className="py-12 text-center">
-                    <div className="text-lg text-neutral-500">
-                      No folders found
-                    </div>
-                    <div className="mt-2 text-sm text-neutral-400">
-                      Create a folder to organize your predictors and datasets
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <DroppableFolder
-                folder={null}
-                onDrop={handleDrop}
-                isLoading={isItemLoading}
-                className="rounded-xl p-2 transition-all duration-200"
-              >
+            <div className="min-w-0 flex-1 transition-all duration-300">
+              {activeTab === "folders" ? (
                 <div
-                  className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                  className="space-y-6"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {activeTab === "predictors"
-                    ? filteredPredictors
-                        .filter((item) => !item.folderId)
-                        .map((it) => (
-                          <PredictorCard
-                            key={it.id}
-                            item={it}
-                            selected={selection.predictorId === it.id}
-                            onToggleSelect={toggleSelect}
-                            onEdit={editItem}
-                            onDelete={(id) =>
-                              promptDelete(id, it.title, "predictor")
+                  <div>
+                    <RecentFolders
+                      onFolderSelect={handleRecentFolderSelect}
+                      currentFolderId={currentFolderView || undefined}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                    {filteredFolders.map((folder) => {
+                      const isFolderOwner = isOwner(folder, currentUserId);
+
+                      return (
+                        <div
+                          key={`folder-${folder.folder_id}`}
+                          id={`folder-${folder.folder_id}`}
+                          className={
+                            currentFolderView === folder.folder_id
+                              ? "rounded-xl ring-2 ring-neutral-500"
+                              : ""
+                          }
+                        >
+                          <FolderCard
+                            folder={folder}
+                            expanded={expandedFolders.has(folder.folder_id)}
+                            onToggleExpand={handleToggleFolderExpansion}
+                            onEdit={
+                              isFolderOwner
+                                ? (folderId) => {
+                                    const f = folders.find(
+                                      (x) => x.folder_id === folderId
+                                    );
+                                    if (f) {
+                                      setEditingFolder(f);
+                                      setIsEditModalOpen(true);
+                                    }
+                                  }
+                                : undefined
                             }
-                            onView={viewItem}
+                            onDelete={
+                              isFolderOwner ? handleFolderDelete : undefined
+                            }
+                            onShare={
+                              isFolderOwner
+                                ? (folderId) => {
+                                    const f = folders.find(
+                                      (x) => x.folder_id === folderId
+                                    );
+                                    if (f) {
+                                      setSharingFolder(f);
+                                      setIsSharingModalOpen(true);
+                                    }
+                                  }
+                                : undefined
+                            }
                             onDrop={handleDrop}
-                            isLoading={isItemLoading(it.id)}
-                          />
-                        ))
-                    : filteredDatasets
-                        .filter((item) => !item.folderId)
-                        .map((it) => (
-                          <DatasetCard
-                            key={it.id}
-                            item={{ ...it, owner: Boolean(it.owner) }}
-                            selected={selection.datasetId === it.id}
-                            onToggleSelect={toggleSelect}
-                            onEdit={editItem}
-                            onDelete={(id) =>
-                              promptDelete(id, it.title, "dataset")
-                            }
-                            onView={viewItem}
-                            onDownload={() => {
-                              const isOwner = isUserOwner(
-                                it.owner,
-                                currentUserId
-                              );
-                              downloadItem(
-                                it.id,
-                                "allow_admin_access" in it
-                                  ? it.allow_admin_access ?? false
-                                  : false,
-                                isOwner
-                              );
+                            onItemSelect={(itemId, itemType) => {
+                              if (itemType === "predictor") {
+                                setSelection((prev) => ({
+                                  predictorId:
+                                    prev.predictorId === itemId ? null : itemId,
+                                  datasetId: null,
+                                }));
+                              } else {
+                                setSelection((prev) => ({
+                                  datasetId:
+                                    prev.datasetId === itemId ? null : itemId,
+                                  predictorId: null,
+                                }));
+                              }
                             }}
-                            onDrop={handleDrop}
-                            isLoading={isItemLoading(it.id)}
+                            onItemEdit={
+                              isFolderOwner
+                                ? (itemId) => editItem(itemId)
+                                : undefined
+                            }
+                            onItemDelete={
+                              isFolderOwner
+                                ? (itemId, itemType) => {
+                                    const item =
+                                      itemType === "predictor"
+                                        ? predictors.find(
+                                            (p) => p.id === itemId
+                                          )
+                                        : datasets.find(
+                                            (d) => d.id === itemId
+                                          );
+                                    const foundItem =
+                                      item ||
+                                      (folder.items?.find(
+                                        (i) => i.id === itemId
+                                      ) as any);
+                                    if (foundItem) {
+                                      promptDelete(
+                                        itemId,
+                                        foundItem.title ?? "Item",
+                                        itemType
+                                      );
+                                    }
+                                  }
+                                : undefined
+                            }
+                            onItemView={(itemId) => viewItem(itemId)}
+                            onRemoveFromFolder={
+                              isFolderOwner
+                                ? (itemId, itemType) =>
+                                    handleRemoveFromFolder(
+                                      itemId,
+                                      itemType,
+                                      folder.folder_id
+                                    )
+                                : undefined
+                            }
+                            selectedItems={
+                              new Set([
+                                ...(selection.predictorId
+                                  ? [selection.predictorId]
+                                  : []),
+                                ...(selection.datasetId
+                                  ? [selection.datasetId]
+                                  : []),
+                              ])
+                            }
+                            currentUserId={currentUserId}
+                            canEdit={isFolderOwner}
+                            isLoading={
+                              loadingFolders.has(folder.folder_id) ||
+                              removeFromFolderMutation.isPending
+                            }
+                            isNew={String(folder.folder_id) === String(newlyCreatedFolderId)}
                           />
-                        ))}
-
-                  {(activeTab === "predictors"
-                    ? filteredPredictors
-                    : filteredDatasets
-                  )
-                    .filter((item) => !item.folderId).length === 0 &&
-                    !isLoading && (
-                      <div className="col-span-full flex items-center justify-center py-12 text-center">
-                        <div className="max-w-sm">
-                          <div className="mb-2 text-lg text-neutral-400">
-                            <FolderOpen className="h-4 w-4 text-neutral-500" />
-                          </div>
-                          <p className="text-sm text-neutral-500">
-                            No {activeTab} in your main collection
-                          </p>
-                          <p className="mt-1 text-xs text-neutral-400">
-                            Drag items from folders here to move them back to
-                            your main collection
-                          </p>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {filteredFolders.length === 0 && !isLoading && (
+                    <div className="py-12 text-center">
+                      <div className="text-lg text-neutral-500">
+                        No folders found
                       </div>
-                    )}
+                      <div className="mt-2 text-sm text-neutral-400">
+                        Create a folder to organize your predictors and datasets
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </DroppableFolder>
-            )}
+              ) : (
+                <DroppableFolder
+                  folder={null}
+                  onDrop={handleDrop}
+                  isLoading={isItemLoading}
+                  className="rounded-xl p-2 transition-all duration-200"
+                >
+                  <div
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {activeTab === "predictors"
+                      ? filteredPredictors
+                          .filter((item) => !item.folderId)
+                          .map((it) => (
+                            <PredictorCard
+                              key={it.id}
+                              item={it}
+                              selected={selection.predictorId === it.id}
+                              onToggleSelect={toggleSelect}
+                              onEdit={editItem}
+                              onDraftEdit={draftEditItem}
+                              onDelete={(id) =>
+                                promptDelete(id, it.title, "predictor")
+                              }
+                              onView={viewItem}
+                              onDrop={handleDrop}
+                              isLoading={isItemLoading(it.id)}
+                              isNew={String(it.id) === newlyCreatedPredictorId}
+                            />
+                          ))
+                      : filteredDatasets
+                          .filter((item) => !item.folderId)
+                          .map((it) => (
+                            <DatasetCard
+                              key={it.id}
+                              item={{ ...it, owner: Boolean(it.owner) }}
+                              selected={selection.datasetId === it.id}
+                              onToggleSelect={toggleSelect}
+                              onEdit={editItem}
+                              onDelete={(id) =>
+                                promptDelete(id, it.title, "dataset")
+                              }
+                              onView={viewItem}
+                              onDownload={() => {
+                                const ownerFlag = isUserOwner(
+                                  it.owner,
+                                  currentUserId
+                                );
+                                downloadItem(
+                                  it.id,
+                                  "allow_admin_access" in it
+                                    ? it.allow_admin_access ?? false
+                                    : false,
+                                  ownerFlag
+                                );
+                              }}
+                              onDrop={handleDrop}
+                              isLoading={isItemLoading(it.id)}
+                              isNew={String(it.id) === newlyCreatedDatasetId}
+                            />
+                          ))}
 
-            {/* UNIFIED DELETE MODAL */}
-            <DeleteConfirmation
-              open={!!deleteContext}
-              name={deleteContext?.title ?? ""}
-              description={
-                deleteContext?.type === "folder"
-                  ? "Items inside this folder will be preserved."
-                  : "This action cannot be undone."
-              }
-              onCancel={() => setDeleteContext(null)}
-              onConfirm={handleConfirmDelete}
-              isLoading={isDeleteLoading}
-            />
+                    {(activeTab === "predictors"
+                      ? filteredPredictors
+                      : filteredDatasets
+                    )
+                      .filter((item) => !item.folderId).length === 0 &&
+                      !isLoading && (
+                        <div className="col-span-full flex items-center justify-center py-12 text-center">
+                          <div className="max-w-sm">
+                            <p className="flex items-center justify-center gap-2 text-sm text-neutral-500">
+                              <FolderOpen className="h-4 w-4" />
+                              No {activeTab} in your main collection
+                            </p>
+                            <p className="mt-1 text-xs text-neutral-400">
+                              Drag items from folders here to move them back to
+                              your main collection.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </DroppableFolder>
+              )}
 
-            <DeleteConfirmation
-              open={!!pendingFolderDelete}
-              name={pendingFolderDelete?.name ?? ""}
-              description="Items inside this folder will be preserved."
-              onCancel={() =>
-                !isDeletingFolder && setPendingFolderDelete(null)
-              }
-              onConfirm={confirmFolderDelete}
-              isLoading={isDeletingFolder}
-            />
-
-            <FolderCreationModal
-              isOpen={showFolderModal}
-              onClose={() => {
-                setShowFolderModal(false);
-                setFolderError(null);
-              }}
-              onCreateFolder={handleFolderCreation}
-              availablePredictors={predictors.filter((p) => !p.folderId)}
-              availableDatasets={datasets.filter((d) => !d.folderId)}
-              isLoading={createFolderMutation.isPending}
-              error={folderError}
-            />
-
-            {editingFolder && (
-              <FolderEditModal
-                isOpen={isEditModalOpen}
-                onClose={() => {
-                  setIsEditModalOpen(false);
-                  setEditingFolder(null);
-                }}
-                folder={editingFolder}
-                onFolderUpdated={() => {
-                  queryClient.invalidateQueries({ queryKey: ["folders"] });
-                }}
+              {/* Delete / folder modals & folder creation */}
+              <DeleteConfirmation
+                open={!!deleteContext}
+                name={deleteContext?.title ?? ""}
+                description={
+                  deleteContext?.type === "folder"
+                    ? "Items inside this folder will be preserved."
+                    : "This action cannot be undone."
+                }
+                onCancel={() => setDeleteContext(null)}
+                onConfirm={handleConfirmDelete}
+                isLoading={isDeleteLoading}
               />
-            )}
 
-            {sharingFolder && (
-              <FolderSharingModal
-                isOpen={isSharingModalOpen}
-                onClose={() => {
-                  setIsSharingModalOpen(false);
-                  setSharingFolder(null);
-                }}
-                folder={sharingFolder}
-                onPermissionsUpdated={() => {
-                  queryClient.invalidateQueries({ queryKey: ["folders"] });
-                }}
+              <DeleteConfirmation
+                open={!!pendingFolderDelete}
+                name={pendingFolderDelete?.name ?? ""}
+                description="Items inside this folder will be preserved."
+                onCancel={() =>
+                  !isDeletingFolder && setPendingFolderDelete(null)
+                }
+                onConfirm={confirmFolderDelete}
+                isLoading={isDeletingFolder}
               />
-            )}
-          </div>
+
+              <FolderCreationModal
+                isOpen={showFolderModal}
+                onClose={() => {
+                  setShowFolderModal(false);
+                  setFolderError(null);
+                }}
+                onCreateFolder={handleFolderCreation}
+                availablePredictors={predictors.filter((p) => !p.folderId)}
+                availableDatasets={datasets.filter((d) => !d.folderId)}
+                isLoading={createFolderMutation.isPending}
+                error={folderError}
+              />
+
+              {editingFolder && (
+                <FolderEditModal
+                  isOpen={isEditModalOpen}
+                  onClose={() => {
+                    setIsEditModalOpen(false);
+                    setEditingFolder(null);
+                  }}
+                  folder={editingFolder}
+                  onFolderUpdated={() => {
+                    queryClient.invalidateQueries({ queryKey: ["folders"] });
+                  }}
+                />
+              )}
+
+              {sharingFolder && (
+                <FolderSharingModal
+                  isOpen={isSharingModalOpen}
+                  onClose={() => {
+                    setIsSharingModalOpen(false);
+                    setSharingFolder(null);
+                  }}
+                  folder={sharingFolder}
+                  onPermissionsUpdated={() => {
+                    queryClient.invalidateQueries({ queryKey: ["folders"] });
+                  }}
+                />
+              )}
+            </div>
           )}
         </div>
       </section>
@@ -1180,7 +1446,16 @@ export default function Dashboard() {
 }
 
 /**
- * Advanced filter menu for predictors/datasets.
+ * Advanced filter menu for predictors and datasets.
+ * Includes:
+ * - Ownership
+ * - Search target (title / notes / both)
+ * - Updated-within time window
+ * - Chronological sort toggle (newest/oldest)
+ * - Alphabetical sort toggle (A–Z / Z–A)
+ *
+ * The chronological and alphabetical sort buttons are independent toggles in the UI,
+ * with the currently active mode controlled internally by sortMode.
  */
 type AdvancedFilterMenuProps = {
   keywordTarget: KeywordTarget;
@@ -1191,6 +1466,12 @@ type AdvancedFilterMenuProps = {
 
   ownership: Ownership;
   onOwnershipChange: (value: Ownership) => void;
+
+  sortMode: SortMode;
+  chronoDir: "asc" | "desc";
+  alphaDir: "asc" | "desc";
+  onChronoToggle: () => void;
+  onAlphaToggle: () => void;
 };
 
 function AdvancedFilterMenu({
@@ -1200,16 +1481,68 @@ function AdvancedFilterMenu({
   onUpdatedWithinChange,
   ownership,
   onOwnershipChange,
+  chronoDir,
+  alphaDir,
+  onChronoToggle,
+  onAlphaToggle,
 }: AdvancedFilterMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Close when clicking anywhere outside the filter menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!open) return;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [open]);
+
+  const chronoLabel =
+    chronoDir === "desc" ? "Newest → oldest" : "Oldest → newest";
+  const chronoArrow = chronoDir === "desc" ? "▾" : "▴";
+
+  const alphaLabel = alphaDir === "asc" ? "A–Z" : "Z–A";
+  const alphaArrow = alphaDir === "asc" ? "▴" : "▾";
+
   return (
-    <details className="group relative">
-      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+    <div ref={containerRef} className="relative inline-block text-left">
+      <button
+        type="button"
+        className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        aria-expanded={open}
+      >
         Filters
-        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
+        <span
+          className={`transition-transform text-[20px] text-neutral-500 ${
+            open ? "rotate-180" : ""
+          }`}
+        >
           ▾
         </span>
-      </summary>
-      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
+      </button>
+
+      <div
+        className={`absolute right-0 z-20 mt-1 w-72 origin-top-right transform rounded-md border bg-white p-3 text-xs shadow-lg transition-all duration-150 ease-out ${
+          open
+            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Ownership */}
         <div className="mb-3">
           <div className="mb-1 font-semibold text-neutral-700">Ownership</div>
@@ -1265,7 +1598,7 @@ function AdvancedFilterMenu({
         </div>
 
         {/* Updated within */}
-        <div>
+        <div className="mb-3">
           <div className="mb-1 font-semibold text-neutral-700">
             Updated within
           </div>
@@ -1293,13 +1626,52 @@ function AdvancedFilterMenu({
             ))}
           </div>
         </div>
+
+        {/* Chronological sort (independent toggle) */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Chronological sort
+          </div>
+          <button
+            type="button"
+            onClick={onChronoToggle}
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+          >
+            <span>{chronoLabel}</span>
+            <span className="text-[11px]">{chronoArrow}</span>
+          </button>
+        </div>
+
+        {/* Alphabetical sort (independent toggle) */}
+        <div>
+          <div className="mb-1 font-semibold text-neutral-700">
+            Alphabetical sort
+          </div>
+          <button
+            type="button"
+            onClick={onAlphaToggle}
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+          >
+            <span>{alphaLabel}</span>
+            <span className="text-[11px]">{alphaArrow}</span>
+          </button>
+        </div>
       </div>
-    </details>
+    </div>
   );
 }
 
 /**
  * Folder-specific filter menu.
+ * Includes:
+ * - Ownership & access
+ * - Search target (title / notes / both)
+ * - Updated-within time window
+ * - Folder type (predictors / datasets / mixed / all)
+ * - Chronological sort toggle (newest/oldest)
+ * - Alphabetical sort toggle (A–Z / Z–A)
+ *
+ * Uses the same click-outside behavior and open/close animation as the main filter menu.
  */
 type FolderAdvancedFilterMenuProps = {
   keywordTarget: KeywordTarget;
@@ -1330,16 +1702,97 @@ function FolderAdvancedFilterMenu({
   ownership,
   onOwnershipChange,
 }: FolderAdvancedFilterMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Close when clicking anywhere outside the filter menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!open) return;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+    };
+  }, [open]);
+
+  const folderChronoDir: "asc" | "desc" =
+    sortOption && sortOption.field === "date"
+      ? sortOption.direction
+      : "desc";
+
+  const folderAlphaDir: "asc" | "desc" =
+    sortOption && sortOption.field === "name"
+      ? sortOption.direction
+      : "asc";
+
+  const chronoLabel =
+    folderChronoDir === "desc" ? "Newest → oldest" : "Oldest → newest";
+  const chronoArrow = folderChronoDir === "desc" ? "▾" : "▴";
+
+  const alphaLabel = folderAlphaDir === "asc" ? "A–Z" : "Z–A";
+  const alphaArrow = folderAlphaDir === "asc" ? "▴" : "▾";
+
+  const handleFolderChronoToggle = () => {
+    const nextDirection: FolderSortOption["direction"] =
+      folderChronoDir === "desc" ? "asc" : "desc";
+    onSortOptionChange({
+      field: "date",
+      direction: nextDirection,
+      label:
+        nextDirection === "desc"
+          ? "Recently updated (newest)"
+          : "Recently updated (oldest)",
+    } as FolderSortOption);
+  };
+
+  const handleFolderAlphaToggle = () => {
+    const nextDirection: FolderSortOption["direction"] =
+      folderAlphaDir === "asc" ? "desc" : "asc";
+    onSortOptionChange({
+      field: "name",
+      direction: nextDirection,
+      label: nextDirection === "asc" ? "Title A–Z" : "Title Z–A",
+    } as FolderSortOption);
+  };
+
   return (
-    <details className="group relative">
-      <summary className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+    <div ref={containerRef} className="relative inline-block text-left">
+      <button
+        type="button"
+        className="inline-flex h-9.5 cursor-pointer select-none items-center gap-1 rounded-md border bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        aria-expanded={open}
+      >
         Filters
-        <span className="transition-transform text-[20px] text-neutral-500 group-open:rotate-180">
+        <span
+          className={`transition-transform text-[20px] text-neutral-500 ${
+            open ? "rotate-180" : ""
+          }`}
+        >
           ▾
         </span>
-      </summary>
-      <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border bg-white p-3 text-xs shadow-lg">
-        {/* Ownership - only show owned/shared options in Dashboard */}
+      </button>
+
+      <div
+        className={`absolute right-0 z-20 mt-1 w-72 origin-top-right transform rounded-md border bg-white p-3 text-xs shadow-lg transition-all duration-150 ease-out ${
+          open
+            ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Ownership & access (dashboard-focused wording) */}
         <div className="mb-3">
           <div className="mb-1 font-semibold text-neutral-700">
             Ownership & access
@@ -1453,12 +1906,35 @@ function FolderAdvancedFilterMenu({
           </div>
         </div>
 
-        {/* Sort by */}
+        {/* Sort (independent toggles, same style as predictors/datasets) */}
+        <div className="mb-3">
+          <div className="mb-1 font-semibold text-neutral-700">
+            Chronological sort
+          </div>
+          <button
+            type="button"
+            onClick={handleFolderChronoToggle}
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg-white text-neutral-700 hover:bg-neutral-50"
+          >
+            <span>{chronoLabel}</span>
+            <span className="text-[11px]">{chronoArrow}</span>
+          </button>
+        </div>
+
         <div>
-          <div className="mb-1 font-semibold text-neutral-700">Sort by</div>
-          <FolderSortMenu value={sortOption} onChange={onSortOptionChange} />
+          <div className="mb-1 font-semibold text-neutral-700">
+            Alphabetical sort
+          </div>
+          <button
+            type="button"
+            onClick={handleFolderAlphaToggle}
+            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs bg_WHITE text-neutral-700 hover:bg-neutral-50"
+          >
+            <span>{alphaLabel}</span>
+            <span className="text-[11px]">{alphaArrow}</span>
+          </button>
         </div>
       </div>
-    </details>
+    </div>
   );
 }

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from .models import Folder, FolderItem, FolderPermission
+from .models import Folder, FolderItem, FolderPermission, PinnedFolder
 from predictors.models import Predictor
 from dataset.models import Dataset
 
@@ -433,8 +433,39 @@ class BulkMoveItemsSerializer(serializers.Serializer):
         """Validate that at least one folder is specified."""
         source_folder_id = attrs.get('source_folder_id')
         target_folder_id = attrs.get('target_folder_id')
-        
+
         if not source_folder_id and not target_folder_id:
             raise ValidationError("At least one of source_folder_id or target_folder_id must be specified")
-        
+
         return attrs
+
+
+# ----------------------------
+# Pinned Folder Serializer
+# ----------------------------
+class PinnedFolderSerializer(serializers.ModelSerializer):
+    folder = FolderSerializer(read_only=True)
+    folder_id = serializers.PrimaryKeyRelatedField(
+        queryset=Folder.objects.all(), source="folder", write_only=True
+    )
+    name = serializers.CharField(source="folder.name", read_only=True)
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PinnedFolder
+        fields = ["id", "folder", "folder_id", "name", "user", "pinned_at"]
+        read_only_fields = ["id", "pinned_at", "user"]
+
+    def create(self, validated_data):
+        """Prevent duplicate pins for same user."""
+        request = self.context.get("request")
+        user = request.user if request else None
+        folder = validated_data.get("folder")
+
+        if user and folder:
+            # Check if already pinned
+            existing = PinnedFolder.objects.filter(user=user, folder=folder).first()
+            if existing:
+                return existing
+
+        return super().create(validated_data)
