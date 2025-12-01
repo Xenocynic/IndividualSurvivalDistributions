@@ -30,6 +30,104 @@ import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
 import TrainingModal from "../components/TrainingModal";
 import PredictorComparisonTable from "../components/PredictorComparisonTable";
 
+// Utility functions for Printing and Downloading sections
+function handlePrintSection(sectionId: string) {
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    console.error("Print section not found:", sectionId);
+    return;
+  }
+
+  // Create hidden iframe so we don't touch the main window
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const iframeWindow = iframe.contentWindow;
+  if (!iframeWindow) {
+    console.error("No iframe contentWindow for printing");
+    document.body.removeChild(iframe);
+    return;
+  }
+
+  const doc = iframeWindow.document;
+  doc.open();
+  doc.write(`
+    <html>
+      <head>
+        <title>Print</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            padding: 16px;
+          }
+        </style>
+      </head>
+      <body>
+        ${section.innerHTML}
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  iframe.onload = () => {
+    iframeWindow.focus();
+    iframeWindow.print();
+    // Remove iframe after print; small timeout so print dialog can open
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 500);
+  };
+}
+
+// Function to download a section as file
+function handleDownloadSection(sectionId: string, filename: string) {
+  if (typeof document === "undefined") return; // safety for non-browser env
+
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    console.error("Download section not found:", sectionId);
+    return;
+  }
+
+  const html = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${document.title} – Export</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    ${section.innerHTML}
+  </body>
+</html>
+`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
+
+
 // --- Type Definitions ---
 interface PredictorDetail {
   predictor_id: number;
@@ -369,11 +467,14 @@ export default function PredictorDetailPage() {
 const Card = ({
   children,
   className = "",
+  id,
 }: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) => (
   <div
+    id={id}
     className={`rounded-xl border border-black/5 bg-white p-4 shadow-sm ${className}`}
   >
     {children}
@@ -1289,7 +1390,9 @@ function PredictedSurvivalHistogram({
   const barSize = Math.max(8, Math.floor(600 / bins.length));
 
   return (
-    <div className="space-y-4">
+    <div
+      id="predictor-survival-histogram-section"
+      className="space-y-4">
       <div className="rounded-lg border border-neutral-200 bg-white p-4">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-neutral-900">
@@ -1298,16 +1401,21 @@ function PredictedSurvivalHistogram({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-survival-histogram-section") }}
               aria-label="Print predicted survival histogram"
+              className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
             >
-              <Printer className="h-4 w-4" />
+              <Printer className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               type="button"
-              className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
-              aria-label="Download predicted survival histogram"
-            >
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDownloadSection("predictor-survival-histogram-section", "survival-histogram.html");
+              }}
+              aria-label="Download survival histogram"
+              className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]">
               <Download className="h-4 w-4" />
             </button>
           </div>
@@ -2290,7 +2398,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         </Card>
       ) : (
         <>
-          <Card>
+          <Card id="predictor-cv-metrics-section">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-neutral-800">
                 5-Fold Cross-Validation Statistics*
@@ -2298,15 +2406,21 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-cv-metrics-section") }}
                   aria-label="Print cross-validation statistics"
+                  className="rounded-md border border-neutral-200 bg-white p-1.5 text-neutral-700 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
                 >
-                  <Printer className="h-4 w-4" />
+                  <Printer className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center rounded-md bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-neutral-800"
-                  aria-label="Download cross-validation metrics CSV"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDownloadSection("predictor-cv-metrics-section", "predictor-cv-metrics.html");
+                  }}
+                  aria-label="Download cross-validation metrics as CSV"
+                  className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
                 >
                   <Download className="h-4 w-4" />
                   <span className="ml-1 hidden sm:inline">CSV</span>
@@ -2488,7 +2602,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
               </button>
             </div>
 
-            <div className="mt-6">
+            <div id="predictor-generated-classifier-section" className="mt-6">
               <div className="mb-2 flex items-center justify-between">
                 <h5 className="text-sm font-semibold text-neutral-800">
                   Generated Classifier Performance and Histogram
@@ -2502,14 +2616,22 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
                     <span>Show</span>
                   </button>
                   <button
-                    className="rounded-md border border-neutral-300 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
+                    type="button"
+                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handlePrintSection("predictor-generated-classifier-section");}}
                     aria-label="Print classifier performance"
+                    className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
                   >
                     <Printer className="h-4 w-4" />
                   </button>
                   <button
-                    className="rounded-md border border-neutral-300 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDownloadSection("predictor-generated-classifier-section", "classifier-performance.html");
+                    }}
                     aria-label="Download classifier performance"
+                    className="rounded-md border border-neutral-200 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
                   >
                     <Download className="h-4 w-4" />
                   </button>
