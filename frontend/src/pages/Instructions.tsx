@@ -652,19 +652,41 @@ export default function Instructions(): JSX.Element {
         </span>
       </summary>
       <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
-        <ul className="space-y-1.5 text-sm text-neutral-700">
-          <li>
-            • Open a predictor’s detail page from the{" "}
-            <span className="font-medium">Predictors</span> tab.
+        <p className="mb-3 text-sm text-neutral-700">
+          Navigate to the <Link to="/use-predictor" className="text-blue-600 underline font-medium">Use Predictor</Link> page to run predictions. Follow the guided three-step workflow:
+        </p>
+        <ol className="space-y-3 text-sm text-neutral-700">
+          <li className="rounded-md bg-neutral-50 px-3 py-2">
+            <span className="font-medium">Step 1: Select a Trained Predictor</span>
+            <ul className="mt-1 ml-4 space-y-1 text-xs text-neutral-600">
+              <li>• Choose from your trained predictors in the dropdown</li>
+              <li>• View predictor details including model type, training dataset, and required features</li>
+              <li>• Only predictors with "Trained" status are available</li>
+            </ul>
           </li>
-          <li>
-            • blah blah blah first name backstory
+          <li className="rounded-md bg-neutral-50 px-3 py-2">
+            <span className="font-medium">Step 2: Select a Dataset</span>
+            <ul className="mt-1 ml-4 space-y-1 text-xs text-neutral-600">
+              <li>• Pick any dataset from your available datasets</li>
+              <li>• Preview the first 10 rows to verify your data</li>
+              <li>• The system automatically validates feature compatibility</li>
+              <li>• If the dataset has "time" and "censored" columns, they'll be ignored for prediction. </li>
+            </ul>
           </li>
-          <li>
-            • Compare model predictions with baseline methods such as KM curves
-            when available.
+          <li className="rounded-md bg-neutral-50 px-3 py-2">
+            <span className="font-medium">Step 3: Review & Run Prediction</span>
+            <ul className="mt-1 ml-4 space-y-1 text-xs text-neutral-600">
+              <li>• Check the feature validation results</li>
+              <li>• "Run prediction" button enables only when features match exactly</li>
+              <li>• If features don't match, you'll see a feature mismatch error</li>
+              <li>• After running, you'll be prompted to save your prediction results</li>
+            </ul>
           </li>
-        </ul>
+        </ol>
+        <div className="mt-3 rounded-md bg-neutral-50 border border-neutral-900 px-3 py-2 text-xs text-neutral-900">
+          <p className="font-medium">Tip</p>
+          <p className="mt-1">All successful predictions are automatically saved to <Link to="/my-predictions" className="text-blue-600 underline font-medium">My Predictions</Link> where you can review results, download data, and visualize survival curves.</p>
+        </div>
       </div>
     </details>
   </section>
