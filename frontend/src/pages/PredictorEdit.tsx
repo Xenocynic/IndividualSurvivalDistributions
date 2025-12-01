@@ -224,7 +224,7 @@ export default function PredictorEdit() {
           const username = row.username.trim();
           if (!username) continue;
 
-          let userId = row.userId;
+          let userId: number | null | undefined = row.userId ?? undefined;
           if (!userId) {
             userId = await resolveUsernameToId(username);
           }

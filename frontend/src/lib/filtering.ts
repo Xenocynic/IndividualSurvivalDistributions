@@ -146,7 +146,6 @@ export function filterPredictors(
   const keywordTarget: KeywordTarget = filter.keywordTarget ?? "both";
   const fromDate = parseFilterDateStart(filter.dateFrom);
   const toDate = parseFilterDateEnd(filter.dateTo);
-  const username = filter.username?.toLowerCase().trim() || "";
 
   return items.filter((item) => {
     // Ownership: treat viewer as "not owner"
