@@ -531,7 +531,7 @@ export default function UsePredictor() {
                     </div>
 
                     {/* Model configuration */}
-                    {selectedPredictor.model_metadata && (
+                    {selectedPredictor && (
                       <div className="mt-3 rounded-md bg-neutral-50 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                           Model configuration
@@ -542,7 +542,7 @@ export default function UsePredictor() {
                               Model type
                             </dt>
                             <dd className="mt-0.5 text-neutral-900">
-                              {selectedPredictor.model_metadata.model_type}
+                              {selectedPredictor.model || selectedPredictor.model_metadata?.model_type || "N/A"}
                             </dd>
                           </div>
                           <div>
@@ -558,7 +558,7 @@ export default function UsePredictor() {
                               Required features
                             </dt>
                             <dd className="mt-0.5 text-neutral-900">
-                              {selectedPredictor.model_metadata.n_features}
+                              {selectedPredictor.model_metadata?.n_features || "N/A"}
                             </dd>
                           </div>
                           <div>
@@ -569,6 +569,44 @@ export default function UsePredictor() {
                               {selectedPredictor.ml_trained_at}
                             </dd>
                           </div>
+                          {selectedPredictor.post_process && (
+                            <div>
+                              <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                Post process
+                              </dt>
+                              <dd className="mt-0.5 text-neutral-900">
+                                {selectedPredictor.post_process}
+                              </dd>
+                            </div>
+                          )}
+                          <div>
+                            <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                              Time bins
+                            </dt>
+                            <dd className="mt-0.5 text-neutral-900">
+                              {selectedPredictor.time_bins || "default"}
+                            </dd>
+                          </div>
+                          {selectedPredictor.activation && (
+                            <div>
+                              <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                Activation
+                              </dt>
+                              <dd className="mt-0.5 text-neutral-900">
+                                {selectedPredictor.activation}
+                              </dd>
+                            </div>
+                          )}
+                          {selectedPredictor.neurons && selectedPredictor.neurons.length > 0 && (
+                            <div>
+                              <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                                Hidden layers
+                              </dt>
+                              <dd className="mt-0.5 text-neutral-900">
+                                {selectedPredictor.neurons.join(", ")}
+                              </dd>
+                            </div>
+                          )}
                         </dl>
                       </div>
                     )}

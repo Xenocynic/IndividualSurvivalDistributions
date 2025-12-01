@@ -45,6 +45,12 @@ export interface PredictorItem {
     model_type?: string;
     n_features?: number;
   };
+  // Additional model configuration fields
+  model?: string;
+  post_process?: string;
+  time_bins?: number;
+  activation?: string;
+  neurons?: number[];
 }
 
 type PredictorCardProps = {

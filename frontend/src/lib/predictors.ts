@@ -289,6 +289,12 @@ export function mapApiPredictorToUi(
     ml_trained_at: formatDate(item.ml_trained_at ?? ""),
     dataset: item.dataset ?? undefined,
     model_metadata: item.model_metadata ?? undefined,
+    // Additional model configuration fields
+    model: item.model ?? undefined,
+    post_process: item.post_process ?? undefined,
+    time_bins: item.time_bins ?? undefined,
+    activation: item.activation ?? undefined,
+    neurons: item.neurons ?? undefined,
   };
 }
 
