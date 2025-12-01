@@ -1795,6 +1795,33 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
   // Warning modal state
   const [showWarningModal, setShowWarningModal] = useState(false);
 
+  // Dataset first column name for Training Results Label
+  const [datasetFirstColumn, setDatasetFirstColumn] = useState<string | null>(null);
+
+  // Fetch dataset's first column name
+  useEffect(() => {
+    if (!predictor?.dataset?.dataset_id) {
+      setDatasetFirstColumn(null);
+      return;
+    }
+
+    const fetchFirstColumn = async () => {
+      try {
+        const preview = await api.get<{ columns: string[] }>(
+          `/api/datasets/${predictor.dataset.dataset_id}/preview/`
+        );
+        if (preview.columns && preview.columns.length > 0) {
+          setDatasetFirstColumn(preview.columns[0]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dataset columns:", err);
+        setDatasetFirstColumn(null);
+      }
+    };
+
+    fetchFirstColumn();
+  }, [predictor?.dataset?.dataset_id]);
+
   // --- Retrain In Place Handler ---
   const handleRetrainInPlace = () => {
     setShowWarningModal(true);
@@ -2131,7 +2158,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Label</span>
                     <span className="font-mono text-sm font-medium text-neutral-900">
-                      {predictor.dataset?.dataset_name ? "time" : "N/A"}
+                      {datasetFirstColumn || "N/A"}
                     </span>
                   </div>
                   <div className="h-px bg-neutral-200" />
