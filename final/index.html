@@ -63,35 +63,35 @@
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Final Documentaion</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#deployment-instructions">Deployment Instructions</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#1-overview">1. Overview</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#2-install-required-libraries">2. Install Required Libraries</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#21-system-dependencies">2.1 System Dependencies</a>
+    <li class="toctree-l3"><a class="reference internal" href="#1-overview">1. Overview</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#22-backend-dependencies">2.2 Backend Dependencies</a>
+    <li class="toctree-l3"><a class="reference internal" href="#2-install-required-libraries">2. Install Required Libraries</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#21-system-dependencies">2.1 System Dependencies</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#23-frontend-dependencies">2.3 Frontend Dependencies</a>
+    <li class="toctree-l4"><a class="reference internal" href="#22-backend-dependencies">2.2 Backend Dependencies</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#24-ml-api-dependencies">2.4 ML API Dependencies</a>
+    <li class="toctree-l4"><a class="reference internal" href="#23-frontend-dependencies">2.3 Frontend Dependencies</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#24-ml-api-dependencies">2.4 ML API Dependencies</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#3-configure-environment-variables">3. Configure Environment Variables</a>
+    <li class="toctree-l3"><a class="reference internal" href="#3-configure-environment-variables">3. Configure Environment Variables</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#4-deploy-the-backend">4. Deploy the Backend</a>
+    <li class="toctree-l3"><a class="reference internal" href="#4-deploy-the-backend">4. Deploy the Backend</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</a>
+    <li class="toctree-l3"><a class="reference internal" href="#5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#6-configure-nginx">6. Configure Nginx</a>
+    <li class="toctree-l3"><a class="reference internal" href="#6-configure-nginx">6. Configure Nginx</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#7-enable-https-ssl">7. Enable HTTPS (SSL)</a>
+    <li class="toctree-l3"><a class="reference internal" href="#7-enable-https-ssl">7. Enable HTTPS (SSL)</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#8-verify-services">8. Verify Services</a>
+    <li class="toctree-l3"><a class="reference internal" href="#8-verify-services">8. Verify Services</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#9-security-checklist">9. Security Checklist</a>
-        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#9-security-checklist">9. Security Checklist</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#debug-mode-disabled">✔ Debug mode disabled</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#all-testing-accounts-removed">✔ All testing accounts removed</a>
@@ -104,9 +104,9 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#admin-panel-access-secured">✔ Admin panel access secured</a>
     </li>
-        </ul>
+    <li class="toctree-l3"><a class="reference internal" href="#deployment-complete">Deployment Complete</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#deployment-complete">Deployment Complete</a>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#user-manual">User Manual</a>
         <ul>
@@ -210,7 +210,7 @@
 <h2 id="deployment-instructions">Deployment Instructions</h2>
 <p>This guide explains how to deploy the ISD application into a production environment. It ensures that all components are correctly installed, configured, secured, and running according to production standards.</p>
 <hr />
-<h2 id="1-overview">1. Overview</h2>
+<h3 id="1-overview">1. Overview</h3>
 <p>The ISD system consists of three major services:</p>
 <ul>
 <li><strong>Backend:</strong> Django application served by Gunicorn and Nginx  </li>
@@ -220,29 +220,29 @@
 <p>All services run on an Ubuntu virtual machine and use a Supabase PostgreSQL instance for database storage.</p>
 <p>Before deploying, ensure you have SSH access to the production server and the project repository.</p>
 <hr />
-<h2 id="2-install-required-libraries">2. Install Required Libraries</h2>
+<h3 id="2-install-required-libraries">2. Install Required Libraries</h3>
 <p>The production server must have all system and application-level dependencies installed.</p>
-<h3 id="21-system-dependencies">2.1 System Dependencies</h3>
+<h4 id="21-system-dependencies">2.1 System Dependencies</h4>
 <pre><code class="language-bash">sudo apt update
 sudo apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git nodejs npm build-essential
 </code></pre>
-<h3 id="22-backend-dependencies">2.2 Backend Dependencies</h3>
+<h4 id="22-backend-dependencies">2.2 Backend Dependencies</h4>
 <pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/isd
 python3 -m venv ../venv
 source ../venv/bin/activate
 pip install -r requirements.txt
 </code></pre>
-<h3 id="23-frontend-dependencies">2.3 Frontend Dependencies</h3>
+<h4 id="23-frontend-dependencies">2.3 Frontend Dependencies</h4>
 <pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/frontend
 npm install
 </code></pre>
-<h3 id="24-ml-api-dependencies">2.4 ML API Dependencies</h3>
+<h4 id="24-ml-api-dependencies">2.4 ML API Dependencies</h4>
 <pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/ml_api
 pip install -r requirements.txt
 </code></pre>
 <p>All required dependencies must be listed in <code>requirements.txt</code> and <code>package.json</code> to ensure consistent builds.</p>
 <hr />
-<h2 id="3-configure-environment-variables">3. Configure Environment Variables</h2>
+<h3 id="3-configure-environment-variables">3. Configure Environment Variables</h3>
 <p>Production settings are stored in:</p>
 <pre><code>/home/ubuntu/f25project-DeptofComputingScience/isd/.env
 </code></pre>
@@ -257,7 +257,7 @@ pip install -r requirements.txt
 </ul>
 <p>Remove any test or placeholder credentials.</p>
 <hr />
-<h2 id="4-deploy-the-backend">4. Deploy the Backend</h2>
+<h3 id="4-deploy-the-backend">4. Deploy the Backend</h3>
 <p>From the project root:</p>
 <pre><code class="language-bash">./deploy_production.sh
 </code></pre>
@@ -271,7 +271,7 @@ pip install -r requirements.txt
 <li>Reloads Nginx</li>
 </ul>
 <hr />
-<h2 id="5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</h2>
+<h3 id="5-deploy-the-frontend-manually-optional">5. Deploy the Frontend Manually (Optional)</h3>
 <pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience/frontend
 npm run build
 sudo rm -rf /var/www/isd-frontend/*
@@ -279,7 +279,7 @@ sudo cp -r dist/* /var/www/isd-frontend/
 sudo systemctl reload nginx
 </code></pre>
 <hr />
-<h2 id="6-configure-nginx">6. Configure Nginx</h2>
+<h3 id="6-configure-nginx">6. Configure Nginx</h3>
 <p>Your Nginx config file should be placed at:</p>
 <pre><code>/etc/nginx/sites-available/isd
 </code></pre>
@@ -295,7 +295,7 @@ sudo systemctl reload nginx
 sudo systemctl reload nginx
 </code></pre>
 <hr />
-<h2 id="7-enable-https-ssl">7. Enable HTTPS (SSL)</h2>
+<h3 id="7-enable-https-ssl">7. Enable HTTPS (SSL)</h3>
 <p>Once DNS points to the server:</p>
 <pre><code class="language-bash">cd /home/ubuntu/f25project-DeptofComputingScience
 ./setup_ssl.sh
@@ -314,7 +314,7 @@ sudo systemctl reload nginx
 <pre><code class="language-bash">sudo systemctl restart isd-django.service
 </code></pre>
 <hr />
-<h2 id="8-verify-services">8. Verify Services</h2>
+<h3 id="8-verify-services">8. Verify Services</h3>
 <p>Confirm systemd services are running:</p>
 <pre><code class="language-bash">sudo systemctl status isd-django.service
 sudo systemctl status isd-ml-api.service
@@ -325,7 +325,7 @@ sudo systemctl status nginx
 curl -I https://isd.srv.ualberta.ca/
 </code></pre>
 <hr />
-<h2 id="9-security-checklist">9. Security Checklist</h2>
+<h3 id="9-security-checklist">9. Security Checklist</h3>
 <p>Before marking deployment complete, ensure:</p>
 <h3 id="debug-mode-disabled">✔ Debug mode disabled</h3>
 <p><code>DEBUG=False</code></p>
@@ -345,7 +345,7 @@ curl -I https://isd.srv.ualberta.ca/
 <h3 id="admin-panel-access-secured">✔ Admin panel access secured</h3>
 <p>Use strong passwords and (optionally) firewall or IP filtering.</p>
 <hr />
-<h2 id="deployment-complete">Deployment Complete</h2>
+<h3 id="deployment-complete">Deployment Complete</h3>
 <p>After following this guide:</p>
 <ul>
 <li>All services will be installed and running  </li>
