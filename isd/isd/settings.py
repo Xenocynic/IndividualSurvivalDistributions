@@ -70,10 +70,13 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',  # API documentation,
+    'django_celery_results',  # Celery result backend
+    'django_celery_beat',  # Celery periodic tasks
     'accounts',
     'authapp',
     'dataset',
     'predictors',
+    'predictions',  # prediction results management
     'folders',  # folder organization
     'core'  # main app
 ]
@@ -225,3 +228,26 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5174",
     "http://localhost:5173",
 ]
+# ========================================
+# Celery Configuration
+# ========================================
+
+# Celery Broker (Redis)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+
+# Celery Result Backend (Django Database)
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+
+# Celery Task Settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 3600  # 1 hour timeout for training tasks
+CELERY_RESULT_EXTENDED = True
+
+# Celery Beat (Periodic Tasks)
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+

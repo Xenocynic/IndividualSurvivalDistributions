@@ -1,7 +1,7 @@
-import { useDrop } from 'react-dnd';
-import { useRef } from 'react';
-import type { DragItem } from '../../../types/dragDrop';
-import type { Folder } from '../../../lib/folders';
+import { useDrop } from "react-dnd";
+import { useRef } from "react";
+import type { DragItem } from "../../../types/dragDrop";
+import type { Folder } from "../../../lib/folders";
 
 interface Props {
   folder: Folder | null; // null represents main collection
@@ -11,30 +11,37 @@ interface Props {
   className?: string;
 }
 
-export default function DroppableFolder({ 
-  folder, 
-  children, 
-  isLoading = () => false, 
+export default function DroppableFolder({
+  folder,
+  children,
+  isLoading = () => false,
   onDrop,
-  className = ""
+  className = "",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const folderId = folder?.folder_id;
-  
+
   const [{ isOver, canDrop }, drop] = useDrop({
-    accept: ['predictor', 'dataset'],
+    accept: ["predictor", "dataset"],
     drop: (item: DragItem) => {
       onDrop?.(item, folderId);
       return { folderId: folderId || undefined };
     },
     canDrop: (item: DragItem) => {
-      // Allow dropping if user owns the item
-      if (!item.owner || isLoading(item.id)) return false;
-      
-      // If dropping to main collection (no folderId), allow if item is currently in a folder
-      if (!folderId) return !!item.folderId;
-      
-      // For folders, always allow dropping (copy behavior)
+      // Block drops while this item is in a loading state
+      if (isLoading(item.id)) return false;
+
+      // Dropping to main collection: only allow if the item is currently in a folder
+      if (!folderId) {
+        return !!item.folderId;
+      }
+
+      // Avoid dropping into the same folder it already belongs to
+      if (item.folderId && item.folderId === folderId) {
+        return false;
+      }
+
+      // Otherwise, allow dropping onto folders
       return true;
     },
     collect: (monitor) => ({
@@ -45,16 +52,17 @@ export default function DroppableFolder({
 
   drop(ref);
 
-  const folderLoading = folderId ? isLoading('') : false; // Check if this specific folder is loading
-  
+  // Highlight a specific folder as "loading" if caller indicates so
+  const folderLoading = folderId ? isLoading(folderId) : false;
+
   return (
     <div
       ref={ref}
       className={`
         ${className}
-        ${isOver && canDrop ? 'ring-2 ring-blue-500 bg-blue-50/80 shadow-lg' : ''}
-        ${isOver && !canDrop ? 'ring-2 ring-red-500 bg-red-50/80' : ''}
-        ${folderLoading ? 'ring-2 ring-orange-400 bg-orange-50/60' : ''}
+        ${isOver && canDrop ? "ring-2 ring-blue-500 bg-blue-50/80 shadow-lg" : ""}
+        ${isOver && !canDrop ? "ring-2 ring-red-500 bg-red-50/80" : ""}
+        ${folderLoading ? "ring-2 ring-orange-400 bg-orange-50/60" : ""}
         transition-all duration-200 relative
       `}
     >

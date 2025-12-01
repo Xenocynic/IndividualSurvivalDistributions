@@ -32,6 +32,7 @@ class DatasetSerializer(serializers.ModelSerializer):
     """
     
     owner_name = serializers.CharField(source='owner.username', read_only=True)
+    allow_admin_access = serializers.BooleanField(default=True, help_text="Whether to allow admin users to access")
     file = serializers.FileField(write_only=True, required=True, help_text='CSV or TSV file to upload')
     file_size_display = serializers.CharField(source='get_file_size_display', read_only=True)
     file_display_name = serializers.CharField(source='get_file_display_name', read_only=True)
@@ -49,7 +50,8 @@ class DatasetSerializer(serializers.ModelSerializer):
             "file_size_display", "file_display_name", "has_file",
             "folder", "folder_id",
             "notes", "time_unit", "is_public", "uploaded_at",
-            "num_features", "num_labels"
+            "num_features", "num_labels",
+            "allow_admin_access"
         ]
         extra_kwargs = {
             'dataset_id': {'read_only': True},

@@ -17,6 +17,7 @@ export type Dataset = {
   dataset_id: number;
   dataset_name: string;
   owner: number;
+  allow_admin_access: boolean;
   owner_name: string;
   file_path?: string;
   original_filename?: string;
@@ -40,6 +41,7 @@ export type CreateDatasetRequest = {
   notes?: string;
   time_unit: "year" | "month" | "day" | "hour";
   is_public: boolean;
+  allow_admin_access?: boolean;
   folder_id?: string;
 };
 
@@ -136,6 +138,10 @@ export async function createDataset(request: CreateDatasetRequest): Promise<Crea
   formData.append('file', request.file);
   formData.append('time_unit', request.time_unit);
   formData.append('is_public', request.is_public.toString());
+
+  if (request.allow_admin_access !== undefined) {
+    formData.append('allow_admin_access', request.allow_admin_access.toString());
+  }
 
   if (request.notes) {
     formData.append("notes", request.notes);
@@ -315,25 +321,70 @@ export function mapApiDatasetToUi(
     ? Math.round((item.file_size / (1024 * 1024)) * 10) / 10
     : undefined;
 
+  // Choose a single "raw" updated timestamp from the API payload.
+  // Prefer uploaded_at, then fall back to any other updated fields.
+  const rawUpdated =
+    item.uploaded_at ??
+    item.updated_at ??
+    item.updatedAt ??
+    item.modified ??
+    undefined;
+
   return {
     id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
     title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
+
     // If API returns owner as an id, compare with current user id to produce boolean
     owner:
       typeof item.owner === "number" && currentUserId !== undefined
         ? item.owner === currentUserId
         : Boolean(item.owner),
+
     ownerId: item.owner ?? null,
     ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.uploaded_at
-      ? formatDate(item.uploaded_at)
-      : item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
+
+    // Human-readable date for display
+    updatedAt: rawUpdated ? formatDate(rawUpdated) : undefined,
+
+    // Raw timestamp for filtering/sorting
+    updatedAtRaw: rawUpdated,
+
     notes: item.notes ?? item.description ?? "",
     sizeMB: fileSizeMB,
     hasFile: item.has_file ?? Boolean(item.file_path),
     originalFilename: item.original_filename ?? item.originalFilename,
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
+    allow_admin_access: item.allow_admin_access ?? false,
     __raw: item,
   };
+}
+
+/**
+ * Checks if the value matches the current user's ID.
+ * - If you pass a Number/String: it compares IDs
+ * - If you pass a Boolean: it just returns it
+ */
+export function isUserOwner(
+  ownerValue: number | string | boolean | { id?: number | string } | null | undefined,
+  currentUserId?: number | string | null
+): boolean {
+  if (!ownerValue || !currentUserId) return false;
+
+  // 1. Raw ID (API data)
+  if (typeof ownerValue === 'number' || typeof ownerValue === 'string') {
+    return String(ownerValue) === String(currentUserId);
+  }
+
+  // 2. Django Object
+  if (typeof ownerValue === 'object' && 'id' in ownerValue) {
+    return String((ownerValue as any).id) === String(currentUserId);
+  }
+
+  // 3. Boolean
+  if (typeof ownerValue === 'boolean') {
+    return ownerValue;
+  }
+
+  return false;
 }

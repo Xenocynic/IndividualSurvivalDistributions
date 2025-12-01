@@ -20,3 +20,6 @@ yarn-error.log*
 dist/
 build/
 .cache/
+
+# Logs and process tracking
+.logs/

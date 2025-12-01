@@ -7,3 +7,22 @@ html, body, #root { height: 100%; }
 
 /* utility for the thin top-border */
 .border-thin { border-width: 1px; }
+
+
+
+/* card animations */
+@keyframes card-zoom {
+  0% {
+    transform: scale(1);
+  }
+  60% {
+    transform: scale(0.95);
+  }
+   100% {
+    transform: scale(1);
+  }
+}
+
+.card-zoom {
+  animation: card-zoom 160ms ease-out;
+}

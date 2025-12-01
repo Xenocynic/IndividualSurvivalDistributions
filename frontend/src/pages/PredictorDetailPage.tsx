@@ -1,8 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import type { TooltipProps } from "recharts";
+import { Printer, Download, Eye } from "lucide-react";
 import { api } from "../lib/apiClient";
 import { getDatasetStats } from "../lib/datasets";
 import type { DatasetStats } from "../lib/datasets";
+import {
+  getPredictorFullPredictions,
+  getPredictorSurvivalCurves,
+  getPredictorMtlrFile,
+  retrainPredictorAsync,
+  updatePredictor,
+  type CvPredictions,
+  type SurvivalCurvesData,
+} from "../lib/predictors";
+import IndividualSurvivalCurves from "../components/IndividualSurvivalCurves";
+import DCalibrationHistogram from "../components/DCalibrationHistogram";
+import KaplanMeierVisualization from "../components/KaplanMeierVisualization";
+import TrainingModal from "../components/TrainingModal";
+import PredictorComparisonTable from "../components/PredictorComparisonTable";
 
 // --- Type Definitions ---
 interface PredictorDetail {
@@ -18,15 +44,18 @@ interface PredictorDetail {
     username: string;
   };
   is_private: boolean;
-  time_unit: 'hour' | 'day' | 'month' | 'year';
+  time_unit: "hour" | "day" | "month" | "year";
   num_time_points: number | null;
-  regularization: 'l1' | 'l2';
-  objective_function: 'log-likelihood' | 'l2 marginal loss' | 'log-likelihood & L2ML';
-  marginal_loss_type: 'weighted' | 'unweighted';
-  c_param_search_scope: 'basic' | 'fine' | 'extremely fine';
+  regularization: "l1" | "l2";
+  objective_function:
+    | "log-likelihood"
+    | "l2 marginal loss"
+    | "log-likelihood & L2ML";
+  marginal_loss_type: "weighted" | "unweighted";
+  c_param_search_scope: "basic" | "fine" | "extremely fine";
   cox_feature_selection: boolean;
   mrmr_feature_selection: boolean;
-  mtlr_predictor: 'stable' | 'testing1';
+  mtlr_predictor: "stable" | "testing1";
   tune_parameters: boolean;
   use_smoothed_log_likelihood: boolean;
   use_predefined_folds: boolean;
@@ -37,20 +66,59 @@ interface PredictorDetail {
   run_cross_validation: boolean;
   standardize_features: boolean;
   model_id: string;
+  ml_training_status?: string;
+  ml_model_metrics?: {
+    Cindex?: { mean: number; std: number };
+    IBS?: { mean: number; std: number };
+    MAE_Hinge?: { mean: number; std: number };
+    MAE_PO?: { mean: number; std: number };
+    KM_cal?: { mean: number; std: number };
+    xCal_stats?: { mean: number; std: number };
+    wsc_xCal_stats?: { mean: number; std: number };
+    dcal_p?: { mean: number; std: number };
+    dcal_Chi?: { mean: number; std: number };
+    train_times?: { mean: number; std: number };
+    infer_times?: { mean: number; std: number };
+    n_experiment?: number;
+    train_duration?: number;
+    train_start_time?: string;
+    [key: string]: any;
+  };
 }
 
 type Tab = "meta" | "dataset" | "retrain" | "cross-validation";
 
-const NAVBAR_HEIGHT = 64;   // px
-const HEADER_HEIGHT = 60;   // px (approx: header row + 1px progress bar + padding)
+const NAVBAR_HEIGHT = 64;
+const HEADER_HEIGHT = 72;
 const MAX_HISTOGRAM_BARS = 20;
+const SURVIVAL_X_TICKS = 6;
+const SURVIVAL_Y_TICKS = 5;
+const EVENT_X_TICKS = 6;
+const EVENT_Y_TICKS = 5;
 
 type DatasetSubTab = "correlations" | "eventHistogram" | "survivalHistogram";
+
+type SurvivalHistogramBin = { bin_start: number; bin_end: number; count: number };
+interface SurvivalHistogramData {
+  bins: SurvivalHistogramBin[];
+  axisMin: number;
+  axisMax: number;
+}
+interface SurvivalChartDatum extends SurvivalHistogramBin {
+  center: number;
+}
+type HistogramBin = DatasetStats["event_time_histogram"][number];
+interface EventHistogramDatum extends HistogramBin {
+  center: number;
+  events: number;
+  censored: number;
+  total: number;
+}
 
 export default function PredictorDetailPage() {
   const { predictorId } = useParams<{ predictorId: string }>();
   const navigate = useNavigate();
-    const location = useLocation();
+  const location = useLocation();
 
   // fall back to the parent page + correct tab
   type NavOrigin = "browse" | "dashboard";
@@ -58,7 +126,9 @@ export default function PredictorDetailPage() {
     (location.state as any)?.from === "browse" ? "browse" : "dashboard";
 
   const fallbackBackPath =
-    navOrigin === "browse" ? "/browse?tab=predictors" : "/dashboard?tab=predictors";
+    navOrigin === "browse"
+      ? "/browse?tab=predictors"
+      : "/dashboard?tab=predictors";
 
   const handleBack = () => {
     // if we have browser history to return to, use it
@@ -72,6 +142,7 @@ export default function PredictorDetailPage() {
 
   // State for data, loading, and errors
   const [predictor, setPredictor] = useState<PredictorDetail | null>(null);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +160,7 @@ export default function PredictorDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-                const data = await api.get<PredictorDetail>(
+        const data = await api.get<PredictorDetail>(
           `/api/predictors/${predictorId}/`
         );
         setPredictor(data);
@@ -106,26 +177,57 @@ export default function PredictorDetailPage() {
     fetchPredictorDetails();
   }, [predictorId]);
 
+  // Poll for status updates if training
+  useEffect(() => {
+    if (!predictor || predictor.ml_training_status !== "training") {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await api.get<PredictorDetail>(
+          `/api/predictors/${predictorId}/`
+        );
+        setPredictor(data);
+
+        // Stop polling if training is complete
+        if (data.ml_training_status !== "training") {
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error("Error polling predictor status:", err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [predictor?.ml_training_status, predictorId]);
+
   // --- Render States ---
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-gray-900" />
-        <p className="ml-3 text-gray-600">Loading Predictor...</p>
+      <div className="grid min-h-screen place-items-center bg-neutral-100">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+          <p className="mt-2 text-sm text-neutral-600">Loading Predictor...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !predictor) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-center">
-        <p className="text-red-600">{error || "Predictor not found."}</p>
-        <button
-          onClick={handleBack}
-          className="mt-4 rounded-md bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200"
-        >
-          Back
-        </button>
+      <div className="grid min-h-screen place-items-center bg-neutral-100">
+        <div className="rounded-md border border-black/5 bg-white px-6 py-5 text-center shadow-sm">
+          <p className="text-sm text-red-600">
+            {error || "Predictor not found."}
+          </p>
+          <button
+            onClick={handleBack}
+            className="mt-4 inline-flex items-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50 active:translate-y-[0.5px]"
+          >
+            Back
+          </button>
+        </div>
       </div>
     );
   }
@@ -139,56 +241,104 @@ export default function PredictorDetailPage() {
       case "retrain":
         return <RetrainTab predictor={predictor} />;
       case "cross-validation":
-        return <CrossValidationTab />;
+        return <CrossValidationTab predictor={predictor} />;
       default:
         return null;
     }
   };
 
+  const statusLabel =
+    predictor.ml_training_status === "not_trained"
+      ? "Not Trained"
+      : predictor.ml_training_status === "training"
+      ? "Training"
+      : predictor.ml_training_status === "trained"
+      ? "Trained"
+      : predictor.ml_training_status === "failed"
+      ? "Failed"
+      : "Unknown";
+
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-neutral-100">
+      {/* Sticky header */}
       <div
-        className="sticky z-30 w-full bg-neutral-700 text-white"
+        className="sticky z-30 w-full border-b border-black/20 bg-neutral-700 text-white shadow-sm"
         style={{ top: NAVBAR_HEIGHT }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <button
             onClick={handleBack}
-            className="rounded-md bg-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-500"
-            aria-label="Back"
+            className="inline-flex items-center rounded-md border border-white/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium shadow-sm transition hover:bg-neutral-500 active:translate-y-[0.5px]"
           >
             Back
           </button>
 
-          <h1 className="text-lg font-semibold tracking-wide text-center">{predictor.name}</h1>
-
-          {/* status badge placeholder */}
-          <div className="hidden rounded-full bg-neutral-600 px-3 py-1 text-xs sm:block">
-            Status: <span className="font-medium">Trained</span>
+          <div className="min-w-0 flex-1 px-4 text-center">
+            <h1 className="truncate text-sm font-semibold tracking-wide sm:text-base">
+              {predictor.name}
+            </h1>
+            <p className="mt-1 truncate text-[11px] text-neutral-200">
+              <span className="font-medium">{predictor.owner.username}</span>
+              {"   ·   "}
+              Uses dataset{" "}
+              <span className="font-mono">
+                {predictor.dataset?.dataset_name}
+              </span>
+              {"   ·   "}
+              Time unit: <span className="lowercase">{predictor.time_unit}</span>
+            </p>
           </div>
+
+          {/* Status badge / training indicator */}
+          <button
+            type="button"
+            onClick={() => {
+              if (predictor.ml_training_status === "training") {
+                setShowTrainingModal(true);
+              }
+            }}
+            className={`hidden sm:inline-flex items-center rounded-full border px-3 py-1 text-[11px] ${
+              predictor.ml_training_status === "training"
+                ? "border-white/30 bg-blue-600 text-white hover:bg-blue-500 cursor-pointer transition"
+                : "border-white/25 bg-neutral-600/80 text-white cursor-default"
+            }`}
+            disabled={predictor.ml_training_status !== "training"}
+          >
+            <span className="mr-1 text-neutral-200">Status</span>
+            <span className="font-medium">{statusLabel}</span>
+          </button>
         </div>
-        <div className="h-[4px] w-full bg-neutral-600" />
+        <div className="h-1 w-full bg-neutral-700" />
       </div>
 
+      {/* Tab bar */}
       <div
-        className="sticky z-20 w-full border-b bg-neutral-100"
+        className="sticky z-20 w-full border-b border-black/10 bg-neutral-50/95 pt-2 backdrop-blur"
         style={{ top: NAVBAR_HEIGHT + HEADER_HEIGHT }}
       >
         <div className="mx-auto max-w-6xl">
-          <nav className="flex justify-center gap-2 px-2 py-2">
-            {(["meta", "dataset", "retrain", "cross-validation"] as Tab[]).map((tab) => {
+          <nav className="flex justify-center gap-2 px-3 py-3">
+            {(
+              ["meta", "dataset", "retrain", "cross-validation"] as Tab[]
+            ).map((tab) => {
               const isActive = activeTab === tab;
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize transition ${
+                  onClick={() => {
+                    setActiveTab(tab);
+                    // Smooth scroll to top on tab change
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`rounded-md px-3.5 py-2 text-xs sm:text-sm font-medium capitalize transition ${
                     isActive
-                      ? "bg-neutral-800 text-white"
-                      : "border bg-white text-neutral-700 hover:bg-neutral-50"
+                      ? "border border-neutral-900 bg-neutral-900 text-white shadow-sm"
+                      : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-200"
                   }`}
                 >
-                  {tab === "retrain" ? "Predictor Settings / Retrain" : tab.replace("-", " ")}
+                  {tab === "retrain"
+                    ? "Predictor Settings / Retrain"
+                    : tab.replace("-", " ")}
                 </button>
               );
             })}
@@ -198,20 +348,49 @@ export default function PredictorDetailPage() {
 
       {/* CONTENT */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-4 py-8">{renderTabContent()}</div>
+        <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+          {renderTabContent()}
+        </div>
       </div>
+
+      {/* Training Modal */}
+      {showTrainingModal && predictor && (
+        <TrainingModal
+          predictorId={predictor.predictor_id}
+          onClose={() => setShowTrainingModal(false)}
+          autoNavigateOnComplete={false}
+        />
+      )}
     </div>
   );
 }
 
-// --- Shared tiny components (read-only info pockets) ---
-const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`rounded-md border border-neutral-200 bg-neutral-50 p-4 ${className}`}>{children}</div>
+// --- Shared tiny components  ---
+const Card = ({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={`rounded-xl border border-black/5 bg-white p-4 shadow-sm ${className}`}
+  >
+    {children}
+  </div>
 );
 
-const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
+export const InfoItem = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) => (
   <div className="space-y-1">
-    <dt className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{label}</dt>
+    <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+      {label}
+    </dt>
     <dd className="text-sm text-neutral-900">{value}</dd>
   </div>
 );
@@ -224,16 +403,28 @@ function MetaTab({ predictor }: { predictor: PredictorDetail }) {
         <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <InfoItem label="Predictor Name" value={predictor.name} />
           <InfoItem label="Owner" value={predictor.owner.username} />
-          <InfoItem label="Created" value={new Date(predictor.created_at).toLocaleDateString()} />
-          <InfoItem label="Last Updated" value={new Date(predictor.updated_at).toLocaleDateString()} />
-          <InfoItem label="Visibility" value={!predictor.is_private ? "Public" : "Private"} />
+          <InfoItem
+            label="Created"
+            value={new Date(predictor.created_at).toLocaleDateString()}
+          />
+          <InfoItem
+            label="Last Updated"
+            value={new Date(predictor.updated_at).toLocaleDateString()}
+          />
+          <InfoItem
+            label="Visibility"
+            value={!predictor.is_private ? "Public" : "Private"}
+          />
         </dl>
       </Card>
 
       <Card>
         <dl className="grid grid-cols-1 gap-4">
           <div className="sm:col-span-2">
-            <InfoItem label="Description" value={predictor.description || "No description provided."} />
+            <InfoItem
+              label="Description"
+              value={predictor.description || "No description provided."}
+            />
           </div>
         </dl>
       </Card>
@@ -253,8 +444,11 @@ function DatasetTab({
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
-
-  
+  const [cvPredictions, setCvPredictions] = useState<CvPredictions | null>(
+    null
+  );
+  const [cvError, setCvError] = useState<string | null>(null);
+  const [isCvLoading, setIsCvLoading] = useState(false);
 
   const datasetId = predictor.dataset?.dataset_id;
 
@@ -267,10 +461,16 @@ function DatasetTab({
       setStats(fresh);
     } catch (error) {
       console.error("Failed to refresh dataset statistics", error);
-      const apiDetails = (error as { details?: unknown })?.details as Record<string, unknown> | undefined;
+      const apiDetails = (error as { details?: unknown })?.details as
+        | Record<string, unknown>
+        | undefined;
       const errorMessage =
-        (apiDetails && typeof apiDetails.error === "string" && apiDetails.error) ||
-        (apiDetails && typeof apiDetails.message === "string" && apiDetails.message) ||
+        (apiDetails &&
+          typeof apiDetails.error === "string" &&
+          apiDetails.error) ||
+        (apiDetails &&
+          typeof apiDetails.message === "string" &&
+          apiDetails.message) ||
         "Failed to refresh dataset metrics. Please try again.";
       setStatsError(errorMessage);
     } finally {
@@ -296,10 +496,16 @@ function DatasetTab({
       .catch((error) => {
         console.error("Failed to load dataset statistics", error);
         if (!cancelled) {
-          const apiDetails = (error as { details?: unknown })?.details as Record<string, unknown> | undefined;
+          const apiDetails = (error as { details?: unknown })?.details as
+            | Record<string, unknown>
+            | undefined;
           const errorMessage =
-            (apiDetails && typeof apiDetails.error === "string" && apiDetails.error) ||
-            (apiDetails && typeof apiDetails.message === "string" && apiDetails.message) ||
+            (apiDetails &&
+              typeof apiDetails.error === "string" &&
+              apiDetails.error) ||
+            (apiDetails &&
+              typeof apiDetails.message === "string" &&
+              apiDetails.message) ||
             "Failed to load dataset metrics.";
           setStatsError(errorMessage);
           setStats(null);
@@ -316,23 +522,116 @@ function DatasetTab({
     };
   }, [datasetId]);
 
+  useEffect(() => {
+    setCvPredictions(null);
+    setCvError(null);
+    setIsCvLoading(false);
+  }, [predictor?.predictor_id]);
+
   const generalStats = stats?.general_stats;
   const timeUnitLabel = generalStats?.time_unit || predictor.time_unit;
   const hasTimeStats =
     generalStats &&
-    [generalStats.time_min, generalStats.time_max, generalStats.time_mean, generalStats.time_median].some(
-      (value) => value !== null && value !== undefined
-    );
+    [
+      generalStats.time_min,
+      generalStats.time_max,
+      generalStats.time_mean,
+      generalStats.time_median,
+    ].some((value) => value !== null && value !== undefined);
 
   const histogramBins = useMemo(
     () => stats?.event_time_histogram?.slice(0, MAX_HISTOGRAM_BARS) ?? [],
     [stats]
   );
 
+  const survivalHistogram = useMemo<SurvivalHistogramData | null>(() => {
+    if (!cvPredictions) return null;
+    const predicted = (cvPredictions.median_predictions ?? []).filter(
+      (val): val is number => typeof val === "number" && Number.isFinite(val)
+    );
+    if (!predicted.length) return null;
+
+    const rawMin = Math.min(...predicted);
+    const rawMax = Math.max(...predicted);
+    const padding = Math.max((rawMax - rawMin) * 0.05, 1);
+    const axisMin = getNiceFloor(Math.max(0, rawMin - padding));
+    const axisMaxCandidate = getNiceCeiling(rawMax + padding);
+    const axisMax = axisMaxCandidate <= axisMin ? axisMin + 1 : axisMaxCandidate;
+    const range = axisMax - axisMin || 1;
+    const fdBinWidth = getFreedmanDiaconisBinWidth(predicted);
+    const estimatedBins =
+      fdBinWidth > 0
+        ? Math.round(range / fdBinWidth)
+        : Math.round(Math.sqrt(predicted.length));
+    const binCount = Math.max(
+      5,
+      Math.min(MAX_HISTOGRAM_BARS, estimatedBins || 1)
+    );
+    const binWidth = range / binCount;
+
+    const bins: SurvivalHistogramBin[] = Array.from(
+      { length: binCount },
+      (_, idx) => ({
+        bin_start: axisMin + idx * binWidth,
+        bin_end: axisMin + (idx + 1) * binWidth,
+        count: 0,
+      })
+    );
+
+    const toIndex = (value: number) => {
+      if (value <= axisMin) return 0;
+      if (value >= axisMax) return binCount - 1;
+      const relative = (value - axisMin) / binWidth;
+      return Math.min(binCount - 1, Math.max(0, Math.floor(relative)));
+    };
+
+    predicted.forEach((value) => {
+      bins[toIndex(value)].count += 1;
+    });
+
+    return { bins, axisMin, axisMax };
+  }, [cvPredictions]);
+
+  useEffect(() => {
+    if (activeView !== "survivalHistogram") return;
+    if (!predictor || !predictor.predictor_id) return;
+    if (!predictor.model_id) {
+      setCvPredictions(null);
+      setCvError("This predictor has not been trained yet.");
+      return;
+    }
+    if (cvPredictions || isCvLoading) return;
+    setCvError(null);
+    setIsCvLoading(true);
+    getPredictorFullPredictions(predictor.predictor_id)
+      .then((data) => setCvPredictions(data))
+      .catch((err) => {
+        console.error("Failed to load full predictions", err);
+        const apiDetails = (err as { details?: unknown })?.details as
+          | Record<string, unknown>
+          | undefined;
+        const message =
+          (apiDetails &&
+            typeof apiDetails.error === "string" &&
+            apiDetails.error) ||
+          (apiDetails &&
+            typeof apiDetails.message === "string" &&
+            apiDetails.message) ||
+          (typeof (err as any)?.message === "string"
+            ? (err as any).message
+            : "Failed to load predicted survival data.");
+        setCvPredictions(null);
+        setCvError(message);
+      })
+      .finally(() => setIsCvLoading(false));
+  }, [activeView, predictor, cvPredictions, isCvLoading]);
+
   const tabButtonClass = useCallback(
     (tab: DatasetSubTab) =>
-      `rounded-md px-3 py-1.5 text-sm transition ${
-        activeView === tab ? "bg-neutral-800 text-white" : "border bg-white text-neutral-700 hover:bg-neutral-50"
+      `rounded-md px-3 py-1.5 text-xs font-medium transition sm:text-sm ${
+        activeView === tab
+          ? "bg-neutral-900 text-white shadow-sm"
+          : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
       }`,
     [activeView]
   );
@@ -354,7 +653,7 @@ function DatasetTab({
             <button
               onClick={handleRefreshStats}
               disabled={isRefreshing}
-              className="mt-4 rounded-md border bg-white px-3 py-1.5 text-xs text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-4 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRefreshing ? "Refreshing…" : "Generate statistics"}
             </button>
@@ -367,84 +666,215 @@ function DatasetTab({
       case "correlations":
         return <FeatureCorrelationTable rows={stats.feature_correlations ?? []} />;
       case "eventHistogram":
-        return <EventHistogramChart bins={histogramBins} timeUnit={timeUnitLabel} />;
+        return (
+          <EventHistogramChart bins={histogramBins} timeUnit={timeUnitLabel} />
+        );
       case "survivalHistogram":
         return (
-          <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
-            <p>Predicted survival histogram will be available once modelling outputs are produced.</p>
-          </div>
+          <PredictedSurvivalHistogram
+            histogram={survivalHistogram}
+            timeUnit={timeUnitLabel}
+            isLoading={isCvLoading}
+            error={cvError}
+            hasModel={Boolean(predictor.model_id)}
+          />
         );
       default:
         return null;
     }
-  }, [activeView, datasetId, handleRefreshStats, histogramBins, isInitialLoading, isRefreshing, stats, timeUnitLabel]);
+  }, [
+    activeView,
+    datasetId,
+    handleRefreshStats,
+    histogramBins,
+    isInitialLoading,
+    isRefreshing,
+    stats,
+    timeUnitLabel,
+    survivalHistogram,
+    cvError,
+    isCvLoading,
+    predictor,
+  ]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <Card>
-          <dl className="space-y-4">
-            <InfoItem
-              label="Dataset"
-              value={
-              <Link
-                to={`/datasets/${predictor.dataset.dataset_id}/view`}
-                state={{ from: navOrigin }}
-                className="font-mono text-blue-600 hover:underline"
-              >
-                {predictor.dataset.dataset_name}
-              </Link>
-              }
-            />
-            <InfoItem label="Dataset ID" value={predictor.dataset.dataset_id} />
-            <InfoItem label="MTLR Training File" value={<span className="text-neutral-500">TODO</span>} />
-            <InfoItem label="MTLR Feature List File" value={<span className="text-neutral-500">TODO</span>} />
-          </dl>
-        </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <div className="space-y-4">
+            {/* Dataset Name Header */}
+            <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
+              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-2">
+                Dataset
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-semibold text-neutral-900 break-words">
+                    {predictor.dataset.dataset_name}
+                  </div>
+                  <div className="mt-1 font-mono text-xs text-neutral-500 break-all">
+                    ID: {predictor.dataset.dataset_id}
+                  </div>
+                </div>
+                <Link
+                  to={`/datasets/${predictor.dataset.dataset_id}/view`}
+                  state={{ from: navOrigin }}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 shadow-sm transition hover:bg-neutral-50"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View
+                </Link>
+              </div>
+            </div>
 
-        <Card>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h4 className="text-sm font-semibold text-neutral-700">General Statistics</h4>
-              {stats?.computed_at && (
-                <p className="text-xs text-neutral-500">Updated {formatDateTime(stats.computed_at)}</p>
+            {/* Time Unit */}
+            <div className="rounded-lg bg-neutral-50 p-4 border border-neutral-200">
+              <div className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-2">
+                Time Unit
+              </div>
+              {isInitialLoading ? (
+                <div className="h-5 w-24 bg-neutral-200 animate-pulse rounded"></div>
+              ) : (
+                <div className="text-sm font-medium text-neutral-900">
+                  {timeUnitLabel}
+                </div>
               )}
             </div>
-            {datasetId && (
-              <button
-                onClick={handleRefreshStats}
-                disabled={isRefreshing}
-                className="rounded-md border bg-white px-3 py-1 text-xs text-neutral-700 transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isRefreshing ? "Refreshing…" : "Refresh metrics"}
-              </button>
-            )}
           </div>
-          {statsError && <p className="mt-2 text-xs text-red-600">{statsError}</p>}
-          <div className="mt-3 space-y-4 rounded-md bg-neutral-100 p-3">
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoItem label="# Samples" value={formatInteger(generalStats?.num_samples)} />
-              <InfoItem label="# Censored" value={formatInteger(generalStats?.num_censored)} />
-              <InfoItem label="# Events" value={formatInteger(generalStats?.num_events)} />
-              <InfoItem label="# Features" value={formatInteger(generalStats?.num_features)} />
-              <InfoItem label="# Numeric Features" value={formatInteger(generalStats?.num_numeric_features)} />
-              <InfoItem label="Time Unit" value={timeUnitLabel} />
-            </dl>
-            {hasTimeStats && (
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <InfoItem label="Time Min" value={formatWithUnit(generalStats?.time_min, timeUnitLabel)} />
-                <InfoItem label="Time Max" value={formatWithUnit(generalStats?.time_max, timeUnitLabel)} />
-                <InfoItem label="Time Mean" value={formatWithUnit(generalStats?.time_mean, timeUnitLabel)} />
-                <InfoItem label="Time Median" value={formatWithUnit(generalStats?.time_median, timeUnitLabel)} />
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">
+            General Statistics
+          </h4>
+          {statsError && (
+            <p className="mb-3 text-xs text-red-600">{statsError}</p>
+          )}
+          {isInitialLoading ? (
+            <div className="space-y-5">
+              {/* Loading skeleton for Sample & Events */}
+              <div>
+                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Sample & Events</h5>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="h-3 w-20 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-6 w-16 bg-neutral-200 animate-pulse rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-neutral-200"></div>
+              {/* Loading skeleton for Features */}
+              <div>
+                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Features</h5>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="h-3 w-24 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-6 w-16 bg-neutral-200 animate-pulse rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-neutral-200"></div>
+              {/* Loading skeleton for Time Statistics */}
+              <div>
+                <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Time Statistics</h5>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="h-3 w-16 bg-neutral-200 animate-pulse rounded"></div>
+                      <div className="h-6 w-20 bg-neutral-200 animate-pulse rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+          <div className="space-y-5">
+            {/* Sample & Event Statistics */}
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Sample & Events</h5>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Samples</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_samples)}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Censored</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_censored)}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Events</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_events)}</dd>
+                </div>
               </dl>
+            </div>
+
+            {/* Separator */}
+            <div className="border-t border-neutral-200"></div>
+
+            {/* Feature Statistics */}
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Features</h5>
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Features</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_features)}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide"># Numeric Features</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{formatInteger(generalStats?.num_numeric_features)}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Time Unit</dt>
+                  <dd className="text-base font-semibold text-neutral-900">{timeUnitLabel}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {hasTimeStats && (
+              <>
+                {/* Separator */}
+                <div className="border-t border-neutral-200"></div>
+
+                {/* Time Statistics */}
+                <div>
+                  <h5 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Time Statistics</h5>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-1">
+                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Min</dt>
+                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_min, timeUnitLabel)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Max</dt>
+                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_max, timeUnitLabel)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Mean</dt>
+                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_mean, timeUnitLabel)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Median</dt>
+                      <dd className="text-base font-semibold text-neutral-900">{formatWithUnit(generalStats?.time_median, timeUnitLabel)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </>
             )}
           </div>
+          )}
         </Card>
       </div>
 
-      <div className="rounded-md border bg-neutral-100 p-2">
-        <div className="flex flex-wrap justify-center gap-2">
-          <button type="button" onClick={() => setActiveView("correlations")} className={tabButtonClass("correlations")}>
+      <Card className="p-0">
+        <div className="flex flex-wrap items-center justify-center gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => setActiveView("correlations")}
+            className={tabButtonClass("correlations")}
+          >
             Feature Correlations
           </button>
           <button
@@ -458,22 +888,24 @@ function DatasetTab({
             type="button"
             onClick={() => setActiveView("survivalHistogram")}
             className={tabButtonClass("survivalHistogram")}
-            title="Coming soon"
+            title="Predicted median survival histogram"
           >
             Predicted Survival Histogram
           </button>
         </div>
-      </div>
-
-      <Card>{content}</Card>
+        <div className="p-4">{content}</div>
+      </Card>
     </div>
   );
 }
 
 type FeatureCorrelationRow = DatasetStats["feature_correlations"][number];
-type HistogramBin = DatasetStats["event_time_histogram"][number];
 
-function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
+export function FeatureCorrelationTable({
+  rows,
+}: {
+  rows: FeatureCorrelationRow[];
+}) {
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState<number>(25);
   const [page, setPage] = useState<number>(1);
@@ -481,12 +913,13 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
   const filteredRows = useMemo(() => {
     if (!search) return rows;
     const term = search.trim().toLowerCase();
-    return rows.filter((row) =>
-      row.feature.toLowerCase().includes(term)
-    );
+    return rows.filter((row) => row.feature.toLowerCase().includes(term));
   }, [rows, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / rowsPerPage)
+  );
   const startIndex = (page - 1) * rowsPerPage;
   const paginatedRows = useMemo(
     () => filteredRows.slice(startIndex, startIndex + rowsPerPage),
@@ -511,17 +944,18 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-neutral-500">
+      {/* header bar */}
+      <div className="border-b bg-neutral-50 px-3 py-3 text-xs text-neutral-600">
+        <p className="mb-2">
           Censored subjects are ignored for these calculations.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-neutral-500">
-            Rows per page
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span>Rows per page</span>
             <select
               value={rowsPerPage}
               onChange={(event) => setRowsPerPage(Number(event.target.value))}
-              className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm"
+              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-500"
             >
               {[25, 50, 100, 250].map((size) => (
                 <option key={size} value={size}>
@@ -529,14 +963,16 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
                 </option>
               ))}
             </select>
-          </label>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search features"
-            className="w-48 rounded border border-neutral-300 px-3 py-1 text-sm"
-          />
+          </div>
+          <div className="min-w-[200px] max-w-xs flex-1 sm:max-w-sm">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search features"
+              className="w-full rounded-md border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -544,15 +980,33 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
         <table className="min-w-full divide-y divide-neutral-200 text-sm">
           <thead className="bg-neutral-100 text-xs uppercase tracking-wide text-neutral-500">
             <tr>
-              <th scope="col" className="px-3 py-2 text-left font-semibold">Rank</th>
-              <th scope="col" className="px-3 py-2 text-left font-semibold">Feature</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Non-nil (%)</th>
-              <th scope="col" className="px-3 py-2 text-left font-semibold">Type</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Correlation</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">|Correlation|</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Details</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Cox score</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Cox score log</th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
+                Rank
+              </th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
+                Feature
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Non-nil (%)
+              </th>
+              <th scope="col" className="px-3 py-2 text-left font-semibold">
+                Type
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Correlation
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                |Correlation|
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Details
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Cox score
+              </th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">
+                Cox score log
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100 bg-white">
@@ -562,14 +1016,20 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
                 correlationValue === null || correlationValue === undefined
                   ? "text-neutral-500"
                   : correlationValue >= 0
-                    ? "text-emerald-600"
-                    : "text-rose-600";
+                  ? "text-emerald-600"
+                  : "text-rose-600";
 
               return (
                 <tr key={row.feature}>
-                  <td className="px-3 py-2 text-neutral-500">{startIndex + index + 1}</td>
-                  <td className="px-3 py-2 font-mono text-sm text-neutral-800">{row.feature}</td>
-                  <td className="px-3 py-2 text-right text-neutral-600">{formatPercentage(row.non_null_percent)}</td>
+                  <td className="px-3 py-2 text-neutral-500">
+                    {startIndex + index + 1}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-sm text-neutral-800">
+                    {row.feature}
+                  </td>
+                  <td className="px-3 py-2 text-right text-neutral-600">
+                    {formatPercentage(row.non_null_percent)}
+                  </td>
                   <td className="px-3 py-2 text-left capitalize text-neutral-600">
                     {row.feature_type ?? "—"}
                   </td>
@@ -595,37 +1055,37 @@ function FeatureCorrelationTable({ rows }: { rows: FeatureCorrelationRow[] }) {
         </table>
       </div>
 
-      <div className="flex flex-col gap-2 text-xs text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
-        <span>
-          Showing {paginatedRows.length} of {filteredRows.length} features
-        </span>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            disabled={page === 1}
-            className="rounded border border-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-            disabled={page >= totalPages}
-            className="rounded border border-neutral-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Next
-          </button>
+      {/* Info text and pagination */}
+      <div className="flex flex-col gap-2 border-t bg-neutral-50 px-3 py-2 text-xs text-neutral-600 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-shrink-0 text-neutral-600">
+          Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, filteredRows.length)} of {filteredRows.length} {filteredRows.length === 1 ? 'feature' : 'features'}
+          {search && ` (filtered from ${rows.length} total)`}
+        </div>
+        <div className="overflow-x-auto">
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() =>
+              setPage((current) =>
+                Math.min(totalPages, current + 1)
+              )
+            }
+            onJump={(n) => setPage(n)}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUnit?: string | null }) {
+export function EventHistogramChart({
+  bins,
+  timeUnit,
+}: {
+  bins: HistogramBin[];
+  timeUnit?: string | null;
+}) {
   if (!bins.length) {
     return (
       <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
@@ -634,8 +1094,11 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     );
   }
 
-  const normalizedBins = bins.map((bin) => {
-    const events = typeof bin.events === "number" ? bin.events : bin.count ?? 0;
+  const normalizedBins: EventHistogramDatum[] = bins.map((bin) => {
+    const start = typeof bin.bin_start === "number" ? bin.bin_start : 0;
+    const end = typeof bin.bin_end === "number" ? bin.bin_end : start;
+    const events =
+      typeof bin.events === "number" ? bin.events : bin.count ?? 0;
     const censored =
       typeof bin.censored === "number"
         ? bin.censored
@@ -643,118 +1106,317 @@ function EventHistogramChart({ bins, timeUnit }: { bins: HistogramBin[]; timeUni
     const total = typeof bin.count === "number" ? bin.count : events + censored;
     return {
       ...bin,
+      bin_start: start,
+      bin_end: end,
+      center: (start + end) / 2,
       events,
       censored,
       total,
     };
   });
 
+  const axisMin = Math.min(
+    ...normalizedBins.map((bin) => bin.bin_start ?? 0)
+  );
+  const axisMax = Math.max(
+    ...normalizedBins.map((bin) => bin.bin_end ?? 0)
+  );
+  const resolvedMin = Number.isFinite(axisMin) ? axisMin : 0;
+  const resolvedMax =
+    Number.isFinite(axisMax) && axisMax > resolvedMin
+      ? axisMax
+      : resolvedMin + 1;
+  const range = resolvedMax - resolvedMin || 1;
+
   const maxCount = Math.max(
-    ...normalizedBins.map((bin) => Math.max(bin.events, bin.censored, bin.total)),
+    ...normalizedBins.map((bin) => bin.total),
     1
   );
-
-  const chartHeight = 260;
-  const barWidth = 22;
-  const gap = 28;
-  const svgWidth = normalizedBins.length * (barWidth * 2 + gap) + gap;
-
-  const yTicks = [0.25, 0.5, 0.75, 1].map((fraction) => Math.round(maxCount * fraction));
+  const yTicks = Array.from(
+    { length: EVENT_Y_TICKS },
+    (_, idx) =>
+      Math.round((maxCount / (EVENT_Y_TICKS - 1 || 1)) * idx)
+  );
+  const xTicks = Array.from(
+    { length: EVENT_X_TICKS },
+    (_, idx) => resolvedMin + (range / (EVENT_X_TICKS - 1 || 1)) * idx
+  );
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <svg
-          width="100%"
-          height={chartHeight + 60}
-          viewBox={`0 0 ${Math.max(svgWidth, 700)} ${chartHeight + 60}`}
-          className="rounded border border-neutral-200 bg-white"
-        >
-          {yTicks.map((tick) => {
-            const y = chartHeight - (tick / maxCount) * chartHeight;
-            return (
-              <g key={tick}>
-                <line
-                  x1={0}
-                  x2={svgWidth}
-                  y1={y}
-                  y2={y}
-                  stroke="#e5e7eb"
-                  strokeDasharray="4 6"
-                />
-                <text
-                  x={5}
-                  y={y - 4}
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {normalizedBins.map((bin, index) => {
-            const baseX = gap + index * (barWidth * 2 + gap);
-            const eventsHeight = (bin.events / maxCount) * chartHeight;
-            const censoredHeight = (bin.censored / maxCount) * chartHeight;
-            return (
-              <g key={`${bin.bin_start}-${bin.bin_end}-${index}`}>
-                <rect
-                  x={baseX}
-                  y={chartHeight - eventsHeight}
-                  width={barWidth}
-                  height={eventsHeight}
-                  fill="#1d4ed8"
-                  rx={2}
-                />
-                <rect
-                  x={baseX + barWidth + 4}
-                  y={chartHeight - censoredHeight}
-                  width={barWidth}
-                  height={censoredHeight}
-                  fill="#e11d48"
-                  rx={2}
-                />
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 16}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-500"
-                >
-                  {formatHistogramLabel(bin.bin_start)}
-                </text>
-                <text
-                  x={baseX + barWidth}
-                  y={chartHeight + 30}
-                  textAnchor="middle"
-                  className="text-[10px] fill-neutral-400"
-                >
-                  {formatHistogramLabel(bin.bin_end)}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+      <div className="rounded-lg border border-neutral-200 bg-white p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-neutral-900">
+            Event Time Histogram
+          </h4>
+        </div>
+        <div className="h-[340px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={normalizedBins}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barGap={8}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[resolvedMin, resolvedMax]}
+                ticks={xTicks}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTicks}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<EventHistogramTooltip timeUnit={timeUnit} />} />
+              <Legend
+                verticalAlign="top"
+                height={32}
+                iconType="circle"
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Bar
+                dataKey="events"
+                name="Uncensored"
+                fill="#1d4ed8"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+              <Bar
+                dataKey="censored"
+                name="Censored"
+                fill="#e11d48"
+                radius={[4, 4, 0, 0]}
+                stackId="counts"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <p className="text-xs text-neutral-500">
-        Counts represent samples per time bucket{timeUnit ? ` (${timeUnit})` : ""}.
+        Counts represent samples per time bucket
+        {timeUnit ? ` (${timeUnit})` : ""}.
       </p>
-      <div className="flex flex-wrap gap-4 text-xs text-neutral-500">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-blue-600" />
-          Uncensored
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
-          Censored
-        </span>
-      </div>
     </div>
   );
 }
 
-function formatInteger(value: number | null | undefined): string {
+function PredictedSurvivalHistogram({
+  histogram,
+  timeUnit,
+  isLoading,
+  error,
+  hasModel,
+}: {
+  histogram: SurvivalHistogramData | null;
+  timeUnit?: string | null;
+  isLoading: boolean;
+  error: string | null;
+  hasModel: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+        <p>Loading predicted survival distribution…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!hasModel) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>This predictor has not been trained yet.</p>
+      </div>
+    );
+  }
+
+  if (!histogram || !histogram.bins.length) {
+    return (
+      <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+        <p>Predicted survival data is not available.</p>
+      </div>
+    );
+  }
+
+  const { bins, axisMin, axisMax } = histogram;
+  const maxValue = Math.max(...bins.map((bin) => bin.count), 1);
+  const range = axisMax - axisMin || 1;
+
+  const yTickValues = Array.from(
+    { length: SURVIVAL_Y_TICKS },
+    (_, idx) =>
+      Math.round((maxValue / (SURVIVAL_Y_TICKS - 1 || 1)) * idx)
+  );
+  const xTickValues = Array.from(
+    { length: SURVIVAL_X_TICKS },
+    (_, idx) => axisMin + (range / (SURVIVAL_X_TICKS - 1 || 1)) * idx
+  );
+
+  const chartData: SurvivalChartDatum[] = bins.map((bin) => ({
+    ...bin,
+    center: (bin.bin_start + bin.bin_end) / 2,
+  }));
+  const barSize = Math.max(8, Math.floor(600 / bins.length));
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-neutral-200 bg-white p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-neutral-900">
+            Predicted Median Survival Histogram
+          </h4>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
+              aria-label="Print predicted survival histogram"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
+              aria-label="Download predicted survival histogram"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="h-[360px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 16, bottom: 40, left: 0 }}
+              barSize={barSize}
+            >
+              <CartesianGrid strokeDasharray="4 6" vertical={false} />
+              <XAxis
+                type="number"
+                dataKey="center"
+                domain={[axisMin, axisMax]}
+                ticks={xTickValues}
+                tickFormatter={formatHistogramLabel}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: `Time${timeUnit ? ` (${timeUnit})` : ""}`,
+                  position: "insideBottom",
+                  offset: -20,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <YAxis
+                allowDecimals={false}
+                ticks={yTickValues}
+                stroke="#9ca3af"
+                tick={{ fontSize: 10 }}
+                label={{
+                  value: "Count",
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 10,
+                  style: { fill: "#4b5563", fontSize: 12 },
+                }}
+              />
+              <Tooltip content={<SurvivalTooltip timeUnit={timeUnit} />} />
+              <Bar
+                dataKey="count"
+                fill="#2563eb"
+                radius={[4, 4, 0, 0]}
+                name="Predicted median survival"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <p className="text-xs text-neutral-500">
+        Each bar counts test patients whose predicted median survival falls
+        inside the matching time bucket.
+      </p>
+    </div>
+  );
+}
+
+function SurvivalTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
+
+  const datum = payload[0].payload as SurvivalChartDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Median survival</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} –{" "}
+        {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Count: {datum.count}</p>
+    </div>
+  );
+}
+
+function EventHistogramTooltip({
+  active,
+  payload,
+  timeUnit,
+}: TooltipProps<number, string> & { timeUnit?: string | null }) {
+  if (!active || !payload || !payload.length) return null;
+  const datum = payload[0].payload as EventHistogramDatum;
+  return (
+    <div className="rounded border border-neutral-200 bg-white px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-neutral-700">Time bucket</p>
+      <p className="text-neutral-600">
+        {formatHistogramLabel(datum.bin_start)} –{" "}
+        {formatHistogramLabel(datum.bin_end)}
+        {timeUnit ? ` ${timeUnit}` : ""}
+      </p>
+      <p className="mt-1 text-neutral-500">Uncensored: {datum.events}</p>
+      <p className="text-neutral-500">Censored: {datum.censored}</p>
+      <p className="text-neutral-500">Total: {datum.total}</p>
+    </div>
+  );
+}
+
+export function formatInteger(
+  value: number | null | undefined
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -768,14 +1430,20 @@ function formatFloat(value: number | null | undefined, digits = 2): string {
   return Number(value.toFixed(digits)).toLocaleString();
 }
 
-function formatPercentage(value: number | null | undefined, digits = 1): string {
+function formatPercentage(
+  value: number | null | undefined,
+  digits = 1
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
   return `${Number(value.toFixed(digits)).toLocaleString()}%`;
 }
 
-function formatDetails(mean: number | null | undefined, stdDev: number | null | undefined): string {
+function formatDetails(
+  mean: number | null | undefined,
+  stdDev: number | null | undefined
+): string {
   const meanFormatted = formatFloat(mean, 3);
   const stdFormatted = formatFloat(stdDev, 5);
 
@@ -790,14 +1458,19 @@ function formatDetails(mean: number | null | undefined, stdDev: number | null | 
   return `${meanFormatted}, σ = ${stdFormatted}`;
 }
 
-function formatScientific(value: number | null | undefined): string {
+function formatScientific(
+  value: number | null | undefined
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
   return value.toExponential(5);
 }
 
-function formatWithUnit(value: number | null | undefined, unit?: string | null): string {
+export function formatWithUnit(
+  value: number | null | undefined,
+  unit?: string | null
+): string {
   const formatted = formatFloat(value);
   if (formatted === "—") {
     return formatted;
@@ -816,7 +1489,9 @@ function formatDateTime(value?: string | null): string {
   return date.toLocaleString();
 }
 
-function formatCorrelation(value: number | null | undefined): string {
+function formatCorrelation(
+  value: number | null | undefined
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -824,7 +1499,9 @@ function formatCorrelation(value: number | null | undefined): string {
   return (Math.abs(rounded) < 0.0005 ? 0 : rounded).toFixed(3);
 }
 
-function formatHistogramLabel(value: number | null | undefined): string {
+function formatHistogramLabel(
+  value: number | null | undefined
+): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "—";
   }
@@ -832,469 +1509,1017 @@ function formatHistogramLabel(value: number | null | undefined): string {
   return Number(value.toFixed(digits)).toLocaleString();
 }
 
+/**
+ * Calculate mean and standard deviation from an array of values
+ */
+function calculateMeanAndStd(values: number[]): {
+  mean: number;
+  std: number;
+} {
+  if (!values || values.length === 0) {
+    return { mean: 0, std: 0 };
+  }
+
+  const mean =
+    values.reduce((sum, val) => sum + val, 0) / values.length;
+
+  if (values.length === 1) {
+    return { mean, std: 0 };
+  }
+
+  const variance =
+    values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
+    values.length;
+  const std = Math.sqrt(variance);
+
+  return { mean, std };
+}
+
+/**
+ * Format a metric value with ± standard deviation
+ * Handles objects with {mean, std}, arrays, or single values
+ */
+function formatMetricWithStd(values: any, decimals: number = 3): string {
+  // Handle undefined or null
+  if (values === undefined || values === null) {
+    return "—";
+  }
+
+  // Handle object with mean and std properties (the actual format from backend)
+  if (
+    typeof values === "object" &&
+    values !== null &&
+    "mean" in values &&
+    "std" in values
+  ) {
+    const mean = Number(values.mean);
+    const std = Number(values.std);
+    if (!isNaN(mean) && !isNaN(std)) {
+      return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+    }
+  }
+
+  // Handle single number (not an array or object)
+  if (typeof values === "number") {
+    return `${values.toFixed(decimals)} ± 0.000`;
+  }
+
+  // Handle array of values (calculate mean and std)
+  if (Array.isArray(values) && values.length > 0) {
+    const { mean, std } = calculateMeanAndStd(values);
+    return `${mean.toFixed(decimals)} ± ${std.toFixed(decimals)}`;
+  }
+
+  return "—";
+}
+
+function getNiceCeiling(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 1;
+  }
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized <= 1) niceNormalized = 1;
+  else if (normalized <= 2) niceNormalized = 2;
+  else if (normalized <= 5) niceNormalized = 5;
+  else niceNormalized = 10;
+  return niceNormalized * magnitude;
+}
+
+function getNiceFloor(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  const exponent = Math.floor(Math.log10(value));
+  const magnitude = 10 ** exponent;
+  const normalized = value / magnitude;
+  let niceNormalized: number;
+  if (normalized >= 5) niceNormalized = 5;
+  else if (normalized >= 2) niceNormalized = 2;
+  else niceNormalized = 1;
+  const candidate = niceNormalized * magnitude;
+  return candidate > value ? candidate - magnitude : candidate;
+}
+
+function getFreedmanDiaconisBinWidth(values: number[]): number {
+  if (values.length < 2) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const q1 = getPercentile(sorted, 0.25);
+  const q3 = getPercentile(sorted, 0.75);
+  const iqr = q3 - q1;
+  if (iqr <= 0) return 0;
+  return (2 * iqr) / Math.cbrt(values.length);
+}
+
+function getPercentile(sortedValues: number[], percentile: number): number {
+  if (!sortedValues.length) return 0;
+  const index = (sortedValues.length - 1) * percentile;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+  const weight = index - lower;
+  return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+}
+
 function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
-  // --- State for Features ---
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
-    new Set(predictor.features)
-  );
-
-  // --- State for Advanced Settings ---
-  const [showAdvanced, setShowAdvanced] = useState(false); // Collapsible section state
-  const [numTimePoints, setNumTimePoints] = useState(predictor.num_time_points ?? "");
-  const [regularization, setRegularization] = useState(predictor.regularization);
-  const [objectiveFunction, setObjectiveFunction] = useState(predictor.objective_function);
-  const [marginalLossType, setMarginalLossType] = useState(predictor.marginal_loss_type);
-  const [cParamSearchScope, setCParamSearchScope] = useState(predictor.c_param_search_scope);
-  const [coxFeatureSelection, setCoxFeatureSelection] = useState(predictor.cox_feature_selection);
-  const [mrmrFeatureSelection, setMrmrFeatureSelection] = useState(predictor.mrmr_feature_selection);
-  const [mtlrPredictor, setMtlrPredictor] = useState(predictor.mtlr_predictor);
-  const [tuneParameters, setTuneParameters] = useState(predictor.tune_parameters);
-  const [useSmoothedLogLikelihood, setUseSmoothedLogLikelihood] = useState(predictor.use_smoothed_log_likelihood);
-  const [usePredefinedFolds, setUsePredefinedFolds] = useState(predictor.use_predefined_folds);
-  const [runCrossValidation, setRunCrossValidation] = useState(true);
-  const [standardizeFeatures, setStandardizeFeatures] = useState(true);
-
+  const navigate = useNavigate();
+  
   // --- Retraining Status ---
   const [isRetraining, setIsRetraining] = useState(false);
 
-  // --- Feature Filtering Logic ---
-  const filteredFeatures = useMemo(() => {
-    if (!searchQuery) return predictor.features;
-    return predictor.features.filter((f) =>
-      f.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, predictor.features]);
+  // --- MTLR File State ---
+  const [mtlrFileContent, setMtlrFileContent] = useState<string | null>(null);
+  const [isLoadingMtlr, setIsLoadingMtlr] = useState(false);
+  const [showMtlrModal, setShowMtlrModal] = useState(false);
 
-  // --- Pagination stuff ---
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [page, setPage] = useState<number>(1);
-
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(filteredFeatures.length / pageSize));
-    if (page > totalPages) setPage(1);
-  }, [filteredFeatures.length, pageSize]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredFeatures.length / pageSize)),
-    [filteredFeatures.length, pageSize]
-  );
-
-  const currentFeatures = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredFeatures.slice(start, start + pageSize);
-  }, [filteredFeatures, page, pageSize]);
-
-  // --- Feature Selection Handlers ---
-  const handleToggleFeature = (feature: string) => {
-    const newSelected = new Set(selectedFeatures);
-    if (newSelected.has(feature)) newSelected.delete(feature);
-    else newSelected.add(feature);
-    setSelectedFeatures(newSelected);
+  // Retrain Modal State
+  const [showRetrainModal, setShowRetrainModal] = useState(false);
+  const [retrainStep, setRetrainStep] = useState<"training" | "complete" | "error">("training");
+  const [retrainError, setRetrainError] = useState<string | null>(null);
+  
+  // Warning modal state
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  
+  // --- Retrain In Place Handler ---
+  const handleRetrainInPlace = () => {
+    setShowWarningModal(true);
   };
-  const handleSelectAll = () => setSelectedFeatures(new Set(predictor.features));
-  const handleDeselectAll = () => setSelectedFeatures(new Set());
-
-  // --- Retrain Handler ---
-  const handleRetrain = async () => {
+  
+  const confirmRetrainInPlace = async () => {
+    setShowWarningModal(false);
     setIsRetraining(true);
-    const retrainingConfig = {
-      selected_features: Array.from(selectedFeatures),
-      parameters: {
-        num_time_points: numTimePoints === '' ? null : Number(numTimePoints), // Send null if empty for now
-        regularization,
-        objective_function: objectiveFunction,
-        marginal_loss_type: marginalLossType,
-        c_param_search_scope: cParamSearchScope,
-        cox_feature_selection: coxFeatureSelection,
-        mrmr_feature_selection: mrmrFeatureSelection,
-        mtlr_predictor: mtlrPredictor,
-        tune_parameters: tuneParameters,
-        use_smoothed_log_likelihood: useSmoothedLogLikelihood,
-        use_predefined_folds: usePredefinedFolds,
-        run_cross_validation: runCrossValidation,
-        standardize_features: standardizeFeatures,
-      },
-      model_id: predictor.model_id
-    };
+    setShowRetrainModal(true);
+    setRetrainStep("training");
+    setRetrainError(null);
+
     try {
-      console.log("Sending retraining config:", retrainingConfig);
-      const response = await fetch("http://localhost:5000/retrain", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(retrainingConfig),
+      // Update predictor status to "training" first
+      await updatePredictor(predictor.predictor_id, {
+        ml_training_status: "training",
       });
 
-      // Check if the response was successful
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
+      // Start async retraining with existing settings
+      await retrainPredictorAsync(
+        predictor.predictor_id,
+        predictor.model_id || "",
+        {
+          selected_features: predictor.features,
+          parameters: {
+            num_time_points: predictor.num_time_points || undefined,
+            regularization: predictor.regularization,
+            objective_function: predictor.objective_function,
+            marginal_loss_type: predictor.marginal_loss_type,
+            c_param_search_scope: predictor.c_param_search_scope,
+            cox_feature_selection: predictor.cox_feature_selection,
+            mrmr_feature_selection: predictor.mrmr_feature_selection,
+            mtlr_predictor: predictor.mtlr_predictor,
+            tune_parameters: predictor.tune_parameters,
+            use_smoothed_log_likelihood: predictor.use_smoothed_log_likelihood,
+            use_predefined_folds: predictor.use_predefined_folds,
+            run_cross_validation: predictor.run_cross_validation !== false,
+            standardize_features: predictor.standardize_features !== false,
+          },
+        }
+      );
 
-      const data = await response.json();
-      console.log("Retraining response:", data);
-      alert(`Retraining job started! New model ID: ${data.model_id}`);
-
+      // Keep modal open - it will track progress via TrainingModal component
+      // The modal handles completion and navigation
     } catch (err: any) {
       console.error("Retrain failed:", err);
-      alert(`Retraining failed: ${err.message}`);
-    } finally {
+      setRetrainStep("error");
+      setRetrainError(err.message || "Failed to retrain predictor");
       setIsRetraining(false);
     }
   };
 
+  // --- MTLR File Handler ---
+  const handleViewMtlrFile = async () => {
+    if (!predictor.model_id) {
+      alert("No model ID found for this predictor.");
+      return;
+    }
+
+    setIsLoadingMtlr(true);
+    try {
+      const content = await getPredictorMtlrFile(predictor.predictor_id);
+      setMtlrFileContent(content);
+      setShowMtlrModal(true);
+    } catch (err: any) {
+      console.error("Failed to load MTLR file:", err);
+      alert(`Failed to load MTLR file: ${err.message || "Unknown error"}`);
+    } finally {
+      setIsLoadingMtlr(false);
+    }
+  };
+
+  const handleDownloadMtlrFile = () => {
+    if (!mtlrFileContent) return;
+    
+    const blob = new Blob([mtlrFileContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mtlr_model_${predictor.model_id}.mtlr`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8">
-      {/* “Options” & “Results” */}
+      {/* "Options" & "Results" */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Card>
-          <h3 className="text-sm font-semibold text-neutral-700">Options</h3>
+          <h3 className="text-sm font-semibold text-neutral-800">Options</h3>
           <p className="mt-2 text-xs text-neutral-500">
-            Auto-filled from current predictor settings. Adjust in “Advanced Settings”.
+            Current predictor settings
           </p>
 
-        {/* darker bubble for readability */}
-          <div className="mt-3 space-y-1 rounded-md bg-neutral-100 p-3 text-sm text-neutral-800">
-            <div>
-              Regularization: <span className="font-mono">{regularization.toUpperCase()}</span>
-            </div>
-            <div>
-              Objective: <span className="font-mono">{objectiveFunction}</span>
-            </div>
-            <div>
-              Time Points: <span className="font-mono">{numTimePoints || "default (√N)"}</span>
-            </div>
+          {/* Scrollable content area with max-height matching Training Results */}
+          <div className="mt-4 space-y-4 max-h-[400px] overflow-y-auto pr-2">
+            {((predictor as any).model || (predictor as any).post_process || (predictor as any).n_exp !== undefined) && (
+              <>
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Model & General</h4>
+                  <div className="space-y-2 rounded-md bg-neutral-50 p-3">
+                    {(predictor as any).model && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Model:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).model}</span>
+                      </div>
+                    )}
+                    {(predictor as any).post_process && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Post Process:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).post_process}</span>
+                      </div>
+                    )}
+                    {(predictor as any).n_exp !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Experiments:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_exp}</span>
+                      </div>
+                    )}
+                    {(predictor as any).seed !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Seed:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).seed}</span>
+                      </div>
+                    )}
+                    {(predictor as any).time_bins && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Time Bins:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).time_bins}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Separator line */}
+                <div className="border-t border-neutral-200"></div>
+              </>
+            )}
+
+            {/* Conformalization Settings */}
+            {((predictor as any).error_f || (predictor as any).decensor_method) && (
+              <>
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Conformalization</h4>
+                  <div className="space-y-2 rounded-md bg-neutral-50 p-3">
+                    {(predictor as any).error_f && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Error Function:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).error_f}</span>
+                      </div>
+                    )}
+                    {(predictor as any).decensor_method && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Decensor:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).decensor_method}</span>
+                      </div>
+                    )}
+                    {(predictor as any).mono_method && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Monotonization:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).mono_method}</span>
+                      </div>
+                    )}
+                    {(predictor as any).n_quantiles !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Quantiles:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_quantiles}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Separator line */}
+                <div className="border-t border-neutral-200"></div>
+              </>
+            )}
+
+            {/* Neural Network Architecture */}
+            {((predictor as any).neurons || (predictor as any).activation) && (
+              <>
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Neural Network</h4>
+                  <div className="space-y-2 rounded-md bg-neutral-50 p-3">
+                    {(predictor as any).neurons && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Hidden Layers:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">
+                          {Array.isArray((predictor as any).neurons) ? (predictor as any).neurons.join(', ') : (predictor as any).neurons}
+                        </span>
+                      </div>
+                    )}
+                    {(predictor as any).activation && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Activation:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).activation}</span>
+                      </div>
+                    )}
+                    {(predictor as any).dropout !== undefined && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-neutral-600">Dropout:</span>
+                        <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).dropout}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Separator line */}
+                <div className="border-t border-neutral-200"></div>
+              </>
+            )}
+
+            {/* Training Hyperparameters */}
+            {((predictor as any).n_epochs || (predictor as any).lr) && (
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">Training</h4>
+                <div className="space-y-2 rounded-md bg-neutral-50 p-3">
+                  {(predictor as any).n_epochs !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Epochs:</span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).n_epochs}</span>
+                    </div>
+                  )}
+                  {(predictor as any).batch_size !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Batch Size:</span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).batch_size}</span>
+                    </div>
+                  )}
+                  {(predictor as any).lr !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Learning Rate:</span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).lr}</span>
+                    </div>
+                  )}
+                  {(predictor as any).early_stop !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Early Stop:</span>
+                      <span className="font-mono text-sm font-medium text-neutral-900">{(predictor as any).early_stop ? 'Yes' : 'No'}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
         <Card>
-          <h3 className="text-sm font-semibold text-neutral-700">Results</h3>
-          <p className="mt-2 text-xs text-neutral-500">TODO (training output summary)</p>
+          <h3 className="text-base font-semibold text-neutral-900 mb-4">
+            Training Results
+          </h3>
+          {predictor.ml_model_metrics ? (
+            <div className="space-y-4">
+              {/* Training Information Section */}
+              <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">
+                  Training Information
+                </h4>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-neutral-600">Label</span>
+                    <span className="font-mono text-sm font-medium text-neutral-900">
+                      {predictor.dataset?.dataset_name ? "time" : "N/A"}
+                    </span>
+                  </div>
+                  <div className="h-px bg-neutral-200"></div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-neutral-600">Duration</span>
+                    <span className="text-sm font-medium text-neutral-900">
+                      {predictor.ml_model_metrics.train_duration
+                        ? `${predictor.ml_model_metrics.train_duration.toFixed(2)}s`
+                        : "N/A"}
+                    </span>
+                  </div>
+                  <div className="h-px bg-neutral-200"></div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-neutral-600">Started</span>
+                    <span className="text-sm font-medium text-neutral-900">
+                      {predictor.ml_model_metrics.train_start_time
+                        ? new Date(
+                            predictor.ml_model_metrics.train_start_time
+                          ).toLocaleString(undefined, {
+                            dateStyle: 'short',
+                            timeStyle: 'short'
+                          })
+                        : "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Model Artifacts Section */}
+              <div className="rounded-lg bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 border border-neutral-200">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-3">
+                  Model Artifacts
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-neutral-600 mb-1">Model Version</div>
+                    <div className="font-mono text-xs text-neutral-900 bg-white rounded px-2 py-1.5 break-all border border-neutral-200">
+                      {predictor.model_id || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-600 mb-1">MTLR Model File</div>
+                    <div className="flex items-center gap-2">
+                      {predictor.model_id ? (
+                        <button
+                          onClick={handleViewMtlrFile}
+                          disabled={isLoadingMtlr}
+                          className="flex-1 rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isLoadingMtlr ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <svg className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Loading...
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-2">
+                              <Eye className="h-4 w-4" />
+                              View File
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="flex-1 rounded-md bg-white px-3 py-2 text-sm text-neutral-500 text-center border border-neutral-200">
+                          N/A
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-neutral-50 p-6 text-center border border-neutral-200">
+              <p className="text-sm text-neutral-500">
+                No training results available yet.
+              </p>
+            </div>
+          )}
         </Card>
       </div>
 
-      {/* Buttons row */}
-      <div className="flex flex-wrap justify-center gap-2">
-        <button className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-neutral-50">View Sparsity Values</button>
-        <button
-          onClick={handleRetrain}
-          disabled={isRetraining || selectedFeatures.size === 0}
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          {isRetraining ? "Retraining..." : "Re-train With Selected Options"}
-        </button>
-      </div>
-
-      {/* Feature table */}
-      <Card>
-        <h3 className="text-base font-semibold">Select features to re-train your predictor with:</h3>
-        <p className="mt-1 text-sm text-neutral-600">
-          ({selectedFeatures.size} / {predictor.features.length} selected)
-        </p>
-
-        <div className="mt-4 rounded-md border">
-          <div className="flex items-center gap-2 border-b bg-neutral-50 p-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              className="flex-1 rounded-md border border-neutral-300 p-2 text-sm"
-              placeholder="Search for features..."
-            />
-            <button onClick={handleSelectAll} className="text-sm text-blue-700 hover:underline">
-              Select All
-            </button>
-            <button onClick={handleDeselectAll} className="text-sm text-blue-700 hover:underline">
-              Deselect All
-            </button>
+      {/* MTLR File Modal */}
+      {showMtlrModal && mtlrFileContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[80vh] w-full max-w-4xl rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-200 p-4">
+              <h3 className="text-lg font-semibold text-neutral-900">
+                MTLR Model File
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDownloadMtlrFile}
+                  className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white transition hover:bg-neutral-700"
+                >
+                  Download
+                </button>
+                <button
+                  onClick={() => setShowMtlrModal(false)}
+                  className="rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-800 transition hover:bg-neutral-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              <pre className="whitespace-pre-wrap break-words rounded bg-neutral-50 p-4 text-xs font-mono text-neutral-900">
+                {mtlrFileContent}
+              </pre>
+            </div>
           </div>
+        </div>
+      )}
 
-          <div className="max-h-72 overflow-y-auto bg-white">
-            {currentFeatures.map((feature) => (
-              <label key={feature} className="flex cursor-pointer items-center gap-3 border-t p-3 hover:bg-neutral-50">
-                <input
-                  type="checkbox"
-                  checked={selectedFeatures.has(feature)}
-                  onChange={() => handleToggleFeature(feature)}
-                  className="h-4 w-4 rounded border-neutral-300 text-black focus:ring-black"
-                />
-                <span className="text-sm font-mono">{feature}</span>
-              </label>
-            ))}
-            {currentFeatures.length === 0 && (
-              <p className="p-4 text-center text-sm text-neutral-500">No features found.</p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between border-t p-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span>Entries per page:</span>
-              <select
-                className="rounded-md border border-neutral-300 p-1 text-sm"
-                value={pageSize}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setPageSize(v);
-                  setPage(1);
-                }}
+      {/* Action Buttons */}
+      <div className="space-y-4">
+        <div className="rounded-lg border border-neutral-200 bg-white p-6">
+          <h3 className="text-base font-semibold text-neutral-900 mb-2">
+            Retrain Options
+          </h3>
+          <p className="text-sm text-neutral-600 mb-6">
+            Choose how you want to retrain this predictor
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Retrain with Selected Options */}
+            <div className="group relative">
+              <button
+                onClick={() => navigate(`/predictors/${predictor.predictor_id}/select-features`)}
+                className="w-full rounded-lg border-2 border-neutral-300 bg-white px-6 py-4 text-left transition hover:border-neutral-900 hover:bg-neutral-50"
               >
-                {[5, 10, 20, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+                <div className="font-semibold text-neutral-900 mb-1">
+                  Retrain with Selected Options
+                </div>
+                <div className="text-xs text-neutral-600">
+                  Create a new predictor with custom features
+                </div>
+              </button>
+              <div className="invisible group-hover:visible absolute left-0 top-full mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg z-10">
+                Re-train the predictor using only a subset of the features
+              </div>
             </div>
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPrev={() => setPage((p) => Math.max(1, p - 1))}
-              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
-              onJump={(n) => setPage(n)}
-            />
+
+            {/* Re-train Predictor */}
+            <div className="group relative">
+              <button
+                onClick={handleRetrainInPlace}
+                disabled={isRetraining}
+                className="w-full rounded-lg border-2 border-neutral-300 bg-white px-6 py-4 text-left transition hover:border-neutral-900 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="font-semibold text-neutral-900 mb-1">
+                  Re-train Predictor
+                </div>
+                <div className="text-xs text-neutral-600">
+                  {isRetraining ? "Retraining..." : "Re-run training with current settings"}
+                </div>
+              </button>
+              <div className="invisible group-hover:visible absolute left-0 top-full mt-2 w-full rounded-md bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg z-10">
+                Delete all results and re-run the entire training process on this data set, using existing settings
+              </div>
+            </div>
           </div>
         </div>
-      </Card>
-
-      {/* --- Advanced Settings Section (Collapsible) --- */}
-      <section>
-        <div className="rounded-md border">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex w-full items-center justify-between bg-neutral-100 p-3 text-left text-base font-semibold"
-          >
-            Advanced Settings
-            <span className={`transform transition-transform ${showAdvanced ? "rotate-180" : ""}`}>▼</span>
-          </button>
-
-          {showAdvanced && (
-            <div className="grid grid-cols-1 gap-6 p-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="num_time_points" className="block text-sm font-medium text-neutral-700">
-                  Number of Time Points
-                </label>
-                <input
-                  type="number"
-                  id="num_time_points"
-                  value={numTimePoints}
-                  onChange={(e) => setNumTimePoints(e.target.value)}
-                  placeholder="Optional"
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                />
-                <p className="mt-1 text-xs text-neutral-500">Leave blank to use default (sqrt of sample size).</p>
-              </div>
-              {/* Select Dropdown */}
-              <div>
-                <label htmlFor="regularization" className="block text-sm font-medium text-neutral-700">
-                  Regularization
-                </label>
-                <select
-                  id="regularization"
-                  value={regularization}
-                  onChange={(e) => setRegularization(e.target.value as "l1" | "l2")}
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                >
-                  <option value="l1">L1</option>
-                  <option value="l2">L2</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="objective_function" className="block text-sm font-medium text-neutral-700">
-                  Objective Function
-                </label>
-                <select
-                  id="objective_function"
-                  value={objectiveFunction}
-                  onChange={(e) =>
-                    setObjectiveFunction(e.target.value as PredictorDetail["objective_function"])
-                  }
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                >
-                  <option value="log-likelihood">Log-Likelihood</option>
-                  <option value="l2 marginal loss">L2 Marginal Loss</option>
-                  <option value="log-likelihood & L2ML">Log-Likelihood & L2ML</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="marginal_loss_type" className="block text-sm font-medium text-neutral-700">
-                  Marginal Loss Type
-                </label>
-                <select
-                  id="marginal_loss_type"
-                  value={marginalLossType}
-                  onChange={(e) => setMarginalLossType(e.target.value as "weighted" | "unweighted")}
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                >
-                  <option value="weighted">Weighted</option>
-                  <option value="unweighted">Unweighted</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="c_param_search_scope" className="block text-sm font-medium text-neutral-700">
-                  C-Param Search Scope
-                </label>
-                <select
-                  id="c_param_search_scope"
-                  value={cParamSearchScope}
-                  onChange={(e) => setCParamSearchScope(e.target.value as "basic" | "fine" | "extremely fine")}
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                >
-                  <option value="basic">Basic</option>
-                  <option value="fine">Fine</option>
-                  <option value="extremely fine">Extremely Fine</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="mtlr_predictor" className="block text-sm font-medium text-neutral-700">
-                  MTLR Predictor
-                </label>
-                <select
-                  id="mtlr_predictor"
-                  value={mtlrPredictor}
-                  onChange={(e) => setMtlrPredictor(e.target.value as "stable" | "testing1")}
-                  className="mt-1 block w-full rounded-md border-neutral-300 shadow-sm sm:text-sm"
-                >
-                  <option value="stable">Stable</option>
-                  <option value="testing1">Testing1</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
-                {[
-                  { state: coxFeatureSelection, setState: setCoxFeatureSelection, label: "Use Cox Feature Selection", id: "cox_feature_selection" },
-                  { state: mrmrFeatureSelection, setState: setMrmrFeatureSelection, label: "Use MRMR Feature Selection", id: "mrmr_feature_selection" },
-                  { state: tuneParameters, setState: setTuneParameters, label: "Tune Parameters", id: "tune_parameters" },
-                  { state: useSmoothedLogLikelihood, setState: setUseSmoothedLogLikelihood, label: "Use Smoothed Log-Likelihood", id: "use_smoothed_log_likelihood" },
-                  { state: usePredefinedFolds, setState: setUsePredefinedFolds, label: "Use Predefined Folds", id: "use_predefined_folds" },
-                  { state: runCrossValidation, setState: setRunCrossValidation, label: "Run Cross Validation", id: "run_cross_validation" },
-                  { state: standardizeFeatures, setState: setStandardizeFeatures, label: "Standardize Features", id: "standardize_features" },
-                ].map((cb) => (
-                  <div className="flex items-center" key={cb.id}>
-                    <input
-                      type="checkbox"
-                      id={cb.id}
-                      checked={cb.state}
-                      onChange={(e) => cb.setState(e.target.checked)}
-                      className="h-4 w-4 rounded border-neutral-300 text-black focus:ring-black"
-                    />
-                    <label htmlFor={cb.id} className="ml-2 block text-sm text-neutral-900">
-                      {cb.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* right aligned action */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleRetrain}
-          disabled={isRetraining || selectedFeatures.size === 0}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          {isRetraining ? "Retraining..." : "Start Retraining Job"}
-        </button>
       </div>
+      
+      {/* Warning Modal */}
+      {showWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100">
+                <svg className="h-6 w-6 text-neutral-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900">Confirm Re-training</h3>
+            </div>
+            <p className="text-sm text-neutral-600 mb-6">
+              This will delete all existing training results and re-run the entire training process on this data set using the current settings. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRetrainInPlace}
+                className="rounded-md border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-700"
+              >
+                Continue Re-training
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Retrain Modal - Using TrainingModal for async progress tracking */}
+      {showRetrainModal && retrainStep === "training" && (
+        <TrainingModal
+          predictorId={predictor.predictor_id}
+          onClose={() => {
+            setShowRetrainModal(false);
+            setIsRetraining(false);
+            window.location.reload();
+          }}
+          autoNavigateOnComplete={false}
+        />
+      )}
+
+      {/* Retrain Error Modal */}
+      {showRetrainModal && retrainStep === "error" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
+                ✕
+              </div>
+              <h3 className="mt-4 text-lg font-semibold">Re-training Failed</h3>
+              <p className="mt-2 text-sm text-red-600">{retrainError}</p>
+              <button
+                onClick={() => {
+                  setShowRetrainModal(false);
+                  setRetrainError(null);
+                  setIsRetraining(false);
+                }}
+                className="mt-4 rounded-md bg-neutral-900 px-4 py-2 text-white transition hover:bg-neutral-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function CrossValidationTab() {
+function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
+  const [activeView, setActiveView] = useState<
+    "statistics" | "individual" | "dcalibration" | "kaplanmeier" | "comparison"
+  >("statistics");
+  const [survivalCurves, setSurvivalCurves] =
+    useState<SurvivalCurvesData | null>(null);
+  const [isLoadingCurves, setIsLoadingCurves] = useState(false);
+  const [curvesError, setCurvesError] = useState<string | null>(null);
+
+  const handleViewIndividualPredictions = useCallback(async () => {
+    // Switch to individual view immediately
+    setActiveView("individual");
+
+    if (!predictor.model_id) {
+      setCurvesError("This predictor has not been trained yet.");
+      return;
+    }
+
+    if (survivalCurves) {
+      return;
+    }
+
+    setIsLoadingCurves(true);
+    setCurvesError(null);
+    try {
+      const data = await getPredictorSurvivalCurves(
+        predictor.predictor_id
+      );
+      setSurvivalCurves(data);
+    } catch (err) {
+      console.error("Failed to load survival curves", err);
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to load survival curves data. Please try again.";
+      setCurvesError(errorMessage);
+    } finally {
+      setIsLoadingCurves(false);
+    }
+  }, [predictor.predictor_id, predictor.model_id, survivalCurves]);
+
   return (
     <div className="space-y-6">
       {/* centered actions row */}
       <div className="flex flex-wrap justify-center gap-2">
-        <button className="rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white">
+        <button
+          onClick={() => setActiveView("statistics")}
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
+            activeView === "statistics"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+          }`}
+        >
           5-Fold Cross-Validation Statistics
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">
-          Download Predictions (CSV)
+        <button
+          onClick={handleViewIndividualPredictions}
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
+            activeView === "individual"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+          }`}
+        >
+          Individual Predictions
         </button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Individual Predictions</button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">D-Calibration Histogram</button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Kaplan Meier Visualization</button>
-        <button className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-neutral-50">Show Feature Weights</button>
+        <button
+          onClick={() => setActiveView("dcalibration")}
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
+            activeView === "dcalibration"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+          }`}
+        >
+          D-Calibration Histogram
+        </button>
+        <button
+          onClick={() => setActiveView("kaplanmeier")}
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
+            activeView === "kaplanmeier"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+          }`}
+        >
+          Kaplan Meier Visualization
+        </button>
+        <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
+          Show Feature Weights
+        </button>
+        <button
+          onClick={() => setActiveView("comparison")}
+          className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
+            activeView === "comparison"
+              ? "bg-neutral-900 text-white shadow-sm"
+              : "border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50"
+          }`}
+        >
+          Compare Predictors
+        </button>
       </div>
 
-      <Card>
-        <h3 className="mb-3 text-sm font-semibold text-neutral-700">5-Fold Cross-Validation Statistics*</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-neutral-100">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">Measure</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (median)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">PSSP Predictor (mean)</th>
-                <th className="px-3 py-2 text-left font-semibold text-neutral-700">K-M Predictor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {[
-                "Concordance Index",
-                "Hinged L1 Loss",
-                "Uncensored L1 Loss",
-                "Marginal L1 Loss",
-                "Hinged L1 Log-Loss",
-                "Uncensored L1 Log-Loss",
-                "Marginal L2 Loss",
-                "Log-Likelihood Loss",
-                "D-calibration χ² statistic",
-                "D-calibration p-value",
-              ].map((row) => (
-                <tr key={row} className="odd:bg-white even:bg-neutral-50">
-                  <td className="px-3 py-2 text-neutral-800">{row}</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                  <td className="px-3 py-2 text-neutral-500">TODO</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-neutral-500">* mean ± standard deviation.</p>
-      </Card>
+      {activeView === "comparison" ? (
+        <PredictorComparisonTable
+          predictorId={predictor.predictor_id}
+          predictorName={predictor.name}
+        />
+      ) : activeView === "kaplanmeier" ? (
+        <Card>
+          <KaplanMeierVisualization
+            predictorId={predictor.predictor_id}
+            predictorName={predictor.name}
+            timeUnit={predictor.time_unit}
+          />
+        </Card>
+      ) : activeView === "dcalibration" ? (
+        <Card>
+          <DCalibrationHistogram
+            predictorId={predictor.predictor_id}
+            predictorName={predictor.name}
+          />
+        </Card>
+      ) : activeView === "individual" ? (
+        <Card>
+          {curvesError ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p className="text-red-600">{curvesError}</p>
+            </div>
+          ) : isLoadingCurves ? (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+              <p>Loading survival curves...</p>
+            </div>
+          ) : survivalCurves ? (
+            <IndividualSurvivalCurves
+              data={survivalCurves}
+              timeUnit={predictor.time_unit}
+              predictorId={predictor.predictor_id}
+            />
+          ) : (
+            <div className="flex h-56 flex-col items-center justify-center text-sm text-neutral-500">
+              <p>No survival curves data available.</p>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-neutral-800">
+                5-Fold Cross-Validation Statistics*
+              </h3>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 shadow-sm hover:bg-neutral-50"
+                  aria-label="Print cross-validation statistics"
+                >
+                  <Printer className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-md bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-neutral-800"
+                  aria-label="Download cross-validation metrics CSV"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="ml-1 hidden sm:inline">CSV</span>
+                </button>
+              </div>
+            </div>
 
-      <Card>
-        <h4 className="text-sm font-semibold text-neutral-700">Examine Classification Accuracy</h4>
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="text-sm">
-            Statistics accuracy, specificity, sensitivity (t-calibration) for classifier with cutoff:
-          </label>
-          <input type="number" className="w-24 rounded-md border border-neutral-300 p-1 text-sm" defaultValue={18.4} />
-          <span className="text-sm text-neutral-700">days</span>
-          <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white">Submit</button>
-        </div>
+            {!predictor.ml_model_metrics ? (
+              <div className="py-8 text-center text-sm text-neutral-500">
+                <p>
+                  No metrics available. This predictor may not have been trained
+                  yet.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-neutral-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-800">
+                          Metric
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-neutral-800">
+                          Value (mean ± std)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          Concordance Index (C-index)
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.Cindex,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          Integrated Brier Score (IBS)
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.IBS,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          MAE Hinge
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.MAE_Hinge,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          MAE PO
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.MAE_PO,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          KM Calibration
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.KM_cal,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          X-Calibration Statistics
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.xCal_stats,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          WSC X-Calibration Statistics
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.wsc_xCal_stats,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          D-Calibration p-value
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.dcal_p,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          D-Calibration χ² statistic
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.dcal_Chi,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          Training Time (seconds)
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.train_times,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="odd:bg-white even:bg-neutral-50">
+                        <td className="px-3 py-2 text-neutral-800">
+                          Inference Time (seconds)
+                        </td>
+                        <td className="px-3 py-2 font-mono text-neutral-700">
+                          {formatMetricWithStd(
+                            predictor.ml_model_metrics.infer_times,
+                            3
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-neutral-500">
+                  * Values shown as mean ± standard deviation across
+                  cross-validation folds.
+                </p>
+              </>
+            )}
+          </Card>
 
-        <div className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <h5 className="text-sm font-semibold text-neutral-700">Generated Classifier Performance and Histogram</h5>
-            <div className="flex items-center gap-2">
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Show">
-                Show
-              </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Print">
-                🖨️
-              </button>
-              <button className="rounded-md border bg-white px-2 py-1 text-xs hover:bg-neutral-50" aria-label="Download">
-                ⤓
+          <Card>
+            <h4 className="text-sm font-semibold text-neutral-800">
+              Examine Classification Accuracy
+            </h4>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <label className="text-sm text-neutral-700">
+                Statistics accuracy, specificity, sensitivity (t-calibration)
+                for classifier with cutoff:
+              </label>
+              <input
+                type="number"
+                className="w-24 rounded-md border border-neutral-300 bg-white p-1 text-sm text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                defaultValue={18.4}
+              />
+              <span className="text-sm text-neutral-700">days</span>
+              <button className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm">
+                Submit
               </button>
             </div>
-          </div>
-          <div className="h-56 w-full rounded border-2 border-neutral-300" />
-        </div>
-      </Card>
+
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h5 className="text-sm font-semibold text-neutral-800">
+                  Generated Classifier Performance and Histogram
+                </h5>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="inline-flex items-center gap-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
+                    aria-label="Show classifier performance"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Show</span>
+                  </button>
+                  <button
+                    className="rounded-md border border-neutral-300 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
+                    aria-label="Print classifier performance"
+                  >
+                    <Printer className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="rounded-md border border-neutral-300 bg-white p-1.5 text-xs text-neutral-800 shadow-sm hover:bg-neutral-50"
+                    aria-label="Download classifier performance"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="h-56 w-full rounded border-2 border-dashed border-neutral-300 bg-neutral-50" />
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -1313,23 +2538,31 @@ function Pagination({
   onJump: (n: number) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 text-xs text-neutral-800">
       {page > 1 && (
-        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50" onClick={onPrev}>
+        <button
+          className="rounded-md border border-neutral-300 bg-white px-2 py-1 shadow-sm hover:bg-neutral-50"
+          onClick={onPrev}
+        >
           PREV
         </button>
       )}
       {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
-          className={`rounded-md border px-2 py-1 text-sm ${n === page ? "bg-neutral-200" : "hover:bg-neutral-50"}`}
+          className={`rounded-md border border-neutral-300 px-2 py-1 shadow-sm ${
+            n === page ? "bg-neutral-200" : "bg-white hover:bg-neutral-50"
+          }`}
           onClick={() => onJump(n)}
         >
           {n}
         </button>
       ))}
       {page < totalPages && (
-        <button className="rounded-md border px-2 py-1 text-sm hover:bg-neutral-50" onClick={onNext}>
+        <button
+          className="rounded-md border border-neutral-300 bg-white px-2 py-1 shadow-sm hover:bg-neutral-50"
+          onClick={onNext}
+        >
           NEXT
         </button>
       )}
