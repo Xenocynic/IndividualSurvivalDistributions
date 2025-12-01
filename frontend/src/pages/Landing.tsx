@@ -112,12 +112,30 @@ export default function Landing() {
     }
   };
 
-  // Lock downward wheel scrolling (must use arrows to go down)
+  // Lock downward wheel scrolling except when the workflow section is on screen
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY > 0) {
+      // Always allow scrolling up
+      if (e.deltaY <= 0) return;
+
+      const workflow = document.getElementById("pssp-workflow");
+      if (!workflow) {
+        e.preventDefault();
+        return;
+      }
+
+      const rect = workflow.getBoundingClientRect();
+      const viewportHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+
+      // Consider "in workflow" if any part of it is visible
+      const isWorkflowVisible = rect.top < viewportHeight && rect.bottom > 0;
+
+      if (!isWorkflowVisible) {
+        // Not yet in the workflow section: block downward scrolling
         e.preventDefault();
       }
+      // If workflow is visible, allow default scrolling
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
@@ -193,12 +211,9 @@ export default function Landing() {
       </section>
 
       {/* OVERVIEW: grey band (middle) */}
-      <section
-        id="pssp-overview"
-        className="bg-neutral-100 py-16 md:py-24"
-      >
+      <section id="pssp-overview" className="bg-neutral-100 py-16 md:py-24">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center">
+          <div className="grid items-center gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <div className="max-w-xl">
               <h2 className="text-[20px] font-semibold tracking-tight sm:text-[22px]">
                 Working with the PSSP codebase
@@ -305,13 +320,13 @@ export default function Landing() {
       </section>
 
       {/* WORKFLOW: bottom, white background */}
-      <section id="pssp-workflow" className="bg-white pb-16 pt-12 md:pt-16">
+      <section id="pssp-workflow" className="bg-white pb-16 pt-10 md:pt-12">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="rounded-2xl border border-black/5 bg-white px-4 py-12 md:px-8 md:py-14">
+          <div className="rounded-2xl border border-black/5 bg-white px-4 py-8 md:px-8 md:py-10">
             <h2 className="text-center text-[20px] font-semibold tracking-tight sm:text-[22px]">
               From historical cohorts to patient-specific survival curves
             </h2>
-            <p className="mx-auto mt-3 max-w-3xl text-center text-[13px] leading-relaxed text-neutral-700">
+            <p className="mx-auto mt-3 max-w-4xl text-center text-[13px] leading-relaxed text-neutral-700">
               PSSP trains an individualized survival distribution (ISD) model on
               a cohort with censored outcomes, then uses that model to generate
               a full survival curve for each novel patient. Hover over each
@@ -319,7 +334,7 @@ export default function Landing() {
             </p>
 
             {/* Top: historical data -> learner */}
-            <div className="mx-auto mt-10 max-w-4xl space-y-6">
+            <div className="mx-auto mt-6 max-w-4xl space-y-4">
               <div className="flex flex-col items-center gap-4">
                 <WorkflowTile
                   label="Historical cohort"
@@ -363,7 +378,7 @@ export default function Landing() {
               </div>
 
               {/* Bottom: novel patient -> model -> curve */}
-              <div className="mt-8 flex flex-col items-stretch gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="mt-4 flex flex-col items-stretch gap-6 md:flex-row md:items-center md:justify-between">
                 <WorkflowTile
                   label="Novel patient"
                   title="Single-patient feature row"
