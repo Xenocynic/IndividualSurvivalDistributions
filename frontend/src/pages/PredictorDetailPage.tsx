@@ -2578,6 +2578,8 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             )}
           </Card>
 
+        {/* THE FOLLOWING SECTION WAS NOT IMPLEMENTED. Commented this out in case it may be in the future. */}
+        
           {/* <Card>
             <h4 className="text-sm font-semibold text-neutral-800">
               Examine Classification Accuracy
