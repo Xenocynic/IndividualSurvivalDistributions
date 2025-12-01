@@ -139,12 +139,6 @@ export default function TrainingModal({
                       <span>Elapsed: {formatTime(progress.elapsed_seconds)}</span>
                     </div>
                   )}
-                  {progress.eta_seconds !== undefined && progress.eta_seconds > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Remaining: ~{formatTime(progress.eta_seconds)}</span>
-                    </div>
-                  )}
                   {progress.eta_seconds !== undefined &&
                     progress.eta_seconds > 0 && (
                       <div>
