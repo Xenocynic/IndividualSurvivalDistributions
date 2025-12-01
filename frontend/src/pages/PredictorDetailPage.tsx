@@ -2338,9 +2338,6 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
         >
           Kaplan Meier Visualization
         </button>
-        <button className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 shadow-sm hover:bg-neutral-50">
-          Show Feature Weights
-        </button>
         <button
           onClick={() => setActiveView("comparison")}
           className={`rounded-md px-3 py-1.5 text-xs sm:text-sm ${
@@ -2423,7 +2420,6 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
                   className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[11px] font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 active:translate-y-[0.5px]"
                 >
                   <Download className="h-4 w-4" />
-                  <span className="ml-1 hidden sm:inline">CSV</span>
                 </button>
               </div>
             </div>
@@ -2582,7 +2578,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
             )}
           </Card>
 
-          <Card>
+          {/* <Card>
             <h4 className="text-sm font-semibold text-neutral-800">
               Examine Classification Accuracy
             </h4>
@@ -2639,7 +2635,7 @@ function CrossValidationTab({ predictor }: { predictor: PredictorDetail }) {
               </div>
               <div className="h-56 w-full rounded border-2 border-dashed border-neutral-300 bg-neutral-50" />
             </div>
-          </Card>
+          </Card> */}
         </>
       )}
     </div>
