@@ -277,7 +277,9 @@ export default function Browse() {
       });
     },
     enabled: activeTab === "predictors",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Datasets
@@ -325,7 +327,9 @@ export default function Browse() {
       });
     },
     enabled: activeTab === "datasets",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // Fetch Public Folders
@@ -367,7 +371,9 @@ export default function Browse() {
         );
     },
     enabled: activeTab === "folders",
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
+    refetchOnMount: "always", 
+    refetchOnWindowFocus: true,
   });
 
   // --- TANSTACK QUERY: FETCH PINNED ITEMS ---
