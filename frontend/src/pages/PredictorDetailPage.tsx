@@ -2158,7 +2158,7 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-neutral-600">Label</span>
                     <span className="font-mono text-sm font-medium text-neutral-900">
-                      {datasetFirstColumn || "N/A"}
+                      {datasetFirstColumn || "-"}
                     </span>
                   </div>
                   <div className="h-px bg-neutral-200" />
