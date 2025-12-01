@@ -1586,16 +1586,6 @@ export function formatWithUnit(
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
-function formatDateTime(value?: string | null): string {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return date.toLocaleString();
-}
 
 function formatCorrelation(
   value: number | null | undefined
@@ -2019,7 +2009,18 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                     <span className="text-sm text-neutral-600">Duration</span>
                     <span className="text-sm font-medium text-neutral-900">
                       {predictor.ml_model_metrics.train_duration
-                        ? `${predictor.ml_model_metrics.train_duration.toFixed(2)}s`
+                        ? (() => {
+                            const seconds = predictor.ml_model_metrics.train_duration;
+                            if (seconds >= 86400) {
+                              return `${(seconds / 86400).toFixed(2)}d`;
+                            } else if (seconds >= 3600) {
+                              return `${(seconds / 3600).toFixed(2)}h`;
+                            } else if (seconds >= 60) {
+                              return `${(seconds / 60).toFixed(2)}min`;
+                            } else {
+                              return `${seconds.toFixed(2)}s`;
+                            }
+                          })()
                         : "N/A"}
                     </span>
                   </div>
@@ -2028,12 +2029,16 @@ function RetrainTab({ predictor }: { predictor: PredictorDetail }) {
                     <span className="text-sm text-neutral-600">Started</span>
                     <span className="text-sm font-medium text-neutral-900">
                       {predictor.ml_model_metrics.train_start_time
-                        ? new Date(
-                            predictor.ml_model_metrics.train_start_time
-                          ).toLocaleString(undefined, {
-                            dateStyle: 'short',
-                            timeStyle: 'short'
-                          })
+                        ? (() => {
+                            // Ensure the timestamp is treated as UTC
+                            const timestamp = predictor.ml_model_metrics.train_start_time;
+                            // If the timestamp doesn't end with 'Z', append it to indicate UTC
+                            const utcTimestamp = timestamp.endsWith('Z') ? timestamp : `${timestamp}Z`;
+                            return new Date(utcTimestamp).toLocaleString(undefined, {
+                              dateStyle: 'short',
+                              timeStyle: 'short'
+                            });
+                          })()
                         : "N/A"}
                     </span>
                   </div>
