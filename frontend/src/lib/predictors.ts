@@ -287,7 +287,15 @@ export function mapApiPredictorToUi(
     ml_selected_features: item.ml_selected_features ?? undefined,
     ml_training_status: item.ml_training_status ?? undefined,
     ml_trained_at: formatDate(item.ml_trained_at ?? ""),
-    dataset: item.dataset ?? undefined,
+    // Map dataset properly - convert dataset_id to id as string
+    dataset: item.dataset
+      ? {
+          id: String(item.dataset.dataset_id ?? item.dataset.id ?? ""),
+          title: item.dataset.dataset_name ?? item.dataset.title ?? "",
+          time_unit: item.dataset.time_unit ?? "day",
+          original_filename: item.dataset.original_filename ?? undefined,
+        }
+      : undefined,
     model_metadata: item.model_metadata ?? undefined,
     // Additional model configuration fields
     model: item.model ?? undefined,
