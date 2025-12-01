@@ -13,10 +13,12 @@
  */
 
 import { type FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import AuthLoadingScreen from "../auth/AuthLoadingScreen";
 
 export default function Settings() {
+  const navigate = useNavigate();
   const {
     user,
     loading,
@@ -280,7 +282,10 @@ export default function Settings() {
               </p>
             </div>
             <button
-              onClick={() => logout()}
+              onClick={async () => {
+                await logout();
+                navigate("/login");
+              }}
               className="inline-flex items-center rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800 active:translate-y-[0.5px]"
             >
               Log out?
