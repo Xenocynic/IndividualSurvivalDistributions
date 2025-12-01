@@ -178,7 +178,7 @@ Check HTTP/HTTPS access:
 
 ```bash
 curl -I http://localhost/admin/
-curl -I https://isd.srv.ualberta.ca/
+curl -I http://[2605:fd00:4:1001:f816:3eff:fec6:3fd9]/ 
 ```
 
 ---
