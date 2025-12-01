@@ -30,7 +30,7 @@ import {
   getPredictor,
   updatePredictor,
   grantPredictorViewer,
-  trainPredictor,
+  trainPredictorAsync,
 } from "../lib/predictors";
 import {
   UserSearchInput,
@@ -320,8 +320,43 @@ export default function PredictorCreate() {
 
     try {
       const datasetId = Number(selectedDatasetId);
-      // Step 1: Train first (no predictor yet)
-      const trainingResult = await trainPredictor(datasetId, {
+
+      // Step 1: Create predictor first (with "training" status)
+      const created = await createPredictor({
+        name: name.trim(),
+        description: notes.trim(),
+        dataset_id: Number(selectedDatasetId),
+        folder_id: selectedFolderId || undefined,
+        is_private: !isPublic,
+        model_id: null,
+        ml_trained_at: null,
+        ml_training_status: "training",
+        ml_model_metrics: {},
+        ml_selected_features: null,
+      } as any);
+
+      setCreatedPredictorId(created.predictor_id);
+
+      // Step 2: Grant permissions
+      for (const row of rows) {
+        const username = row.username.trim();
+        if (!username) continue;
+        let userId = row.userId;
+        if (!userId) {
+          userId = await resolveUsernameToId(username);
+        }
+        if (!userId) continue;
+
+        try {
+          await grantPredictorViewer(created.predictor_id, userId, row.role);
+        } catch (e) {
+          console.error("Grant failed", e);
+        }
+      }
+
+      // Step 3: Start async training
+      setTrainingStep("training");
+      await trainPredictorAsync(datasetId, created.predictor_id, {
         parameters: {
           // Model & Experiment
           model: selectedModel,
@@ -364,92 +399,8 @@ export default function PredictorCreate() {
         },
       });
 
-      // Validate training result
-      if (!trainingResult || !trainingResult.model_id) {
-        throw new Error("Training did not return a valid model_id");
-      }
-
-      // Step 2: Create predictor with ML metadata
-      setTrainingStep("creating");
-
-      // Parse selected_features if it's a string
-      let parsedFeatures = trainingResult.selected_features;
-      if (typeof parsedFeatures === "string") {
-        try {
-          parsedFeatures = JSON.parse(parsedFeatures);
-        } catch (e) {
-          console.warn(
-            "Could not parse selected_features as JSON, using as-is"
-          );
-        }
-      }
-
-      const created = await createPredictor({
-        name: name.trim(),
-        description: notes.trim(),
-        dataset_id: Number(selectedDatasetId),
-        folder_id: selectedFolderId || undefined,
-        is_private: !isPublic,
-        model_id: trainingResult.model_id,
-        ml_trained_at: trainingResult.trained_at || new Date().toISOString(),
-        ml_training_status: "trained",
-        ml_model_metrics: trainingResult.metrics || {},
-        ml_selected_features: parsedFeatures || null,
-
-        // Store all the new parameters with predictor
-        model: selectedModel,
-        post_process: postProcess,
-        n_exp: nExp,
-        seed,
-        time_bins:
-          ["MTLR", "CoxPH", "CQRNN", "LogNormalNN"].includes(selectedModel) &&
-          timeBins !== null
-            ? timeBins
-            : undefined,
-        error_f: "Quantile",
-        decensor_method: decensorMethod,
-        mono_method: monoMethod,
-        interpolate,
-        n_quantiles: nQuantiles,
-        use_train: useTrain,
-        n_sample: decensorMethod === "sampling" ? nSample : undefined,
-        neurons: isNeuralNetworkModel() ? neurons : undefined,
-        norm: isNeuralNetworkModel() ? norm : undefined,
-        dropout: isNeuralNetworkModel() ? dropout : undefined,
-        activation: isNeuralNetworkModel() ? activation : undefined,
-        n_epochs: isNeuralNetworkModel() ? nEpochs : undefined,
-        early_stop: isNeuralNetworkModel() ? earlyStop : undefined,
-        batch_size: isNeuralNetworkModel() ? batchSize : undefined,
-        lr: isNeuralNetworkModel() ? lr : undefined,
-        weight_decay: isNeuralNetworkModel() ? weightDecay : undefined,
-        lam: selectedModel === "LogNormalNN" ? lam : undefined,
-      });
-
-      setCreatedPredictorId(created.predictor_id);
-
-      // Step 3: Grant permissions
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          userId = await resolveUsernameToId(username);
-        }
-        if (!userId) continue;
-
-        try {
-          await grantPredictorViewer(created.predictor_id, userId, row.role);
-        } catch (e) {
-          console.error("Grant failed", e);
-        }
-      }
-
-      // Step 4: Complete!
-      setTrainingStep("complete");
-
-      setTimeout(() => {
-        navigate(`/predictors/${created.predictor_id}`);
-      }, 2000);
+      // Step 4: Show training modal to track progress
+      setShowTrainingModal(true);
     } catch (error: any) {
       setTrainingStep("error");
       setTrainingError(
