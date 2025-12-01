@@ -198,6 +198,7 @@ export default function DatasetCard({
         <button
           type="button"
           onClick={() => onView?.(item.id)}
+          title="View"
           className={bubbleButtonClass(selected)}
           style={bubbleDelayStyle(selected, viewDelay)}
         >

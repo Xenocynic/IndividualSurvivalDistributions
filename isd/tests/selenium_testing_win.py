@@ -93,8 +93,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
         finally:
             try:
                 if platform.system() == "Windows":
-                    cls.frontend.send_signal(signal.CTRL_C_EVENT)
-                    cls.frontend.wait(timeout=5)
+                    subprocess.run(f"taskkill /F /T /PID {cls.frontend.pid}", check=True, shell=True)
                 else:
                     os.killpg(os.getpgid(cls.frontend.pid), signal.SIGTERM)
                 print("Frontend terminated.")
@@ -391,7 +390,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
         # Click the first predictor card to reveal 'View' and star buttons
         first_card = predictor_cards[0]
         driver.execute_script("arguments[0].scrollIntoView(true);", first_card)
-        first_card.click()
+        driver.execute_script("arguments[0].click();", first_card)
+        # Wait for the selection to register and for the action buttons to appear
+        WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Pin"]')))
         time.sleep(1)
 
         # Pinning first predictor
@@ -403,13 +405,12 @@ class PasswordResetFlowTest(LiveServerTestCase):
         driver.execute_script("arguments[0].click();", star_button)
         time.sleep(2)
 
-        # Click the 'View' button within the context of the selected card
+        # After pinning, the card remains selected. We just need to find the 'View' button.
+        view_button_selector = "div[class*='ring-2'] button[title='View']"
         view_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, ".//div[contains(@class, 'ring-2')]//button[text()='View']"))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, view_button_selector))
         )
-        driver.execute_script("arguments[0].scrollIntoView(true);", view_button)
-        view_button.click()
-        time.sleep(2)
+        driver.execute_script("arguments[0].click();", view_button)
         self.smooth_scroll_down_up(driver)
         self.click_button(driver, '//button[text()="dataset"]')
         self.smooth_scroll_down_up(driver)
@@ -474,8 +475,9 @@ class PasswordResetFlowTest(LiveServerTestCase):
         time.sleep(2)
 
         # Click the 'View' button within the context of the selected card
+        view_button_selector = "div[class*='ring-2'] button[title='View']"
         view_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, ".//div[contains(@class, 'ring-2')]//button[text()='View']"))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, view_button_selector))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", view_button)
         view_button.click()
@@ -755,10 +757,10 @@ class PasswordResetFlowTest(LiveServerTestCase):
         base_url = f"http://localhost:{self.frontend_port}"
 
         # Running the password reset flow test
-        # self.password_reset_flow(driver=driver, base_url=base_url)
+        self.password_reset_flow(driver=driver, base_url=base_url)
 
         # Running basic page navigation tests
-        # self.basic_pages(driver=driver)
+        self.basic_pages(driver=driver)
        
         # View Predictor Details (including pinning)
         self.view_predictor(driver=driver)

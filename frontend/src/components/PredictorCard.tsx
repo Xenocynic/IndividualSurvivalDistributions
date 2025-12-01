@@ -191,6 +191,7 @@ export default function PredictorCard({
         {/* View button (everyone) */}
         <button
           type="button"
+          title="View"
           onClick={() => onView?.(item.id)}
           className={bubbleButtonClass(selected)}
           style={bubbleDelayStyle(selected, viewDelay)}
