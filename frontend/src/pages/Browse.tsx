@@ -898,8 +898,8 @@ export default function Browse() {
 
   return (
     <DragDropProvider>
-      {/* Sticky sub-header under global nav (leave this exactly as-is) */}
-      <div className="sticky top-[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
+      {/* Sticky sub-header under global nav  */}
+      <div className="sticky top-[var(--app-nav-h,3.7rem)] -mt-px z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-4">
           <div className="text-lg font-semibold tracking-wide">
             Browse {tabLabel}
@@ -908,8 +908,8 @@ export default function Browse() {
         <div className="h-1 w-full bg-neutral-600" />
       </div>
 
-      {/* Controls bar (now sticky + translucent) */}
-      <div className="sticky top-[calc(var(--app-nav-h,3rem)+3rem)] z-20 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75">
+      {/* Controls bar */}
+      <div className="sticky top-[calc(var(--app-nav-h,3.2rem)+3rem)] z-20 w-full border-b bg-neutral-100/90 backdrop-blur supports-[backdrop-filter]:bg-neutral-100/75">
         <div className="mx-auto max-w-6xl px-3 py-2">
           <div className="mb-1 flex items-center justify-between text-[12px] text-neutral-500">
             <span className="hidden sm:inline">{itemCountLabel}</span>
