@@ -107,7 +107,7 @@ export default function Settings() {
     );
   }
 
-  // helper styles for status messages (monochrome)
+  // helper styles for status messages
   const profileMsgClass =
     "text-xs font-medium text-neutral-700";
 
@@ -115,8 +115,8 @@ export default function Settings() {
     "text-xs font-medium text-neutral-700";
 
   return (
-    <div className="min-h-[60vh] bg-neutral-200">
-      {/* Sticky sub-header (matches create/upload pages) */}
+    <div className="min-h-[60vh] bg-neutral-100">
+      {/* Sticky sub-header  */}
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full bg-neutral-700 text-neutral-50">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex flex-col">
@@ -136,7 +136,7 @@ export default function Settings() {
         <div className="h-1 w-full bg-neutral-400" />
       </div>
 
-      {/* Body — single centered column, matching PredictorCreate / DatasetUpload */}
+      {/* Body */}
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-8 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
           {/* Page heading card */}
