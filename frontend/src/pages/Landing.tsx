@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDown,
@@ -34,15 +33,51 @@ function FeatureChip({
 function CurveThumbnail({ label }: { label: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="relative h-28 w-full overflow-hidden rounded-lg border border-neutral-700 bg-gradient-to-br from-neutral-900 to-neutral-800">
-        {/* axes */}
-        <div className="absolute inset-x-4 bottom-4 top-4 border-l border-b border-neutral-600" />
-        {/* c1 */}
-        <div className="absolute bottom-[1.9rem] left-6 right-6 h-[3px] rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-emerald-100/10" />
-        {/* c2 */}
-        <div className="absolute bottom-[1.2rem] left-6 right-10 h-[3px] rounded-full bg-gradient-to-r from-rose-400 via-rose-300 to-rose-100/10" />
+      <div className="relative h-28 w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900">
+        <svg
+          viewBox="0 0 120 80"
+          className="h-full w-full text-neutral-500"
+          aria-hidden="true"
+        >
+          <line
+            x1="18"
+            y1="8"
+            x2="18"
+            y2="72"
+            stroke="currentColor"
+            strokeWidth={1}
+            opacity={0.7}
+          />
+          <line
+            x1="18"
+            y1="72"
+            x2="112"
+            y2="72"
+            stroke="currentColor"
+            strokeWidth={1}
+            opacity={0.7}
+          />
+
+          {/* high */}
+          <path
+            d="M18 16 C 40 14, 70 26, 112 60"
+            fill="none"
+            stroke="#4ade80"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+
+          {/* low */}
+          <path
+            d="M18 26 C 42 30, 72 44, 112 72"
+            fill="none"
+            stroke="#fb7185"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
-      <p className="text-[11px] text-neutral-300">{label}</p>
+      <p className="text-[11px] text-neutral-500">{label}</p>
     </div>
   );
 }
@@ -112,30 +147,26 @@ export default function Landing() {
     }
   };
 
-  // Lock downward wheel scrolling except when the workflow section is on screen
   useEffect(() => {
+    let hasReachedWorkflow = false;
+
     const handleWheel = (e: WheelEvent) => {
-      // Always allow scrolling up
       if (e.deltaY <= 0) return;
 
       const workflow = document.getElementById("pssp-workflow");
-      if (!workflow) {
-        e.preventDefault();
-        return;
-      }
+      if (!workflow) return;
 
-      const rect = workflow.getBoundingClientRect();
       const viewportHeight =
         window.innerHeight || document.documentElement.clientHeight;
+      const scrollY = window.scrollY || window.pageYOffset;
+      const workflowTop = workflow.offsetTop;
+      if (!hasReachedWorkflow && scrollY + viewportHeight >= workflowTop) {
+        hasReachedWorkflow = true;
+      }
 
-      // Consider "in workflow" if any part of it is visible
-      const isWorkflowVisible = rect.top < viewportHeight && rect.bottom > 0;
-
-      if (!isWorkflowVisible) {
-        // Not yet in the workflow section: block downward scrolling
+      if (!hasReachedWorkflow) {
         e.preventDefault();
       }
-      // If workflow is visible, allow default scrolling
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
@@ -220,46 +251,46 @@ export default function Landing() {
               </h2>
               <div className="mt-4 text-[13.5px] leading-relaxed text-neutral-700">
                 <p>
-                  This site provides a web interface to the PSSP framework. You
-                  can{" "}
+                  This site is a web interface for the patient-specific survival
+                  prediction (PSSP) framework from the Survival Prediction
+                  Tutorial. It lets you upload a right-censored survival dataset
+                  and fit models that return an individual survival distribution
+                  (ISD) for each patient, rather than a single risk score.
+                </p>
+                <p className="mt-2">
+                  You can{" "}
                   <Link
-                    to="/instruction"
+                    to="/dashboard"
                     className="underline underline-offset-2"
                   >
                     upload and analyze a dataset here
-                  </Link>
-                  , or{" "}
-                  <a
-                    href="https://example.com/pssp-cli" // TODO replace with real CLI link
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline underline-offset-2"
-                  >
-                    download the command-line tools
-                  </a>{" "}
-                  to integrate PSSP into your own pipelines.
+                  </Link>{" "}
+                  to explore patient-specific curves, summary statistics (such
+                  as median survival time), and evaluation metrics like
+                  concordance and integrated Brier score.
                 </p>
                 <p className="mt-2">
-                  For an overview of the methodology and design choices, see the
-                  slides and recorded presentation{" "}
+                  For an overview of the methodology and design choices behind
+                  PSSP - that is, risk scores, population curves, and individual survival
+                  distributions - see the{" "}
                   <a
-                    href="https://example.com/slides" // TODO replace
+                    href="https://drive.google.com/file/d/1w45WpZw8whoM9diinrEuHu00i1rficJZ/view"
                     target="_blank"
                     rel="noreferrer"
                     className="underline underline-offset-2"
                   >
-                    here
+                    Survival Prediction Tutorial slides
                   </a>
                   . For a step-by-step guide to this web interface, see the{" "}
                   <Link
-                    to="/instruction"
+                    to="/instructions"
                     className="underline underline-offset-2"
                   >
                     tutorial
                   </Link>
                   . Publicly accessible predictors are available{" "}
                   <Link
-                    to="/predictors"
+                    to="/browse"
                     className="underline underline-offset-2"
                   >
                     here
