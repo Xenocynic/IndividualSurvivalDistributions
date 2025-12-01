@@ -418,21 +418,22 @@ class PasswordResetFlowTest(LiveServerTestCase):
         self.smooth_scroll_down_up(driver)
         self.click_button(driver, '//button[text()="cross validation"]')
         self.smooth_scroll_down_up(driver)
-        self.click_button(driver, '//button[@aria-label="Back"]')
+        self.click_button(driver, '//button[@title="Back"]')
         
-        # Wait until we are back on the browse page
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(text(), 'Browse Predictors')]"))
-        )
+        # Wait until we are back on the browse page.
+        # First, wait for the URL to change, which is the most reliable indicator of a successful navigation.
         WebDriverWait(driver, 10).until(
             EC.url_contains("/browse")
         )
-
+        # Now that we're on the right page, confirm the title is visible using the new title attribute.
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[title='Browse']"))
+        )
     
     def view_datasets(self, driver=None):
         try:
             datasets_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Datasets']"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Datasets"]'))
             )
             driver.execute_script("arguments[0].scrollIntoView(true);", datasets_button)
             time.sleep(0.5)
@@ -487,7 +488,7 @@ class PasswordResetFlowTest(LiveServerTestCase):
     def view_folders(self, driver=None):
         try:
             folders_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Folders']"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[title="Folders"]'))
             )
             driver.execute_script("arguments[0].scrollIntoView(true);", folders_button)
             time.sleep(0.5)

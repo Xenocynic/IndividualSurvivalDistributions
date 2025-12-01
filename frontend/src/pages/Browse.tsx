@@ -851,7 +851,7 @@ export default function Browse() {
       {/* Sticky sub-header under global nav (leave this exactly as-is) */}
       <div className="sticky top-[var(--app-nav-h,3.7rem)] z-30 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-center px-3 py-4">
-          <div className="text-md font-semibold tracking-wide">
+          <div title="Browse" className="text-md font-semibold tracking-wide">
             Browse {tabLabel}
           </div>
         </div>
@@ -879,6 +879,7 @@ export default function Browse() {
                   Predictors
                 </button>
                 <button
+                title="Datasets"
                   className={`px-3 text-xs font-medium ${
                     activeTab === "datasets"
                       ? "bg-neutral-900 text-white"
@@ -889,6 +890,7 @@ export default function Browse() {
                   Datasets
                 </button>
                 <button
+                title="Folders"
                   className={`px-3 text-xs font-medium ${
                     activeTab === "folders"
                       ? "bg-neutral-900 text-white"

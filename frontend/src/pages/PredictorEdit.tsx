@@ -358,6 +358,7 @@ export default function PredictorEdit() {
         <div className="text-center">
           <div className="text-red-600 text-lg font-semibold">{error}</div>
           <button
+            title="Back"
             onClick={() =>
               navigate("/dashboard", { state: { tab: "predictors" } })
             }

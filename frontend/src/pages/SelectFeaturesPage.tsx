@@ -291,6 +291,7 @@ export default function SelectFeaturesPage() {
               {error || "Predictor not found."}
             </p>
             <button
+              title="Back"
               onClick={() => navigate(-1)}
               className="mt-4 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-neutral-800"
             >

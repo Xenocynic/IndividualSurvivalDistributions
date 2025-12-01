@@ -502,6 +502,7 @@ export default function PredictorCreate() {
       <div className="sticky top-[var(--app-nav-h,4rem)] z-40 w-full border-b bg-neutral-700 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <button
+            title="Back"
             onClick={onBack}
             disabled={isProcessing}
             className="inline-flex items-center rounded-md border border-white/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium shadow-sm transition hover:bg-neutral-500 active:translate-y-[0.5px] disabled:cursor-not-allowed disabled:opacity-60"

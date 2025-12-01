@@ -267,6 +267,7 @@ export default function PredictorDetailPage() {
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <button
+            title="Back"
             onClick={handleBack}
             className="inline-flex items-center rounded-md border border-white/10 bg-neutral-600 px-3 py-1.5 text-sm font-medium shadow-sm transition hover:bg-neutral-500 active:translate-y-[0.5px]"
           >
