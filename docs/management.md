@@ -137,14 +137,17 @@ Meeting Minutes are [here](https://docs.google.com/document/d/1bArJtUYmxfYM_rN1S
 | US 1.3.8 | Save My Draft Predictors  | 3 | Advi, Yaatheshini | 
 | US 2.1.2 | Save Predictions After Runs on Lablled Data  | 3 | Excel, Selena | 
 | US 2.3 | Cross-Validation Evaluation of Predictor | 3 | Alex, Excel | 
-| US 3.1| Run Predictors on Unlabeled Data  | 5 | Excel | \
+| US 3.1| Run Predictors on Unlabeled Data  | 5 | Excel |
 | US 3.2 | Prediction Display Formats  | 5 | Hoang | 
 | US 3.3| Quality Evaluation of Predictors  | 3 | Excel | 
+| US 3.5 | Print Results | 2 | Shahmeer, Selena | 
+| US 3.2 | Download Results  | 2 | Shahmeer | 
 | US 3.7 | Superuser-Specific Analysis Tools  | 3 | Advi | 
-| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | Selena |  
+| US 4.1.1 | Hover Over Buttons / Tabs for Info | 2 | Selena |
+| US 4.2 | Instructions + Demo Video  | 3 | Alex, Hoang, Yaatheshini |   
 | US 6.4 | Frontend tests for Sprint 5 | 5 | yaatheshini | 
 
-**Estimated sprint velocity**: 32
+**Estimated sprint velocity**: 39
 
 * > Initial Check-In - **November 23th**
 

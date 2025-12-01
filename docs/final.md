@@ -6,7 +6,7 @@ This guide explains how to deploy the ISD application into a production environm
 
 ---
 
-## 1. Overview
+### 1. Overview
 
 The ISD system consists of three major services:
 
@@ -20,18 +20,18 @@ Before deploying, ensure you have SSH access to the production server and the pr
 
 ---
 
-## 2. Install Required Libraries
+### 2. Install Required Libraries
 
 The production server must have all system and application-level dependencies installed.
 
-### 2.1 System Dependencies
+#### 2.1 System Dependencies
 
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git nodejs npm build-essential
 ```
 
-### 2.2 Backend Dependencies
+#### 2.2 Backend Dependencies
 
 ```bash
 cd /home/ubuntu/f25project-DeptofComputingScience/isd
@@ -40,14 +40,14 @@ source ../venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2.3 Frontend Dependencies
+#### 2.3 Frontend Dependencies
 
 ```bash
 cd /home/ubuntu/f25project-DeptofComputingScience/frontend
 npm install
 ```
 
-### 2.4 ML API Dependencies
+#### 2.4 ML API Dependencies
 
 ```bash
 cd /home/ubuntu/f25project-DeptofComputingScience/ml_api
@@ -58,7 +58,7 @@ All required dependencies must be listed in `requirements.txt` and `package.json
 
 ---
 
-## 3. Configure Environment Variables
+### 3. Configure Environment Variables
 
 Production settings are stored in:
 
@@ -79,7 +79,7 @@ Remove any test or placeholder credentials.
 
 ---
 
-## 4. Deploy the Backend
+### 4. Deploy the Backend
 
 From the project root:
 
@@ -98,7 +98,7 @@ This script:
 
 ---
 
-## 5. Deploy the Frontend Manually (Optional)
+### 5. Deploy the Frontend Manually (Optional)
 
 ```bash
 cd /home/ubuntu/f25project-DeptofComputingScience/frontend
@@ -110,7 +110,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 6. Configure Nginx
+### 6. Configure Nginx
 
 Your Nginx config file should be placed at:
 
@@ -134,7 +134,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 7. Enable HTTPS (SSL)
+### 7. Enable HTTPS (SSL)
 
 Once DNS points to the server:
 
@@ -164,7 +164,7 @@ sudo systemctl restart isd-django.service
 
 ---
 
-## 8. Verify Services
+### 8. Verify Services
 
 Confirm systemd services are running:
 
@@ -183,7 +183,7 @@ curl -I https://isd.srv.ualberta.ca/
 
 ---
 
-## 9. Security Checklist
+### 9. Security Checklist
 
 Before marking deployment complete, ensure:
 
@@ -213,7 +213,7 @@ Use strong passwords and (optionally) firewall or IP filtering.
 
 ---
 
-## Deployment Complete
+### Deployment Complete
 
 After following this guide:
 
