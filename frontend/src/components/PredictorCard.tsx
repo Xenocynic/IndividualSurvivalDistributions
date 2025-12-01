@@ -119,10 +119,8 @@ export default function PredictorCard({
 
   const displayUpdated = getDisplayDate(item.updatedAt, item.updatedAtRaw);
 
-  // Decide how to handle "Edit" for draft vs trained predictors.
   const handleEditClick = () => {
     if (item.ml_training_status === "not_trained") {
-      // Prefer the dedicated draft editor if provided, otherwise fall back to normal edit.
       if (onDraftEdit) {
         onDraftEdit(item.id);
         return;
@@ -130,6 +128,8 @@ export default function PredictorCard({
     }
     onEdit?.(item.id);
   };
+
+  const hasNotes = Boolean(item.notes && item.notes.trim().length > 0);
 
   return (
     <div
@@ -152,113 +152,126 @@ export default function PredictorCard({
             </div>
           }
           title={
-            <div className="truncate pt-1 text-sm font-semibold text-neutral-900">
+            <div
+              className={[
+                "pt-1 text-sm font-semibold text-neutral-900",
+                selected ? "line-clamp-2" : "truncate",
+              ].join(" ")}
+            >
               {item.title}
             </div>
           }
-        description={
-          item.notes ? (
-            <div className="mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600">
-              {item.notes}
-            </div>
-          ) : (
-            <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs italic text-neutral-400">
-              No description provided.
-            </div>
-          )
-        }
-        footerLeft={
-          displayUpdated ? (
-            <span className="text-[11px] text-neutral-500">
-              Updated {displayUpdated}
-            </span>
-          ) : null
-        }
-        footerRight={
-          <div className="flex items-center gap-2 text-[11px] text-neutral-600">
-            {item.status && (
-              <span className="rounded-full border border-neutral-300 bg-neutral-50 px-2 py-[2px] text-[10px] tracking-wide">
-                {item.status}
-              </span>
-            )}
-            {visibilityLabel && (
-              <span
-                className={`rounded-full border px-2 py-[2px] text-[10px] ${
-                  item.isPublic
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-neutral-900 bg-neutral-900 text-white"
-                }`}
+          description={
+            hasNotes ? (
+              <div
+                className={[
+                  "mt-2 rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600",
+                  selected ? "" : "line-clamp-4",
+                ].join(" ")}
               >
-                {visibilityLabel}
+                {item.notes}
+              </div>
+            ) : (
+              <div className="mt-2 rounded-md bg-neutral-50 px-3 py-2 text-xs italic text-neutral-400">
+                No description provided.
+              </div>
+            )
+          }
+          footerLeft={
+            displayUpdated ? (
+              <span className="text-[11px] text-neutral-500">
+                Updated {displayUpdated}
               </span>
-            )}
-          </div>
-        }
-        selected={selected}
-        onSelect={() => onToggleSelect?.(item.id)}
-        onDoubleClick={() => onDoubleClick?.(item.id)}
-        onActionAreaClick={(e) => {
-          e.stopPropagation();
-        }}
-        // Keep header row space always reserved; buttons control their own visibility
-        actionVisibility="always"
-      >
-        {/* View button (everyone) */}
-        <button
-          type="button"
-          onClick={() => onView?.(item.id)}
-          className={bubbleButtonClass(selected)}
-          style={bubbleDelayStyle(selected, viewDelay)}
+            ) : null
+          }
+          footerRight={
+            <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
+              {visibilityLabel && (
+                <span
+                  className={`rounded-full border px-2 py-[2px] text-[10px] ${
+                    item.isPublic
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-neutral-900 bg-neutral-900 text-white"
+                  }`}
+                >
+                  {visibilityLabel}
+                </span>
+              )}
+              {item.status && (
+                <span className="rounded-full border border-neutral-300 bg-neutral-50 px-2 py-[2px] text-[10px] tracking-wide">
+                  {item.status}
+                </span>
+              )}
+            </div>
+          }
+          selected={selected}
+          onSelect={() => onToggleSelect?.(item.id)}
+          onDoubleClick={() => onDoubleClick?.(item.id)}
+          onActionAreaClick={(e) => {
+            e.stopPropagation();
+          }}
+          actionVisibility="always"
         >
-          <Eye className="h-5 w-3" />
-        </button>
+          <div className="flex w-full justify-end">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-nowrap sm:gap-2">
+              {/* View button (everyone) */}
+              <button
+                type="button"
+                onClick={() => onView?.(item.id)}
+                className={bubbleButtonClass(selected)}
+                style={bubbleDelayStyle(selected, viewDelay)}
+              >
+                <Eye className="h-5 w-3" />
+              </button>
 
-        {/* Pin button (Browse, etc.) */}
-        {showPin && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const next = !isPinned;
-              onTogglePin?.(item.id, next);
-            }}
-            className={[
-              bubbleButtonClass(selected),
-              isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
-            ].join(" ")}
-            style={bubbleDelayStyle(selected, pinDelay)}
-            title={isPinned ? "Unpin" : "Pin"}
-            aria-label={isPinned ? "Unpin predictor" : "Pin predictor"}
-          >
-            <span className="text-sm" aria-hidden="true">
-              {isPinned ? "★" : "☆"}
-            </span>
-          </button>
-        )}
+              {/* Pin button (Browse, etc.) */}
+              {showPin && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = !isPinned;
+                    onTogglePin?.(item.id, next);
+                  }}
+                  className={[
+                    bubbleButtonClass(selected),
+                    isPinned ? "bg-neutral-200 hover:bg-neutral-300" : "",
+                  ].join(" ")}
+                  style={bubbleDelayStyle(selected, pinDelay)}
+                  title={isPinned ? "Unpin" : "Pin"}
+                  aria-label={isPinned ? "Unpin predictor" : "Pin predictor"}
+                >
+                  <span className="text-sm" aria-hidden="true">
+                    {isPinned ? "★" : "☆"}
+                  </span>
+                </button>
+              )}
 
-        {/* Owner-only actions (Dashboard, etc.) */}
-        {item.owner && showOwnerActions && (
-          <>
-            <button
-              type="button"
-              onClick={handleEditClick}
-              className={bubbleButtonClass(selected)}
-              style={bubbleDelayStyle(selected, editDelay)}
-            >
-              <Pencil className="h-5 w-3" />
-            </button>
+              {/* Owner-only actions */}
+              {item.owner && showOwnerActions && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleEditClick}
+                    className={bubbleButtonClass(selected)}
+                    style={bubbleDelayStyle(selected, editDelay)}
+                  >
+                    <Pencil className="h-5 w-3" />
+                  </button>
 
-            <button
-              type="button"
-              onClick={() => onDelete?.(item.id)}
-              className={bubbleDeleteButtonClass(selected)}
-              style={bubbleDelayStyle(selected, deleteDelay)}
-            >
-              <Trash2 className="h-5 w-3" />
-            </button>
-          </>
-        )}
-      </CardShell>
+                  <button
+                    type="button"
+                    onClick={() => onDelete?.(item.id)}
+                    className={bubbleDeleteButtonClass(selected)}
+                    style={bubbleDelayStyle(selected, deleteDelay)}
+                  >
+                    <Trash2 className="h-5 w-3" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardShell>
       </DraggableCard>
     </div>
   );
@@ -306,7 +319,6 @@ function getDisplayDate(
 
   const millis = Date.parse(source);
   if (Number.isNaN(millis)) {
-    // assume updatedAt is already user-facing text
     return updatedAt;
   }
 

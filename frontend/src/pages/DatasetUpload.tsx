@@ -662,15 +662,18 @@ function ConfirmLeave({
 
 function SavingOverlay() {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
-        <h3 className="text-lg font-semibold">Uploading dataset…</h3>
-        <p className="mt-2 text-sm text-neutral-600">
-          Larger files can take a minute. Please stay on this page until it&apos;s
-          done.
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
+          <h3 className="text-lg font-semibold">Uploading dataset…</h3>
+          <p className="mt-2 text-sm text-neutral-600">
+            Larger files can take a minute. Please stay on this page until it&apos;s
+            done.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
