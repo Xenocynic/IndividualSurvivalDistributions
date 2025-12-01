@@ -1,18 +1,29 @@
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowRight } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Database,
+  Activity,
+  BarChart3,
+  RefreshCcw,
+} from "lucide-react";
 import graphic1 from "../assets/graphicLanding1.png";
 
 function FeatureChip({
   title,
   text,
+  icon,
 }: {
   title: string;
   text: string;
+  icon: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="mb-3 grid h-16 w-16 place-items-center rounded-xl bg-neutral-200 text-[11px] font-semibold text-neutral-700">
-        (Graphic)
+      <div className="mb-3 grid h-16 w-16 place-items-center rounded-xl bg-neutral-200 text-neutral-700">
+        {icon}
       </div>
       <div className="text-sm font-semibold text-neutral-900">{title}</div>
       <p className="mt-1 max-w-[15rem] text-xs text-neutral-600">{text}</p>
@@ -101,9 +112,21 @@ export default function Landing() {
     }
   };
 
+  // Lock downward wheel scrolling (must use arrows to go down)
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => window.removeEventListener("wheel", handleWheel);
+  }, []);
+
   return (
-    <main className="bg-neutral-100">
-      {/* huge ass pain – full-width black strip */}
+    <main className="bg-white">
+      {/* HERO – full-width black strip */}
       <section className="relative bg-neutral-950 text-white">
         <div className="mx-auto max-w-6xl px-4">
           <section
@@ -169,11 +192,13 @@ export default function Landing() {
         </button>
       </section>
 
-      {/* OVERVIEW: white */}
-      <section id="pssp-overview" className="py-12 md:py-16">
+      {/* OVERVIEW: grey band (middle) */}
+      <section
+        id="pssp-overview"
+        className="bg-neutral-100 py-16 md:py-24"
+      >
         <div className="mx-auto max-w-6xl px-4">
-          <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-
+          <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-center">
             <div className="max-w-xl">
               <h2 className="text-[20px] font-semibold tracking-tight sm:text-[22px]">
                 Working with the PSSP codebase
@@ -230,7 +255,7 @@ export default function Landing() {
             </div>
 
             {/* Small feature grid summary */}
-            <div className="rounded-2xl border border-black/5 bg-neutral-50 p-5 shadow-sm">
+            <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-neutral-900">
                 What PSSP provides
               </h3>
@@ -242,25 +267,29 @@ export default function Landing() {
                 <FeatureChip
                   title="Cohort-level learning"
                   text="Train on historical datasets with right-censoring and clinically relevant covariates."
+                  icon={<Database className="h-6 w-6" />}
                 />
                 <FeatureChip
                   title="Individualized curves"
                   text="Produce a full survival distribution for each patient, not just a single risk score."
+                  icon={<Activity className="h-6 w-6" />}
                 />
                 <FeatureChip
                   title="Flexible outputs"
                   text="Export curves, summary statistics, and stratified visualizations for downstream analysis."
+                  icon={<BarChart3 className="h-6 w-6" />}
                 />
                 <FeatureChip
                   title="Reproducible runs"
                   text="Track model settings and seeds so analyses can be repeated or shared."
+                  icon={<RefreshCcw className="h-6 w-6" />}
                 />
               </div>
             </div>
           </div>
 
           {/* Arrow down to workflow */}
-          <div className="mt-10 flex justify-center">
+          <div className="mt-12 flex justify-center">
             <button
               type="button"
               onClick={scrollToWorkflow}
@@ -275,9 +304,10 @@ export default function Landing() {
         </div>
       </section>
 
-      <section id="pssp-workflow" className="pb-10">
+      {/* WORKFLOW: bottom, white background */}
+      <section id="pssp-workflow" className="bg-white pb-16 pt-12 md:pt-16">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="rounded-2xl border border-black/5 bg-neutral-100 px-4 py-12 md:px-8 md:py-14">
+          <div className="rounded-2xl border border-black/5 bg-white px-4 py-12 md:px-8 md:py-14">
             <h2 className="text-center text-[20px] font-semibold tracking-tight sm:text-[22px]">
               From historical cohorts to patient-specific survival curves
             </h2>
