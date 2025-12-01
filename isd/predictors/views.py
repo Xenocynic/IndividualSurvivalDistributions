@@ -10,6 +10,7 @@ from .ml_client import MLAPIClient
 import pandas as pd
 import os
 import requests
+import re
 import json
 from django.conf import settings
 from django.utils import timezone
@@ -810,7 +811,8 @@ def ml_predict(request, predictor_id):
             all_target_columns = target_header_df.columns.tolist()
             
             # Filter out time and censored columns if they exist (for labeled datasets)
-            target_features = [col for col in all_target_columns if col not in ['time', 'censored']]
+            # Use regex to match any column containing 'time' or 'censored' (case-insensitive)
+            target_features = [col for col in all_target_columns if not re.search(r'time|censored', col, re.IGNORECASE)]
         except Exception as e:
             return Response({"error": f"Failed to read target dataset header: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
@@ -830,9 +832,10 @@ def ml_predict(request, predictor_id):
             full_df = pd.read_csv(f)
 
         # Drop time/censored columns if they exist (for labeled datasets)
-        for col in ['time', 'censored']:
-            if col in full_df.columns:
-                full_df = full_df.drop(columns=[col])
+        # Use regex to match any column containing 'time' or 'censored' (case-insensitive)
+        columns_to_drop = [col for col in full_df.columns if re.search(r'time|censored', col, re.IGNORECASE)]
+        if columns_to_drop:
+            full_df = full_df.drop(columns=columns_to_drop)
 
         # Convert dataset rows → list of dict records
         records = full_df.to_dict(orient="records")

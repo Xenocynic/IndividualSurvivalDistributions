@@ -140,6 +140,10 @@ export default function UsePredictor() {
     useState<DatasetItem | null>(null);
   const [datasetPreview, setDatasetPreview] =
     useState<DatasetPreview | null>(null);
+  
+  // State for predictor's training dataset columns (to calculate required features)
+  const [predictorDatasetColumns, setPredictorDatasetColumns] = 
+    useState<string[] | null>(null);
 
   // Status state
   const [featureStatus, setFeatureStatus] =
@@ -183,6 +187,28 @@ export default function UsePredictor() {
     }
     fetchData();
   }, [currentUserId]);
+
+  // Fetch predictor's dataset columns when predictor is selected
+  useEffect(() => {
+    if (!selectedPredictor?.dataset?.id) {
+      setPredictorDatasetColumns(null);
+      return;
+    }
+
+    async function fetchPredictorDatasetColumns() {
+      try {
+        const data = await api.get<DatasetPreview>(
+          `/api/datasets/${selectedPredictor.dataset.id}/preview/`
+        );
+        setPredictorDatasetColumns(data.columns);
+      } catch (err) {
+        console.error("Failed to fetch predictor's dataset columns", err);
+        setPredictorDatasetColumns(null);
+      }
+    }
+
+    fetchPredictorDatasetColumns();
+  }, [selectedPredictor]);
 
   // Fetch dataset preview when dataset is selected
   useEffect(() => {
@@ -558,7 +584,11 @@ export default function UsePredictor() {
                               Required features
                             </dt>
                             <dd className="mt-0.5 text-neutral-900">
-                              {selectedPredictor.model_metadata?.n_features || "N/A"}
+                              {predictorDatasetColumns 
+                                ? predictorDatasetColumns.filter(
+                                    (col: string) => !/time|censored/i.test(col)
+                                  ).length
+                                : "N/A"}
                             </dd>
                           </div>
                           <div>
