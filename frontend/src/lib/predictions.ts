@@ -115,7 +115,7 @@ export interface CreatePredictionRequest {
  */
 export async function listMyPredictions(search?: string): Promise<Prediction[]> {
   if (search) {
-    return api.get<Prediction[]>("/api/predictions/", { params: { search } });
+    return api.get<Prediction[]>(`/api/predictions/?search=${encodeURIComponent(search)}`);
   }
   return api.get<Prediction[]>("/api/predictions/");
 }
