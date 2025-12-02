@@ -293,7 +293,7 @@ This modular structure keeps the codebase organized and makes it easier to maint
 ## SonarQube Analysis
 [![High-level Architecture](isd-1.png)](isd-1.png){target=_blank}<br><br>
 
-### Based on the SonarQube dashboard, the project **passes all quality gate conditions**, indicating that the codebase meets required standards for reliability, security, and maintainability. Below is a detailed breakdown of each metric and what it implies for the health of the project.
+#### Based on the SonarQube dashboard, the project **passes all quality gate conditions**, indicating that the codebase meets required standards for reliability, security, and maintainability. Below is a detailed breakdown of each metric and what it implies for the health of the project.
 
 ---
 
