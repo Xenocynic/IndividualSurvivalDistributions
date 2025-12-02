@@ -289,3 +289,41 @@ This modular structure keeps the codebase organized and makes it easier to maint
 | US 1.8 | User About Page | `test_full_password_reset_flow` | `test_user_login_logout_reset.py` | Covered |
 | US 4.1 | User Instructions Page | `test_full_password_reset_flow` | `test_user_login_logout_reset.py` | Covered |
 | US 1.3.7 | Pin Predictors | `test_full_password_reset_flow` | `test_user_login_logout_reset.py` | Covered |
+
+## SonarQube Analysis
+[![High-level Architecture](isd-1.png)](isd-1.png){target=_blank}<br><br>
+
+### The codebase successfully **Passed** the default Quality Gate. The breakdown of the analysis is as follows:
+
+### A. Overall Health Metrics
+According to the overview dashboard, the backend maintains a high standard of code health:
+* **Reliability:** Rated **A** (1 Bug found).
+* **Security:** Rated **A** (6 Vulnerabilities found).
+* **Maintainability:** Rated **A** (45 Code Smells found with a technical debt of ~7 hours).
+* **Duplications:** The code is very DRY (Don't Repeat Yourself), with only **1.4%** code duplication across 12k lines.
+
+### B. Key Issues Identified
+While the project passed the quality gate, the detailed issue report highlighted several areas for refactoring to improve long-term maintainability:
+
+**1. Cognitive Complexity (Maintainability)**
+The most significant issue identified is **Cognitive Complexity**. SonarQube flagged several functions where the logic flow is too difficult to follow (nested loops, complex `if/else` chains).
+* *Example:* A function in `isd/predictors/views.py` has a complexity score of **59**, well above the allowed threshold of 15.
+* *Example:* `isd/dataset/statistics.py` has functions exceeding complexity limits (scores of 17 and 41).
+* *Impact:* High complexity increases the risk of introducing bugs during future updates. These functions should be broken down into smaller helper methods.
+
+**2. Error Handling (Reliability)**
+The scanner detected the use of generic exceptions (`except Exception:`) in `isd/dataset/views.py` and `isd/predictors/views.py`.
+* *Impact:* Catching generic exceptions can mask unexpected errors and make debugging difficult. The report suggests using specific exception classes.
+
+**3. Code Cleanup (Technical Debt)**
+There are multiple instances of "dead code" that clutter the repository:
+* **Unused Variables:** Variables like `e`, `folder`, and `label_cols` are defined but never used.
+* **Commented-out Code:** Found in `isd/predictors/models.py`, which should be removed to keep the source files clean.
+* **Unused Parameters:** Function parameters like `return_cv_predictions` that are not utilized within the function body.
+
+**4. Hardcoded Literals (Design)**
+The tool flagged strings such as `"Predictor not found"` and `"Dataset has no associated file"` being duplicated multiple times.
+* *Solution:* These should be defined as constants at the top of the file to prevent typos and ease translation/changes.
+
+### 4. Conclusion
+The SonarQube analysis confirms that the `isd` backend is structurally sound with low duplication and passing security grades. However, to reduce technical debt, the team plans to refactor the high-complexity views in `predictors` and `dataset`, and sanitize the code by removing unused variables and commented-out blocks.
