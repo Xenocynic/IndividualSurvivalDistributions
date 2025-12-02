@@ -116,14 +116,14 @@ function WorkflowTile({
   return (
     <div className={`group relative flex flex-col ${alignmentClass}`}>
       <div className="rounded-2xl border border-neutral-300 bg-white px-4 py-3 shadow-sm transition-transform transition-colors duration-200 ease-out group-hover:-translate-y-0.5 group-hover:border-neutral-900 group-hover:shadow-md">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="text-[15px] font-semibold uppercase tracking-wide text-neutral-500">
           {label}
         </p>
-        <p className="mt-1 text-sm font-semibold text-neutral-900">{title}</p>
+        <p className="mt-1 text-md font-semibold text-neutral-900">{title}</p>
         <div className="mt-3">{children}</div>
       </div>
       <div
-        className={`pointer-events-none absolute top-full z-40 mt-3 hidden w-64 rounded-md bg-neutral-900 px-3 py-2 text-[11px] leading-snug text-neutral-50 shadow-xl group-hover:block ${tooltipPositionClass}`}
+        className={`pointer-events-none absolute top-full z-40 mt-3 hidden w-64 rounded-md bg-neutral-900 px-3 py-2 text-[15px] leading-snug text-neutral-50 shadow-xl group-hover:block ${tooltipPositionClass}`}
       >
         {body}
       </div>
@@ -184,7 +184,7 @@ export default function Landing() {
           >
             {/* Left copy */}
             <div className="pr-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+              <p className="text-[15px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
                 Individual Survival Distributions
               </p>
               <h1 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-[32px]">
@@ -193,7 +193,7 @@ export default function Landing() {
                 built for research and practice.
               </h1>
 
-              <p className="mt-4 max-w-xl text-[13.5px] leading-relaxed text-neutral-300">
+              <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-neutral-300">
                 PSSP fits individualized survival models on historical patient
                 cohorts and produces an individual survival distribution (ISD)&nbsp;— 
                 a full survival curve&nbsp;— for each new patient based on their covariates.
@@ -202,13 +202,13 @@ export default function Landing() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   to="/instructions"
-                  className="inline-flex items-center justify-center rounded-[10px] bg-white px-4 py-2 text-xs font-semibold text-neutral-900 shadow-sm hover:bg-neutral-200"
+                  className="inline-flex items-center justify-center rounded-[10px] bg-white px-4 py-2 text-md font-semibold text-neutral-900 shadow-sm hover:bg-neutral-200"
                 >
                   View the tutorial
                 </Link>
                 <Link
                   to="/browse"
-                  className="inline-flex items-center justify-center rounded-[10px] border border-white/15 bg-neutral-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-neutral-800"
+                  className="inline-flex items-center justify-center rounded-[10px] border border-white/15 bg-neutral-900 px-4 py-2 text-md font-semibold text-white shadow-sm hover:bg-neutral-800"
                 >
                   Explore predictors
                 </Link>
@@ -232,7 +232,7 @@ export default function Landing() {
         <button
           type="button"
           onClick={scrollToOverview}
-          className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center text-[11px] font-medium text-neutral-300 hover:text-white"
+          className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center text-[15px] font-medium text-neutral-300 hover:text-white"
         >
           <span className="mb-1 pb-2">Learn more about PSSP</span>
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-600 bg-neutral-900/60 backdrop-blur-sm">
@@ -249,7 +249,7 @@ export default function Landing() {
               <h2 className="text-[20px] font-semibold tracking-tight sm:text-[22px]">
                 Working with the PSSP codebase
               </h2>
-              <div className="mt-4 text-[13.5px] leading-relaxed text-neutral-700">
+              <div className="mt-4 text-[17px] leading-relaxed text-neutral-700">
                 <p>
                   This site is a web interface for the patient-specific survival
                   prediction (PSSP) framework from the Survival Prediction
@@ -316,7 +316,7 @@ export default function Landing() {
               <h3 className="text-sm font-semibold text-neutral-900">
                 What PSSP provides
               </h3>
-              <p className="mt-2 text-[12px] text-neutral-600">
+              <p className="mt-2 text-[14px] text-neutral-600">
                 Built for academic and professional work: reusable models,
                 reproducible experiments, and publication-ready curves.
               </p>
@@ -350,7 +350,7 @@ export default function Landing() {
             <button
               type="button"
               onClick={scrollToWorkflow}
-              className="flex flex-col items-center text-[11px] font-medium text-neutral-500 hover:text-neutral-800"
+              className="flex flex-col items-center text-[15px] font-medium text-neutral-500 hover:text-neutral-800"
             >
               <span className="mb-1">See the full workflow</span>
               <span className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 bg-white shadow-sm">
@@ -368,7 +368,7 @@ export default function Landing() {
             <h2 className="text-center text-[20px] font-semibold tracking-tight sm:text-[22px]">
               From historical cohorts to patient-specific survival curves
             </h2>
-            <p className="mx-auto mt-3 max-w-4xl text-center text-[13px] leading-relaxed text-neutral-700">
+            <p className="mx-auto mt-3 max-w-4xl text-center text-[18px] leading-relaxed text-neutral-700">
               PSSP trains an individualized survival distribution (ISD) model on
               a cohort with censored outcomes, then uses that model to generate
               a full survival curve for each novel patient. Hover over each
