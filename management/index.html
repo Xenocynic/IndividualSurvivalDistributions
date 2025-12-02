@@ -104,13 +104,19 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#sonarqube-analysis">SonarQube Analysis</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#the-codebase-successfully-passed-the-default-quality-gate-the-breakdown-of-the-analysis-is-as-follows">The codebase successfully Passed the default Quality Gate. The breakdown of the analysis is as follows:</a>
+    <li class="toctree-l3"><a class="reference internal" href="#based-on-the-sonarqube-dashboard-the-project-passes-all-quality-gate-conditions-indicating-that-the-codebase-meets-required-standards-for-reliability-security-and-maintainability-below-is-a-detailed-breakdown-of-each-metric-and-what-it-implies-for-the-health-of-the-project">Based on the SonarQube dashboard, the project passes all quality gate conditions, indicating that the codebase meets required standards for reliability, security, and maintainability. Below is a detailed breakdown of each metric and what it implies for the health of the project.</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#a-overall-health-metrics">A. Overall Health Metrics</a>
+    <li class="toctree-l3"><a class="reference internal" href="#1-reliability-rating-c">1. Reliability — Rating: C</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#b-key-issues-identified">B. Key Issues Identified</a>
+    <li class="toctree-l3"><a class="reference internal" href="#2-security-rating-a">2. Security — Rating: A</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#4-conclusion">4. Conclusion</a>
+    <li class="toctree-l3"><a class="reference internal" href="#3-maintainability-rating-a">3. Maintainability — Rating: A</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-code-duplication-14">4. Code Duplication — 1.4%</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#summary-table">Summary Table</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#conclusion">Conclusion</a>
     </li>
         </ul>
     </li>
@@ -1125,33 +1131,74 @@ This modular structure keeps the codebase organized and makes it easier to maint
 </table>
 <h2 id="sonarqube-analysis">SonarQube Analysis</h2>
 <p><a href="../isd-1.png" target="_blank"><img alt="High-level Architecture" src="../isd-1.png" /></a><br><br></p>
-<h3 id="the-codebase-successfully-passed-the-default-quality-gate-the-breakdown-of-the-analysis-is-as-follows">The codebase successfully <strong>Passed</strong> the default Quality Gate. The breakdown of the analysis is as follows:</h3>
-<h3 id="a-overall-health-metrics">A. Overall Health Metrics</h3>
-<p>According to the overview dashboard, the backend maintains a high standard of code health:
-* <strong>Reliability:</strong> Rated <strong>A</strong> (1 Bug found).
-* <strong>Security:</strong> Rated <strong>A</strong> (6 Vulnerabilities found).
-* <strong>Maintainability:</strong> Rated <strong>A</strong> (45 Code Smells found with a technical debt of ~7 hours).
-* <strong>Duplications:</strong> The code is very DRY (Don't Repeat Yourself), with only <strong>1.4%</strong> code duplication across 12k lines.</p>
-<h3 id="b-key-issues-identified">B. Key Issues Identified</h3>
-<p>While the project passed the quality gate, the detailed issue report highlighted several areas for refactoring to improve long-term maintainability:</p>
-<p><strong>1. Cognitive Complexity (Maintainability)</strong>
-The most significant issue identified is <strong>Cognitive Complexity</strong>. SonarQube flagged several functions where the logic flow is too difficult to follow (nested loops, complex <code>if/else</code> chains).
-* <em>Example:</em> A function in <code>isd/predictors/views.py</code> has a complexity score of <strong>59</strong>, well above the allowed threshold of 15.
-* <em>Example:</em> <code>isd/dataset/statistics.py</code> has functions exceeding complexity limits (scores of 17 and 41).
-* <em>Impact:</em> High complexity increases the risk of introducing bugs during future updates. These functions should be broken down into smaller helper methods.</p>
-<p><strong>2. Error Handling (Reliability)</strong>
-The scanner detected the use of generic exceptions (<code>except Exception:</code>) in <code>isd/dataset/views.py</code> and <code>isd/predictors/views.py</code>.
-* <em>Impact:</em> Catching generic exceptions can mask unexpected errors and make debugging difficult. The report suggests using specific exception classes.</p>
-<p><strong>3. Code Cleanup (Technical Debt)</strong>
-There are multiple instances of "dead code" that clutter the repository:
-* <strong>Unused Variables:</strong> Variables like <code>e</code>, <code>folder</code>, and <code>label_cols</code> are defined but never used.
-* <strong>Commented-out Code:</strong> Found in <code>isd/predictors/models.py</code>, which should be removed to keep the source files clean.
-* <strong>Unused Parameters:</strong> Function parameters like <code>return_cv_predictions</code> that are not utilized within the function body.</p>
-<p><strong>4. Hardcoded Literals (Design)</strong>
-The tool flagged strings such as <code>"Predictor not found"</code> and <code>"Dataset has no associated file"</code> being duplicated multiple times.
-* <em>Solution:</em> These should be defined as constants at the top of the file to prevent typos and ease translation/changes.</p>
-<h3 id="4-conclusion">4. Conclusion</h3>
-<p>The SonarQube analysis confirms that the <code>isd</code> backend is structurally sound with low duplication and passing security grades. However, to reduce technical debt, the team plans to refactor the high-complexity views in <code>predictors</code> and <code>dataset</code>, and sanitize the code by removing unused variables and commented-out blocks.</p>
+<h3 id="based-on-the-sonarqube-dashboard-the-project-passes-all-quality-gate-conditions-indicating-that-the-codebase-meets-required-standards-for-reliability-security-and-maintainability-below-is-a-detailed-breakdown-of-each-metric-and-what-it-implies-for-the-health-of-the-project">Based on the SonarQube dashboard, the project <strong>passes all quality gate conditions</strong>, indicating that the codebase meets required standards for reliability, security, and maintainability. Below is a detailed breakdown of each metric and what it implies for the health of the project.</h3>
+<hr />
+<h3 id="1-reliability-rating-c">1. Reliability — <strong>Rating: C</strong></h3>
+<ul>
+<li><strong>1 Bug detected</strong></li>
+<li>Although the bug count is low, the <strong>C rating</strong> indicates that the issue could have a moderate impact.</li>
+<li>Fixing this bug should be a priority, as reliability directly affects the correctness and stability of the application.</li>
+</ul>
+<hr />
+<h3 id="2-security-rating-a">2. Security — <strong>Rating: A</strong></h3>
+<ul>
+<li><strong>0 Vulnerabilities</strong></li>
+<li>This demonstrates strong baseline security, with no known exploitable weaknesses.</li>
+</ul>
+<hr />
+<h3 id="3-maintainability-rating-a">3. Maintainability — <strong>Rating: A</strong></h3>
+<ul>
+<li><strong>45 Code Smells</strong></li>
+<li>Estimated <strong>7h 18min of remediation effort</strong></li>
+<li>Code smells are not errors but indicators of areas where maintainability could be improved.</li>
+</ul>
+<p>Common examples include:
+- Long or complex methods<br />
+- Repeated logic<br />
+- Unused variables<br />
+- Non-idiomatic patterns  </p>
+<hr />
+<h3 id="4-code-duplication-14">4. Code Duplication — <strong>1.4%</strong></h3>
+<ul>
+<li><strong>2 duplicated code blocks</strong></li>
+<li>Very low duplication for a project with over 12k lines.</li>
+<li>This indicates clean structure and minimal redundant logic.</li>
+</ul>
+<hr />
+<h3 id="summary-table">Summary Table</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Status / Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Quality Gate</strong></td>
+<td>✔ Passed</td>
+</tr>
+<tr>
+<td>Reliability</td>
+<td>C (1 bug)</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>A</td>
+</tr>
+<tr>
+<td>Maintainability</td>
+<td>A</td>
+</tr>
+<tr>
+<td>Duplication</td>
+<td>1.4% (Excellent)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="conclusion">Conclusion</h3>
+<p>Overall, the project has strong security, low duplication, and good maintainability. The main gap is a lack of reliability. Addressing this will significantly improve code quality and long-term stability.</p>
               
             </div>
           </div><footer>
