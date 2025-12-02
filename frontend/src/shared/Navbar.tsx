@@ -16,7 +16,7 @@
  * - Avatar is a real button that expands into a menu - closes on externa click.
  */
 
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { User } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useEffect, useRef, useState } from "react";
@@ -46,6 +46,7 @@ function NavItem({
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Local UI state for the profile popover menu
   const [menuOpen, setMenuOpen] = useState(false);
@@ -79,6 +80,8 @@ export default function Navbar() {
             <NavItem to="/about">About</NavItem>
             <NavItem to="/instructions">Instructions</NavItem>
             <NavItem to="/browse">Browse</NavItem>
+            {user && <NavItem to="/use-predictor">Use Predictor</NavItem>}
+            {user && <NavItem to="/my-predictions">My Predictions</NavItem>}
           </nav>
         </div>
 
@@ -134,9 +137,10 @@ export default function Navbar() {
                 </Link>
                 <button
                   role="menuitem"
-                  onClick={() => {
+                  onClick={async () => {
                     setMenuOpen(false);
-                    logout();
+                    await logout();
+                    navigate("/login");
                   }}
                   className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50"
                 >

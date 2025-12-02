@@ -14,47 +14,173 @@ class Predictor(models.Model):
 
     predictor_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=200)
-    description = models.TextField()
+    description = models.TextField(blank=True)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="predictors")
     folder = models.ForeignKey(Folder, on_delete=models.SET_NULL, null=True, blank=True, related_name="predictors")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_predictors")
     is_private = models.BooleanField(default=False)  # False = public, True = private
+    # The model_id from the ML server
+    model_id = models.CharField(
+        unique=True,     # if each ML model is used by only one predictor
+        null=True,       # predictor might exist before training completes
+        blank=True,
+        help_text="Unique identifier for the trained model from the ML server."
+    )
 
     class Meta:
         ordering = ["name"]
         verbose_name = "Predictor"
         verbose_name_plural = "Predictors"
 
-    # --- Advanced configuration fields ---
-    time_unit = models.CharField(
-        max_length=10,
-        choices=[('day', 'Day'), ('hour', 'Hour'), ('month', 'Month'), ('year', 'Year')],
-        default='day'
+    # --- ML Model Configuration ---
+    # Model & Experiment Settings
+    model = models.CharField(
+        max_length=50,
+        choices=[
+            ('MTLR', 'MTLR'),
+            ('DeepHit', 'DeepHit'),
+            ('CoxPH', 'CoxPH'),
+            ('AFT', 'AFT'),
+            ('GB', 'GB'),
+            ('CoxTime', 'CoxTime'),
+            ('CQRNN', 'CQRNN'),
+            ('LogNormalNN', 'LogNormalNN'),
+            ('KM', 'KM'),
+        ],
+        default='MTLR',
+        help_text='Survival analysis model type'
     )
-
-    num_time_points = models.PositiveIntegerField(blank=True, null=True)
-    regularization = models.CharField(max_length=5, choices=[('l1', 'L1'), ('l2', 'L2')], default='l2')
-    objective_function = models.CharField(max_length=50, default='log-likelihood')
-    marginal_loss_type = models.CharField(max_length=50, default='weighted')
-    c_param_search_scope = models.CharField(max_length=20, default='basic')
-
-    cox_feature_selection = models.BooleanField(default=False)
-    mrmr_feature_selection = models.BooleanField(default=False)
-    mtlr_predictor = models.CharField(max_length=50, default='stable')
-
-    # --- Recommended settings ---
-    standardize_features = models.BooleanField(default=True)
-    run_cross_validation = models.BooleanField(default=True)
-    tune_parameters = models.BooleanField(default=True)
-    use_smoothed_log_likelihood = models.BooleanField(default=False)
-    use_predefined_folds = models.BooleanField(default=False)
+    post_process = models.CharField(
+        max_length=20,
+        choices=[('CSD', 'CSD'), ('CSD-iPOT', 'CSD-iPOT')],
+        default='CSD',
+        help_text='Post-processing method for predictions'
+    )
+    n_exp = models.PositiveIntegerField(default=1, help_text='Number of experimental runs')
+    seed = models.IntegerField(default=0, help_text='Random seed for reproducibility')
+    time_bins = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text='Number of time bins (for MTLR, CoxPH, CQRNN, LogNormalNN)'
+    )
+    
+    # Conformalization Settings
+    error_f = models.CharField(
+        max_length=50,
+        default='Quantile',
+        help_text='Error function for conformal prediction'
+    )
+    decensor_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('uncensored', 'Uncensored'),
+            ('margin', 'Margin'),
+            ('PO', 'PO'),
+            ('sampling', 'Sampling'),
+        ],
+        default='uncensored',
+        help_text='Method for handling censored data'
+    )
+    mono_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('ceil', 'Ceil'),
+            ('floor', 'Floor'),
+            ('bootstrap', 'Bootstrap'),
+        ],
+        default='ceil',
+        help_text='Method for ensuring monotonicity'
+    )
+    interpolate = models.CharField(
+        max_length=20,
+        choices=[('Linear', 'Linear'), ('Pchip', 'Pchip')],
+        default='Pchip',
+        help_text='Interpolation method for predictions'
+    )
+    n_quantiles = models.PositiveIntegerField(default=49, help_text='Number of quantiles')
+    use_train = models.BooleanField(default=True, help_text='Include training data in conformal prediction')
+    n_sample = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Number of samples when using sampling decensor method'
+    )
+    
+    # Neural Network Architecture (for applicable models)
+    neurons = models.JSONField(
+        default=list,
+        help_text='Hidden layer sizes as array, e.g. [64, 64]'
+    )
+    norm = models.BooleanField(default=True, help_text='Use batch normalization')
+    dropout = models.FloatField(default=0.4, help_text='Dropout rate (0-1)')
+    activation = models.CharField(
+        max_length=20,
+        choices=[
+            ('ReLU', 'ReLU'),
+            ('LeakyReLU', 'LeakyReLU'),
+            ('PReLU', 'PReLU'),
+            ('Tanh', 'Tanh'),
+            ('Sigmoid', 'Sigmoid'),
+            ('ELU', 'ELU'),
+            ('SELU', 'SELU'),
+        ],
+        default='ReLU',
+        help_text='Activation function'
+    )
+    
+    # Training Hyperparameters (for neural network models)
+    n_epochs = models.PositiveIntegerField(default=10000, help_text='Maximum training iterations')
+    early_stop = models.BooleanField(default=True, help_text='Enable early stopping')
+    batch_size = models.PositiveIntegerField(default=128, help_text='Batch size for training')
+    lr = models.FloatField(default=0.001, help_text='Learning rate')
+    weight_decay = models.FloatField(default=0.0, help_text='L2 regularization strength')
+    lam = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Lambda parameter for LogNormalNN d-calibration'
+    )
+    
+    # --- System Settings ---
     allow_admin_access = models.BooleanField(default=False)
 
     # --- System metadata ---
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
-
+    ml_trained_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="When the ML model was trained"
+    )
+    ml_training_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_trained', 'Not Trained'),
+            ('training', 'Training'),
+            ('trained', 'Trained'),
+            ('failed', 'Failed'),
+        ],
+        default='not_trained'
+    )
+    ml_model_metrics = models.JSONField(
+        null=True, 
+        blank=True,
+        help_text="Performance metrics from ML model training (C-index, IBS, etc.)"
+    )
+    ml_selected_features = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="List of features used in ML model training"
+    )
+    ml_training_progress = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Training progress information (current_epoch, total_epochs, time_per_epoch, etc.)"
+    )
+    ml_training_error = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Error message if training failed"
+    )
 
     def __str__(self):
         return self.name
@@ -108,4 +234,4 @@ class PredictorPermission(models.Model):
         verbose_name_plural = "Predictor Permissions"
 
     def __str__(self):
-        return f"{self.user.username} - {self.predictor.name} ({self.role})"
+        return f"{self.user.username} - {self.predictor.name}"

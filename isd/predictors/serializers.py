@@ -4,6 +4,9 @@ from .models import Predictor, PredictorPermission, PinnedPredictor
 from dataset.models import Dataset
 from folders.models import Folder
 from rest_framework.exceptions import PermissionDenied
+import os
+import json
+from django.conf import settings
 
 
 # ----------------------------
@@ -20,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
 class DatasetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dataset
-        fields = ["dataset_id", "dataset_name"]  
+        fields = ["dataset_id", "dataset_name", "original_filename"]  
 
 # ----------------------------
 # Folder Serializer (lightweight)
@@ -33,6 +36,55 @@ class FolderSerializer(serializers.ModelSerializer):
 
 
 # ----------------------------
+# Predictor Permission Serializer
+# ----------------------------
+class PredictorPermissionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for PredictorPermission model.
+    Manages granting access to predictors for specific users.
+    """
+    user = UserSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="user", write_only=True
+    )
+    predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
+    role = serializers.ChoiceField(
+        choices=PredictorPermission.ROLE_CHOICES,
+        default="viewer",
+        required=False,
+    )
+
+    class Meta:
+        model = PredictorPermission
+        fields = ["id", "predictor", "user", "user_id", "role"]
+
+    def to_internal_value(self, data):
+        """
+        Allow clients to submit either `user_id` (preferred) or `user`.
+        """
+        mutable_data = data.copy() if hasattr(data, "copy") else dict(data)
+        if "user_id" not in mutable_data and "user" in mutable_data:
+            mutable_data["user_id"] = mutable_data["user"]
+        return super().to_internal_value(mutable_data)
+
+    def validate_predictor(self, value):
+        """Validate that the user owns the predictor."""
+        request = self.context.get("request")
+        if not request or not request.user:
+            raise PermissionDenied("Authentication required.")
+        
+        if value.owner != request.user:
+            raise PermissionDenied("You can only grant access to predictors you own.")
+        
+        return value
+
+    def create(self, validated_data):
+        """Create predictor permission after validation."""
+        return super().create(validated_data)
+
+
+
+# ----------------------------
 # Predictor Serializer
 # ----------------------------
 class PredictorSerializer(serializers.ModelSerializer):
@@ -41,8 +93,13 @@ class PredictorSerializer(serializers.ModelSerializer):
     dataset_id = serializers.PrimaryKeyRelatedField(
         queryset=Dataset.objects.all(),
         source='dataset',
-        write_only=True # This means it will not appear in responses (get, etc)
+        write_only=False # This means it will not appear in responses (get, etc)
     )
+
+    permissions = PredictorPermissionSerializer(
+        many=True, read_only=True
+    )
+    
     folder = FolderSerializer(read_only=True, help_text="Folder containing this predictor")
     folder_id = serializers.PrimaryKeyRelatedField(
         queryset=Folder.objects.all(),
@@ -56,37 +113,13 @@ class PredictorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Predictor
-        fields = [
-            "predictor_id",
-            "name",
-            "description",
-            "dataset", # Read-only, appears in responses like GET
-            "dataset_id", # Write-only, For POST/PATCH
-            "owner",
-            "is_private",
-            "folder", # Read-only, folder information
-            "folder_id", # Write-only, for folder assignment
-            "time_unit",
-            "num_time_points",
-            "regularization",
-            "objective_function",
-            "marginal_loss_type",
-            "c_param_search_scope",
-            "cox_feature_selection",
-            "mrmr_feature_selection",
-            "mtlr_predictor",
-            "standardize_features",
-            "run_cross_validation",
-            "tune_parameters",
-            "use_smoothed_log_likelihood",
-            "use_predefined_folds",
-            "allow_admin_access",
-            "created_at",
-            "updated_at",
-            "features",
-        ]
+        fields = '__all__'
         read_only_fields = [
-            "predictor_id", "owner", "created_at", "updated_at", "features"
+            "predictor_id", 
+            "owner", 
+            "created_at", 
+            "updated_at", 
+            "features",
         ]
     
     def validate_folder_id(self, folder):
@@ -104,7 +137,8 @@ class PredictorSerializer(serializers.ModelSerializer):
         return folder
     
     def to_representation(self, instance):
-        """Add folder information to the response."""
+        """Add folder information and model metadata to the response."""
+        
         data = super().to_representation(instance)
         
         # Get folder information if predictor is in a folder
@@ -124,6 +158,30 @@ class PredictorSerializer(serializers.ModelSerializer):
             }
         else:
             data['folder'] = None
+        
+        # Add model metadata if available (model_type and n_features)
+        if instance.model_id:
+            model_config_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'models',
+                instance.model_id,
+                'model_config.json'
+            )
+            
+            if os.path.exists(model_config_path):
+                try:
+                    with open(model_config_path, 'r') as f:
+                        model_config = json.load(f)
+                    data['model_metadata'] = {
+                        'model_type': model_config.get('model_type'),
+                        'n_features': model_config.get('n_features')
+                    }
+                except Exception:
+                    data['model_metadata'] = None
+            else:
+                data['model_metadata'] = None
+        else:
+            data['model_metadata'] = None
             
         return data
     
@@ -133,41 +191,6 @@ class PredictorSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and hasattr(request, "user"):
             validated_data["owner"] = request.user
-        return super().create(validated_data)
-
-
-# ----------------------------
-# Predictor Permission Serializer
-# ----------------------------
-class PredictorPermissionSerializer(serializers.ModelSerializer):
-    """
-    Serializer for PredictorPermission model.
-    Manages granting access to predictors for specific users.
-    """
-    user = UserSerializer(read_only=True)
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source="user", write_only=True
-    )
-    predictor = serializers.PrimaryKeyRelatedField(queryset=Predictor.objects.all())
-    role = serializers.ChoiceField(choices=PredictorPermission.ROLE_CHOICES, default="viewer")
-
-    class Meta:
-        model = PredictorPermission
-        fields = ["id", "predictor", "user", "user_id"]
-
-    def validate_predictor(self, value):
-        """Validate that the user owns the predictor."""
-        request = self.context.get("request")
-        if not request or not request.user:
-            raise PermissionDenied("Authentication required.")
-        
-        if value.owner != request.user:
-            raise PermissionDenied("You can only grant access to predictors you own.")
-        
-        return value
-
-    def create(self, validated_data):
-        """Create predictor permission after validation."""
         return super().create(validated_data)
 
 

@@ -16,6 +16,7 @@ export type Dataset = {
   dataset_id: number;
   dataset_name: string;
   owner: number;
+  allow_admin_access: boolean;
   owner_name: string;
   file_path?: string;
   original_filename?: string;
@@ -39,12 +40,61 @@ export type CreateDatasetRequest = {
   notes?: string;
   time_unit: "year" | "month" | "day" | "hour";
   is_public: boolean;
+  allow_admin_access?: boolean;
   folder_id?: string;
 };
 
 export interface CreateDatasetResponse extends Dataset {
   processing_details?: any;
   warnings?: string[];
+}
+
+export type DatasetPermission = {
+  id: number;
+  dataset: number;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+  };
+};
+export interface DatasetStats {
+  computed_at: string;
+  schema_version: string;
+  general_stats: {
+    num_samples: number;
+    num_features: number;
+    num_numeric_features: number;
+    num_censored: number | null;
+    num_events: number | null;
+    time_min: number | null;
+    time_max: number | null;
+    time_mean: number | null;
+    time_median: number | null;
+    time_unit: string | null;
+  };
+  feature_correlations: Array<{
+    feature: string;
+    feature_type: string | null;
+    non_null_percent: number | null;
+    correlation_with_time: number | null;
+    abs_correlation: number | null;
+    mean: number | null;
+    std_dev: number | null;
+    cox_score: number | null;
+    cox_score_log: number | null;
+  }>;
+  event_time_histogram: Array<{
+    bin_start: number;
+    bin_end: number;
+    count: number;
+    events?: number;
+    censored?: number;
+  }>;
+  dataframe_metadata?: {
+    rows: number;
+    columns: number;
+  };
 }
 
 /**
@@ -57,6 +107,10 @@ export async function createDataset(request: CreateDatasetRequest): Promise<Crea
   formData.append('file', request.file);
   formData.append('time_unit', request.time_unit);
   formData.append('is_public', request.is_public.toString());
+
+  if (request.allow_admin_access !== undefined) {
+    formData.append('allow_admin_access', request.allow_admin_access.toString());
+  }
 
   if (request.notes) {
     formData.append("notes", request.notes);
@@ -111,7 +165,19 @@ export async function listPublicDatasets(folderId?: string) {
  * Grant a user viewer access (permissions are "viewer" only for datasets).
  */
 export async function grantDatasetViewer(dataset: number, user: number) {
-  return api.post("/api/datasets/permissions/", { dataset, user });
+  return api.post("/api/datasets/permissions/", { dataset, user_id: user });
+}
+
+export async function listDatasetPermissions(datasetId?: number) {
+  const data = await api.get<DatasetPermission[]>("/api/datasets/permissions/");
+  if (typeof datasetId === "number") {
+    return data.filter((perm) => perm.dataset === datasetId);
+  }
+  return data;
+}
+
+export async function revokeDatasetPermission(permissionId: number) {
+  return api.del(`/api/datasets/permissions/${permissionId}/`);
 }
 
 /**
@@ -119,6 +185,17 @@ export async function grantDatasetViewer(dataset: number, user: number) {
  */
 export async function getDataset(datasetId: number): Promise<Dataset> {
   return api.get<Dataset>(`/api/datasets/${datasetId}/`);
+}
+
+/**
+ * Fetch cached statistics for a dataset. Pass `refresh: true` to force recomputation.
+ */
+export async function getDatasetStats(
+  datasetId: number,
+  options?: { refresh?: boolean }
+): Promise<DatasetStats> {
+  const query = options?.refresh ? "?refresh=1" : "";
+  return api.get<DatasetStats>(`/api/datasets/${datasetId}/stats/${query}`);
 }
 
 /**
@@ -212,25 +289,70 @@ export function mapApiDatasetToUi(
     ? Math.round((item.file_size / (1024 * 1024)) * 10) / 10
     : undefined;
 
+  // Choose a single "raw" updated timestamp from the API payload.
+  // Prefer uploaded_at, then fall back to any other updated fields.
+  const rawUpdated =
+    item.uploaded_at ??
+    item.updated_at ??
+    item.updatedAt ??
+    item.modified ??
+    undefined;
+
   return {
     id: String(item.dataset_id ?? item.id ?? item.pk ?? ""),
     title: item.dataset_name ?? item.name ?? item.title ?? "Untitled dataset",
+
     // If API returns owner as an id, compare with current user id to produce boolean
     owner:
       typeof item.owner === "number" && currentUserId !== undefined
         ? item.owner === currentUserId
         : Boolean(item.owner),
+
     ownerId: item.owner ?? null,
     ownerName: item.owner_name ?? item.ownerName ?? null,
-    updatedAt: item.uploaded_at
-      ? formatDate(item.uploaded_at)
-      : item.updated_at ?? item.updatedAt ?? item.modified ?? undefined,
+
+    // Human-readable date for display
+    updatedAt: rawUpdated ? formatDate(rawUpdated) : undefined,
+
+    // Raw timestamp for filtering/sorting
+    updatedAtRaw: rawUpdated,
+
     notes: item.notes ?? item.description ?? "",
     sizeMB: fileSizeMB,
     hasFile: item.has_file ?? Boolean(item.file_path),
     originalFilename: item.original_filename ?? item.originalFilename,
     folderId: item.folder_id ?? undefined,
     folderName: item.folder_name ?? undefined,
+    allow_admin_access: item.allow_admin_access ?? false,
     __raw: item,
   };
+}
+
+/**
+ * Checks if the value matches the current user's ID.
+ * - If you pass a Number/String: it compares IDs
+ * - If you pass a Boolean: it just returns it
+ */
+export function isUserOwner(
+  ownerValue: number | string | boolean | { id?: number | string } | null | undefined,
+  currentUserId?: number | string | null
+): boolean {
+  if (!ownerValue || !currentUserId) return false;
+
+  // 1. Raw ID (API data)
+  if (typeof ownerValue === 'number' || typeof ownerValue === 'string') {
+    return String(ownerValue) === String(currentUserId);
+  }
+
+  // 2. Django Object
+  if (typeof ownerValue === 'object' && 'id' in ownerValue) {
+    return String((ownerValue as any).id) === String(currentUserId);
+  }
+
+  // 3. Boolean
+  if (typeof ownerValue === 'boolean') {
+    return ownerValue;
+  }
+
+  return false;
 }

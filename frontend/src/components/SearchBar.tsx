@@ -15,6 +15,7 @@ interface SearchBarProps {
   onChange: (v: string) => void;
   placeholder?: string;
   onClear?: () => void;
+  disabled?: boolean;
 }
 
 export default function SearchBar({
@@ -22,6 +23,7 @@ export default function SearchBar({
   onChange,
   placeholder = "Search",
   onClear,
+  disabled = false,
 }: SearchBarProps) {
   const id = useId();
 
@@ -41,14 +43,16 @@ export default function SearchBar({
           if (e.key === "Escape") clear(e);
         }}
         placeholder={placeholder}
-        className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-8 text-sm shadow-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+        disabled={disabled}
+        className="w-full rounded-md border border-black bg-white px-3 py-2 pr-8 text-sm focus:border-black/30 focus:ring-2 focus:ring-black/10 disabled:bg-gray-100 disabled:cursor-not-allowed"
       />
       {value && (
         <button
             type="button"
             aria-label="Clear search"
             onClick={clear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 grid h-5 w-5 place-items-center rounded hover:bg-black/10"
+            disabled={disabled}
+            className="absolute right-2 top-1/2 -translate-y-1/2 grid h-5 w-5 place-items-center rounded hover:bg-black/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
             <X size={14} />
         </button>

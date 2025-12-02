@@ -8,13 +8,14 @@ from rest_framework.exceptions import PermissionDenied
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
 
-from .models import Folder, FolderItem, FolderPermission
+from .models import Folder, FolderItem, FolderPermission, PinnedFolder
 from .serializers import (
     FolderSerializer,
     FolderPermissionSerializer,
     FolderItemSerializer,
     AddItemToFolderSerializer,
-    RemoveItemFromFolderSerializer
+    RemoveItemFromFolderSerializer,
+    PinnedFolderSerializer
 )
 
 from predictors.models import Predictor
@@ -91,13 +92,25 @@ class FolderViewSet(viewsets.ModelViewSet):
         """
         Returns folders accessible to the user using the custom manager.
         Applies auto-hide logic for public folders.
+        Supports 'owned_only' query parameter to return only owned folders.
         """
         user = self.request.user
-        return (
-            Folder.objects.accessible_to_user(user)
-            .prefetch_related('folder_items', 'permissions')
-            .order_by('name')
-        )
+        owned_only = self.request.query_params.get('owned_only', '').lower() == 'true'
+        
+        if owned_only:
+            # Return only folders owned by the user
+            return (
+                Folder.objects.filter(owner=user)
+                .prefetch_related('folder_items', 'permissions')
+                .order_by('name')
+            )
+        else:
+            # Return all accessible folders (owned + shared + public)
+            return (
+                Folder.objects.accessible_to_user(user)
+                .prefetch_related('folder_items', 'permissions')
+                .order_by('name')
+            )
     
     def get_object(self):
         """
@@ -1171,3 +1184,27 @@ def get_public_folder_contents(request, folder_id):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+# ----------------------------
+# Pinned Folder ViewSet
+# ----------------------------
+class PinnedFolderViewSet(viewsets.ModelViewSet):
+    """
+    API viewset for managing pinned folders.
+    - GET: list pinned folders
+    - POST: pin a folder
+    - DELETE: unpin a folder
+    """
+    serializer_class = PinnedFolderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Return folders pinned by the current user.
+        """
+        return PinnedFolder.objects.filter(user=self.request.user).order_by("-pinned_at")
+
+    def perform_create(self, serializer):
+        """Automatically assign the current user when pinning"""
+        serializer.save(user=self.request.user)

@@ -7,6 +7,8 @@ from .models import Predictor, PinnedPredictor, PredictorPermission
 from dataset.models import Dataset
 from folders.models import Folder, FolderItem
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.uploadedfile import SimpleUploadedFile
+from dataset.models import DatasetStatistics
 
 # ----------------------------
 # Helper to authenticate user via JWT
@@ -129,6 +131,47 @@ class PredictorViewSetTest(APITestCase):
         url = reverse("predictors-detail", args=[self.predictor.pk])
         response = self.client.patch(url, {"name": "Hacked Name"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_predictor_detail_excludes_dataset_statistics(self):
+        authenticate(self.client, self.owner)
+        payload = b"time,censored,feature_a\n5,1,0.2\n8,0,1.2\n12,1,2.4\n"
+        dataset_file = SimpleUploadedFile(
+            "predictor_stats.csv",
+            payload,
+            content_type="text/csv"
+        )
+
+        dataset_response = self.client.post(
+            '/api/datasets/',
+            {
+                'dataset_name': 'Stats Dataset',
+                'time_unit': 'day',
+                'is_public': False,
+                'file': dataset_file,
+            },
+            format='multipart'
+        )
+        self.assertEqual(dataset_response.status_code, status.HTTP_201_CREATED)
+        dataset_id = dataset_response.data['dataset_id']
+        dataset = Dataset.objects.get(dataset_id=dataset_id)
+
+        self.assertTrue(
+            DatasetStatistics.objects.filter(dataset=dataset).exists(),
+            "Dataset statistics should be stored after dataset creation."
+        )
+
+        predictor = Predictor.objects.create(
+            name="Stats Predictor",
+            description="desc",
+            dataset=dataset,
+            owner=self.owner,
+            is_private=True,
+        )
+
+        url = reverse("predictors-detail", args=[predictor.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("dataset_stats", response.data)
 
 # ----------------------------
 # PredictorPermission ViewSet Tests

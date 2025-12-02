@@ -29,13 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xddpk!60p@!pnt&o-1m%9h70r(rm-@97!t*5!d&@hvcffd2r#!'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback-key-change-this')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [    "localhost", "127.0.0.1",
-    "2605:fd00:4:1001:f816:3eff:fe77:c149"]
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -69,10 +68,13 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',  # API documentation,
+    'django_celery_results',  # Celery result backend
+    'django_celery_beat',  # Celery periodic tasks
     'accounts',
     'authapp',
     'dataset',
     'predictors',
+    'predictions',  # prediction results management
     'folders',  # folder organization
     'core'  # main app
 ]
@@ -115,11 +117,11 @@ WSGI_APPLICATION = 'isd.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD': 'Superdatabase1?',
-        'HOST': 'db.ckbvvhnocuavnzqgqitu.supabase.co',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'postgres'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {
             'sslmode': 'require',
         },
@@ -162,6 +164,26 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Production Security Settings
+if not DEBUG:
+    # HTTPS/SSL Settings (can be disabled for testing)
+    DISABLE_SSL = os.environ.get('DISABLE_SSL_REDIRECT', 'False') == 'True'
+    SECURE_SSL_REDIRECT = not DISABLE_SSL
+    SESSION_COOKIE_SECURE = not DISABLE_SSL
+    CSRF_COOKIE_SECURE = not DISABLE_SSL
+
+    # HSTS Settings (only if SSL is enabled)
+    if not DISABLE_SSL:
+        SECURE_HSTS_SECONDS = 31536000  # 1 year
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
+
+    # Other Security Headers
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
 
 # Media files (User uploaded files)
 # https://docs.djangoproject.com/en/5.2/topics/files/
@@ -195,16 +217,16 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
-FRONTEND_URL = "http://localhost:5173" 
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # Frontend dev origin
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-]
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174'
+).split(',')
 
-CORS_ALLOW_ALL_ORIGINS = True
+# Set to False in production for security
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 # JWT = False. Cookie/CSRF = True
 CORS_ALLOW_CREDENTIALS = False
@@ -218,9 +240,31 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
 ]
 
-# just keeping this here in case
-CSRF_TRUSTED_ORIGINS = [
-    "http://[2605:fd00:4:1001:f816:3eff:fe77:c149]:8080",
-    "http://localhost:5174",
-    "http://localhost:5173",
-]
+# CSRF trusted origins
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:5173,http://localhost:5174'
+).split(',')
+
+# ========================================
+# Celery Configuration
+# ========================================
+
+# Celery Broker (Redis)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+
+# Celery Result Backend (Django Database)
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_CACHE_BACKEND = 'django-cache'
+
+# Celery Task Settings
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 3600  # 1 hour timeout for training tasks
+CELERY_RESULT_EXTENDED = True
+
+# Celery Beat (Periodic Tasks)
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

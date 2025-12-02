@@ -2,242 +2,199 @@
  * ----------------------------------------------------------------------------------
  * FolderItemList
  * ----------------------------------------------------------------------------------
- * - Displays items within a folder with type distinction
- * - Shows predictors and datasets with appropriate icons and styling
- * - Supports item selection, editing, deletion, and removal from folder
- * - Groups items by type for better organization
+ * - Renders predictor and dataset items inside a folder.
+ * - Shows per-item metadata and actions (View / Edit / Delete / Remove).
+ * - Highlights selected items.
+ *
+ * Visual / accessibility cleanup:
+ * - Replaces emoji icons with lucide-react icons.
+ * - Uses higher-contrast text (gray-900 / gray-600) for readability.
+ * - Normalizes chip/badge styles and action button styles.
  */
 
-import type { PredictorItem } from "../../PredictorCard";
-import type { DatasetItem } from "../../DatasetCard";
+import { BrainCircuit, BarChart3 } from "lucide-react";
+
+export interface BasicFolderItem {
+  id: string;
+  title: string;
+  notes?: string;
+  updatedAt?: string;
+  status?: string;
+  owner?: boolean;
+  rows?: number;
+  sizeMB?: number;
+  itemType?: "predictor" | "dataset";
+  type?: "predictor" | "dataset";
+}
 
 export interface FolderItemListProps {
-  items: Array<PredictorItem | DatasetItem>;
+  items: BasicFolderItem[];
   selectedItems?: Set<string>;
-  onItemSelect?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemEdit?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemDelete?: (itemId: string, itemType: "predictor" | "dataset") => void;
-  onItemView?: (itemId: string, itemType: "predictor" | "dataset") => void;
+
+  onSelectItem?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onEditItem?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onDeleteItem?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
+  onViewItem?: (
+    itemId: string,
+    itemType: "predictor" | "dataset"
+  ) => void;
   onRemoveFromFolder?: (
     itemId: string,
     itemType: "predictor" | "dataset"
   ) => void;
-  canEdit?: boolean;
-  showRemoveAction?: boolean;
-  isLoading?: boolean;
-}
-
-// Type guard to distinguish between predictor and dataset items
-function isPredictorItem(
-  item: PredictorItem | DatasetItem
-): item is PredictorItem {
-  return "status" in item;
-}
-
-function isDatasetItem(item: PredictorItem | DatasetItem): item is DatasetItem {
-  return "rows" in item || "sizeMB" in item;
 }
 
 export default function FolderItemList({
   items,
-  selectedItems = new Set(),
-  onItemSelect,
-  onItemEdit,
-  onItemDelete,
-  onItemView,
+  selectedItems,
+  onSelectItem,
   onRemoveFromFolder,
-  canEdit = false,
-  showRemoveAction = false,
-  isLoading = false,
 }: FolderItemListProps) {
-  // Separate items by type
-  const predictors = items.filter(isPredictorItem);
-  const datasets = items.filter(isDatasetItem);
+  function effectiveType(
+    it: BasicFolderItem
+  ): "predictor" | "dataset" {
+    if (it.itemType === "predictor" || it.type === "predictor")
+      return "predictor";
+    return "dataset";
+  }
 
-  const handleItemClick = (
-    item: PredictorItem | DatasetItem,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (onItemSelect) {
-      const itemType = isPredictorItem(item) ? "predictor" : "dataset";
-      onItemSelect(item.id, itemType);
+  const predictors = items.filter(
+    (it) => effectiveType(it) === "predictor"
+  );
+  const datasets = items.filter(
+    (it) => effectiveType(it) === "dataset"
+  );
+
+  function metaChips(
+    it: BasicFolderItem,
+    t: "predictor" | "dataset"
+  ) {
+    const chips: string[] = [];
+
+    if (t === "predictor" && it.status) {
+      chips.push(it.status);
     }
-  };
 
-  const handleItemEdit = (
-    item: PredictorItem | DatasetItem,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (onItemEdit) {
-      const itemType = isPredictorItem(item) ? "predictor" : "dataset";
-      onItemEdit(item.id, itemType);
+    if (t === "dataset") {
+      if (typeof it.rows === "number") {
+        chips.push(
+          `${it.rows} row${it.rows === 1 ? "" : "s"}`
+        );
+      }
+      if (typeof it.sizeMB === "number") {
+        chips.push(`${it.sizeMB} MB`);
+      }
     }
-  };
 
-  const handleItemDelete = (
-    item: PredictorItem | DatasetItem,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (onItemDelete) {
-      const itemType = isPredictorItem(item) ? "predictor" : "dataset";
-      onItemDelete(item.id, itemType);
+    if (it.updatedAt) {
+      chips.push(it.updatedAt);
     }
-  };
 
-  const handleItemView = (
-    item: PredictorItem | DatasetItem,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (onItemView) {
-      const itemType = isPredictorItem(item) ? "predictor" : "dataset";
-      onItemView(item.id, itemType);
-    }
-  };
+    return chips;
+  }
 
-  const handleRemoveFromFolder = (
-    item: PredictorItem | DatasetItem,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    if (onRemoveFromFolder) {
-      const itemType = isPredictorItem(item) ? "predictor" : "dataset";
-      onRemoveFromFolder(item.id, itemType);
-    }
-  };
-
-  const renderItem = (
-    item: PredictorItem | DatasetItem,
-    itemType: "predictor" | "dataset"
-  ) => {
-    const isSelected = selectedItems.has(item.id);
-    const isOwner = item.owner;
+  function renderRow(it: BasicFolderItem) {
+    const t = effectiveType(it);
+    const isSelected = selectedItems?.has(it.id) ?? false;
+    const chips = metaChips(it, t);
 
     return (
       <div
-        key={`${itemType}-${item.id}`}
-        className={`group flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+        key={it.id}
+        className={`group rounded-lg border border-black/10 bg-white p-3 text-sm transition-colors ${
           isSelected
-            ? "border-black bg-gray-50"
-            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+            ? "ring-2 ring-cobalt-500"
+            : "hover:bg-gray-50"
         }`}
-        onClick={(e) => handleItemClick(item, e)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectItem?.(it.id, t);
+        }}
       >
-        <div className='flex items-center gap-3 min-w-0 flex-1'>
-          {/* Item Type Icon */}
-          <div className='text-lg flex-shrink-0'>
-            {itemType === "predictor" ? "🔮" : "📊"}
-          </div>
-
-          {/* Item Info */}
-          <div className='min-w-0 flex-1'>
-            <h4 className='font-medium text-sm truncate'>{item.title}</h4>
-            <div className='flex items-center gap-2 text-xs text-gray-500 mt-1'>
-              <span className='capitalize'>{itemType}</span>
-              {isPredictorItem(item) && item.status && (
-                <>
-                  <span>•</span>
-                  <span className='px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600'>
-                    {item.status}
-                  </span>
-                </>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-2">
+            <div className="flex-shrink-0 pt-0.5">
+              {t === "predictor" ? (
+                <BrainCircuit className="h-4 w-4 text-gray-600" />
+              ) : (
+                <BarChart3 className="h-4 w-4 text-gray-600" />
               )}
-              {isDatasetItem(item) &&
-                (item.rows !== undefined || item.sizeMB !== undefined) && (
-                  <>
-                    <span>•</span>
-                    <div className='flex items-center gap-1'>
-                      {item.rows !== undefined && (
-                        <span>{item.rows.toLocaleString()} rows</span>
-                      )}
-                      {item.sizeMB !== undefined && (
-                        <span>{item.sizeMB} MB</span>
-                      )}
-                    </div>
-                  </>
-                )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-gray-900">
+                {it.title}
+              </div>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] leading-4 text-gray-600">
+                {chips.map((piece, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700"
+                  >
+                    {piece}
+                  </span>
+                ))}
+              </div>
+
+              {it.notes ? (
+                <div className="mt-2 line-clamp-2 text-xs text-gray-600">
+                  {it.notes}
+                </div>
+              ) : null}
             </div>
           </div>
+
+          {isSelected && (
+            <div className="flex flex-col items-end gap-2 text-xs">
+
+              {onRemoveFromFolder && (
+                <button
+                  className="inline-flex items-center rounded-md border border-neutral-600 bg-neutral-100 px-2.5 py-1 text-black hover:bg-gray-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFromFolder(it.id, t);
+                  }}
+                >
+                  -
+                </button>
+              )}
+            </div>
+          )}
         </div>
-
-        {/* Item Actions */}
-        {isSelected && (
-          <div className='flex items-center gap-1 ml-2'>
-            {isOwner && canEdit ? (
-              <>
-                <button
-                  onClick={(e) => handleItemEdit(item, e)}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={(e) => handleItemDelete(item, e)}
-                  disabled={isLoading}
-                  className='rounded px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                >
-                  Delete
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={(e) => handleItemView(item, e)}
-                disabled={isLoading}
-                className='rounded px-2 py-1 text-xs hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-              >
-                View
-              </button>
-            )}
-            {showRemoveAction && (
-              <button
-                onClick={(e) => handleRemoveFromFolder(item, e)}
-                disabled={isLoading}
-                className='rounded px-2 py-1 text-xs hover:bg-gray-100 text-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                title={isLoading ? "Processing..." : "Remove from folder"}
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  if (items.length === 0) {
-    return (
-      <div className='p-4 text-center text-gray-500 text-sm'>
-        No items in this folder
       </div>
     );
   }
 
   return (
-    <div className='p-4 space-y-4'>
-      {/* Predictors Section */}
+    <div className="space-y-6">
       {predictors.length > 0 && (
         <div>
-          <h5 className='text-xs font-medium text-gray-700 uppercase tracking-wide mb-2'>
+          <h5 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-700">
             Predictors ({predictors.length})
           </h5>
-          <div className='space-y-2'>
-            {predictors.map((item) => renderItem(item, "predictor"))}
+          <div className="space-y-2">
+            {predictors.map((p) => renderRow(p))}
           </div>
         </div>
       )}
 
-      {/* Datasets Section */}
       {datasets.length > 0 && (
         <div>
-          <h5 className='text-xs font-medium text-gray-700 uppercase tracking-wide mb-2'>
+          <h5 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-700">
             Datasets ({datasets.length})
           </h5>
-          <div className='space-y-2'>
-            {datasets.map((item) => renderItem(item, "dataset"))}
+          <div className="space-y-2">
+            {datasets.map((d) => renderRow(d))}
           </div>
         </div>
       )}
