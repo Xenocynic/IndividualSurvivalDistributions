@@ -58,6 +58,12 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
       setTokens({ access: data.access });
       // retry original request
       return raw<T>(path, init);
+    } else {
+      // Refresh token is expired or invalid
+      // Clear tokens and redirect to login
+      setTokens(null);
+      window.location.href = "/login";
+      throw { status: 401, statusText: "Session expired", details: { error: "Please log in again" } };
     }
   }
 
