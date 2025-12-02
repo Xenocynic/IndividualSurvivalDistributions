@@ -293,37 +293,54 @@ This modular structure keeps the codebase organized and makes it easier to maint
 ## SonarQube Analysis
 [![High-level Architecture](isd-1.png)](isd-1.png){target=_blank}<br><br>
 
-### The codebase successfully **Passed** the default Quality Gate. The breakdown of the analysis is as follows:
+### Based on the SonarQube dashboard, the project **passes all quality gate conditions**, indicating that the codebase meets required standards for reliability, security, and maintainability. Below is a detailed breakdown of each metric and what it implies for the health of the project.
 
-### A. Overall Health Metrics
-According to the overview dashboard, the backend maintains a high standard of code health:
-* **Reliability:** Rated **A** (1 Bug found).
-* **Security:** Rated **A** (6 Vulnerabilities found).
-* **Maintainability:** Rated **A** (45 Code Smells found with a technical debt of ~7 hours).
-* **Duplications:** The code is very DRY (Don't Repeat Yourself), with only **1.4%** code duplication across 12k lines.
+---
 
-### B. Key Issues Identified
-While the project passed the quality gate, the detailed issue report highlighted several areas for refactoring to improve long-term maintainability:
+### 1. Reliability — **Rating: C**
+- **1 Bug detected**
+- Although the bug count is low, the **C rating** indicates that the issue could have a moderate impact.
+- Fixing this bug should be a priority, as reliability directly affects the correctness and stability of the application.
 
-**1. Cognitive Complexity (Maintainability)**
-The most significant issue identified is **Cognitive Complexity**. SonarQube flagged several functions where the logic flow is too difficult to follow (nested loops, complex `if/else` chains).
-* *Example:* A function in `isd/predictors/views.py` has a complexity score of **59**, well above the allowed threshold of 15.
-* *Example:* `isd/dataset/statistics.py` has functions exceeding complexity limits (scores of 17 and 41).
-* *Impact:* High complexity increases the risk of introducing bugs during future updates. These functions should be broken down into smaller helper methods.
+---
 
-**2. Error Handling (Reliability)**
-The scanner detected the use of generic exceptions (`except Exception:`) in `isd/dataset/views.py` and `isd/predictors/views.py`.
-* *Impact:* Catching generic exceptions can mask unexpected errors and make debugging difficult. The report suggests using specific exception classes.
+### 2. Security — **Rating: A**
+- **0 Vulnerabilities**
+- This demonstrates strong baseline security, with no known exploitable weaknesses.
 
-**3. Code Cleanup (Technical Debt)**
-There are multiple instances of "dead code" that clutter the repository:
-* **Unused Variables:** Variables like `e`, `folder`, and `label_cols` are defined but never used.
-* **Commented-out Code:** Found in `isd/predictors/models.py`, which should be removed to keep the source files clean.
-* **Unused Parameters:** Function parameters like `return_cv_predictions` that are not utilized within the function body.
+---
 
-**4. Hardcoded Literals (Design)**
-The tool flagged strings such as `"Predictor not found"` and `"Dataset has no associated file"` being duplicated multiple times.
-* *Solution:* These should be defined as constants at the top of the file to prevent typos and ease translation/changes.
+### 3. Maintainability — **Rating: A**
+- **45 Code Smells**
+- Estimated **7h 18min of remediation effort**
+- Code smells are not errors but indicators of areas where maintainability could be improved.
 
-### 4. Conclusion
-The SonarQube analysis confirms that the `isd` backend is structurally sound with low duplication and passing security grades. However, to reduce technical debt, the team plans to refactor the high-complexity views in `predictors` and `dataset`, and sanitize the code by removing unused variables and commented-out blocks.
+Common examples include:
+- Long or complex methods  
+- Repeated logic  
+- Unused variables  
+- Non-idiomatic patterns  
+
+---
+
+### 4. Code Duplication — **1.4%**
+- **2 duplicated code blocks**
+- Very low duplication for a project with over 12k lines.
+- This indicates clean structure and minimal redundant logic.
+
+---
+
+### Summary Table
+
+| Category              | Status / Score |
+|----------------------|----------------|
+| **Quality Gate**     | ✔ Passed       |
+| Reliability          | C (1 bug)      |
+| Security             | A              |
+| Maintainability      | A              |
+| Duplication          | 1.4% (Excellent)|
+
+---
+
+### Conclusion
+Overall, the project has strong security, low duplication, and good maintainability. The main gap is a lack of reliability. Addressing this will significantly improve code quality and long-term stability.
