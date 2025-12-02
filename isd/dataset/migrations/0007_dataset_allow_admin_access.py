@@ -9,10 +9,4 @@ class Migration(migrations.Migration):
         ('dataset', '0006_alter_dataset_options'),
     ]
 
-    operations = [
-        migrations.AddField(
-            model_name='dataset',
-            name='allow_admin_access',
-            field=models.BooleanField(default=True, help_text='Allow admins to access this dataset'),
-        ),
-    ]
+    operations = []
