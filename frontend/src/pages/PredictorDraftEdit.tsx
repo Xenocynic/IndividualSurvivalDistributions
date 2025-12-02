@@ -9,7 +9,6 @@ import {
   updatePredictor,
   grantPredictorViewer,
   trainPredictor,
-  createPredictor,
   listMyPredictors,
 } from "../lib/predictors";
 import type { Predictor } from "../lib/predictors";
@@ -240,20 +239,26 @@ export default function PredictorDraftEdit() {
         model_id: null,
       });
 
-      for (const row of rows) {
-        const username = row.username.trim();
-        if (!username) continue;
+for (const row of rows) {
+  const username = row.username.trim();
+  if (!username) continue;
 
-        let userId = row.userId;
-        if (!userId) userId = await resolveUsernameToId(username);
-        if (!userId) continue;
+  let userId: number | undefined = row.userId;
 
-        try {
-          await grantPredictorViewer(draft.predictor_id, userId, row.role);
-        } catch (e) {
-          console.error("Grant failed", e);
-        }
-      }
+  if (userId == null) {
+    const resolvedId = await resolveUsernameToId(username); 
+    if (resolvedId == null) {
+      continue;
+    }
+    userId = resolvedId;
+  }
+  try {
+    await grantPredictorViewer(draft.predictor_id, userId, row.role);
+  } catch (e) {
+    console.error("Grant failed", e);
+  }
+}
+
 
       navigate("/dashboard", { state: { tab: "predictors" } });
     } catch (e) {
@@ -314,10 +319,15 @@ export default function PredictorDraftEdit() {
         const username = row.username.trim();
         if (!username) continue;
 
-        let userId = row.userId;
-        if (!userId) userId = await resolveUsernameToId(username);
-        if (!userId) continue;
+        let userId: number | undefined = row.userId;
 
+        if (userId == null) {
+          const resolvedId = await resolveUsernameToId(username); 
+          if (resolvedId == null) {
+            continue;
+          }
+          userId = resolvedId; 
+        }
         try {
           await grantPredictorViewer(
             finalPredictor.predictor_id,
@@ -328,6 +338,7 @@ export default function PredictorDraftEdit() {
           // swallow
         }
       }
+
 
       // Step 4 — success
       setTrainingStep("complete");

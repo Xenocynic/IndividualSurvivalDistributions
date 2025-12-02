@@ -6,4 +6,4 @@
 export { default as FolderCard } from './FolderCard';
 export { default as FolderItemList } from './FolderItemList';
 export { default as FolderSelector } from './FolderSelector';
-export { default as DroppableFolder } from './DroppableFolder';
+export { default as DroppableFolder } from './DroppableFolder';  

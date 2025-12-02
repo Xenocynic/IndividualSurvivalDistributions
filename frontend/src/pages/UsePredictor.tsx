@@ -190,7 +190,8 @@ export default function UsePredictor() {
 
   // Fetch predictor's dataset columns when predictor is selected
   useEffect(() => {
-    if (!selectedPredictor?.dataset?.id) {
+    const datasetId = selectedPredictor?.dataset?.id;
+    if (!datasetId) {
       setPredictorDatasetColumns(null);
       return;
     }
@@ -201,7 +202,7 @@ export default function UsePredictor() {
       
       try {
         const data = await api.get<DatasetPreview>(
-          `/api/datasets/${selectedPredictor.dataset.id}/preview/`
+          `/api/datasets/${datasetId}/preview/`
         );
         setPredictorDatasetColumns(data.columns);
       } catch (err) {
