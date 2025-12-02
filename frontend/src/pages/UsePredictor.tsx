@@ -197,6 +197,9 @@ export default function UsePredictor() {
     }
 
     async function fetchPredictorDatasetColumns() {
+      // Add safety check for TypeScript
+      if (!selectedPredictor?.dataset?.id) return;
+      
       try {
         const data = await api.get<DatasetPreview>(
           `/api/datasets/${datasetId}/preview/`
