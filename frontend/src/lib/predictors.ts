@@ -87,6 +87,29 @@ export async function createPredictor(body: {
   use_predefined_folds?: boolean;
   run_cross_validation?: boolean;
   standardize_features?: boolean;
+  // New model configuration fields
+  model?: string;
+  post_process?: "CSD" | "CSD-iPOT";
+  n_exp?: number;
+  seed?: number;
+  time_bins?: number;
+  error_f?: string;
+  decensor_method?: "uncensored" | "margin" | "PO" | "sampling";
+  mono_method?: "ceil" | "floor" | "bootstrap";
+  interpolate?: "Linear" | "Pchip";
+  n_quantiles?: number;
+  use_train?: boolean;
+  n_sample?: number;
+  neurons?: number[];
+  norm?: boolean;
+  dropout?: number;
+  activation?: string;
+  n_epochs?: number;
+  early_stop?: boolean;
+  batch_size?: number;
+  lr?: number;
+  weight_decay?: number;
+  lam?: number;
 }) {
   return api.post<Predictor>("/api/predictors/", body);
 }
