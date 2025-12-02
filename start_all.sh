@@ -86,6 +86,31 @@ cleanup() {
 # Set up trap to cleanup on script exit or interruption
 trap cleanup EXIT INT TERM
 
+# Function to kill process running on a specific port
+kill_port() {
+    local port=$1
+    local service_name=$2
+
+    # Find PID of process using the port
+    local pid=$(lsof -ti:$port 2>/dev/null)
+
+    if [ -n "$pid" ]; then
+        echo -e "${YELLOW}Found existing process on port $port (PID: $pid) for $service_name${NC}"
+        echo -e "${YELLOW}Killing process...${NC}"
+        kill -9 $pid 2>/dev/null || true
+        sleep 1
+
+        # Verify the process is killed
+        if lsof -ti:$port >/dev/null 2>&1; then
+            echo -e "${RED}Warning: Failed to kill process on port $port${NC}"
+            return 1
+        else
+            echo -e "${GREEN}✅ Successfully freed port $port${NC}"
+        fi
+    fi
+    return 0
+}
+
 # Function to check and recreate virtual environment if needed
 check_and_setup_venv() {
     local venv_dir="$1"
@@ -125,6 +150,15 @@ echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}Celery Setup & Service Startup${NC}"
 echo -e "${CYAN}========================================${NC}"
 
+# Check if lsof is available (needed for port checking)
+if ! command -v lsof &> /dev/null; then
+    echo -e "${RED}❌ lsof is not installed.${NC}"
+    echo -e "${YELLOW}Please install lsof:${NC}"
+    echo -e "  Ubuntu/Debian: sudo apt-get install lsof"
+    echo -e "  macOS: It should be pre-installed"
+    exit 1
+fi
+
 # Check if Redis is running
 echo -e "\n${MAGENTA}Checking Redis...${NC}"
 if ! command -v redis-cli &> /dev/null; then
@@ -157,6 +191,15 @@ python manage.py migrate django_celery_beat --noinput >> "$CELERY_LOG" 2>&1 || t
 
 echo -e "${GREEN}✅ Celery migrations complete${NC}"
 cd "$PROJECT_ROOT"
+
+echo -e "\n${CYAN}========================================${NC}"
+echo -e "${CYAN}Checking for Existing Processes on Ports${NC}"
+echo -e "${CYAN}========================================${NC}"
+
+# Kill any existing processes on the ports we need
+kill_port 8000 "Backend"
+kill_port 5173 "Frontend"
+kill_port 5000 "ML API"
 
 echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}Starting All Services${NC}"
