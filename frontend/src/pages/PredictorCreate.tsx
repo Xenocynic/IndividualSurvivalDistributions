@@ -86,8 +86,9 @@ export default function PredictorCreate() {
   // training state
   const [trainingStep, setTrainingStep] = useState<TrainingStep>("idle");
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const [createdPredictorId, setCreatedPredictorId] =
-    useState<number | null>(null);
+  const [createdPredictorId, setCreatedPredictorId] = useState<number | undefined>(
+    undefined
+  );
   const [showTrainingModal, setShowTrainingModal] = useState(false);
 
   // Advanced settings - Model Selection
@@ -97,7 +98,7 @@ export default function PredictorCreate() {
   const [postProcess, setPostProcess] = useState<"CSD" | "CSD-iPOT">("CSD");
   const [nExp, setNExp] = useState<number>(10);
   const [seed, setSeed] = useState<number>(0);
-  const [timeBins, setTimeBins] = useState<number | null>(null);
+  const [timeBins, setTimeBins] = useState<number | undefined>(undefined);
 
   // Conformalization Settings
   const [decensorMethod, setDecensorMethod] = useState<
@@ -341,11 +342,14 @@ export default function PredictorCreate() {
       for (const row of rows) {
         const username = row.username.trim();
         if (!username) continue;
-        let userId = row.userId;
-        if (!userId) {
-          userId = await resolveUsernameToId(username);
+        let userId: number | undefined = row.userId;
+        if (userId == null) {
+          const resolvedId = await resolveUsernameToId(username); // number | null
+          if (resolvedId == null) {
+            continue;
+          }
+          userId = resolvedId; 
         }
-        if (!userId) continue;
 
         try {
           await grantPredictorViewer(created.predictor_id, userId, row.role);
@@ -353,6 +357,7 @@ export default function PredictorCreate() {
           console.error("Grant failed", e);
         }
       }
+
 
       // Step 3: Start async training
       setTrainingStep("training");
@@ -366,7 +371,7 @@ export default function PredictorCreate() {
           ...(["MTLR", "CoxPH", "CQRNN", "LogNormalNN"].includes(
             selectedModel
           ) &&
-            timeBins !== null && { time_bins: timeBins }),
+            typeof timeBins === "number" && { time_bins: timeBins }),
 
           // Conformalization
           error_f: "Quantile",
@@ -451,11 +456,10 @@ export default function PredictorCreate() {
         model_id: null,
       };
 
-      let draft;
       if (isDraftMode && draftId) {
-        draft = await updatePredictor(Number(draftId), payload);
+        await updatePredictor(Number(draftId), payload);
       } else {
-        draft = await createPredictor(payload);
+        await createPredictor(payload);
       }
 
       navigate("/dashboard", { state: { tab: "predictors" } });
@@ -873,7 +877,7 @@ export default function PredictorCreate() {
       )}
 
       {/* Training Modal (async, shared component) */}
-      {showTrainingModal && createdPredictorId && (
+      {showTrainingModal && createdPredictorId !== undefined && (
         <TrainingModal
           predictorId={createdPredictorId}
           onClose={() => {
@@ -985,8 +989,8 @@ interface AdvancedSettingsProps {
   setNExp: (v: number) => void;
   seed: number;
   setSeed: (v: number) => void;
-  timeBins: number | null;
-  setTimeBins: (v: number | null) => void;
+  timeBins: number | undefined;
+  setTimeBins: (v: number | undefined) => void;
   decensorMethod: "uncensored" | "margin" | "PO" | "sampling";
   setDecensorMethod: (v: "uncensored" | "margin" | "PO" | "sampling") => void;
   monoMethod: "ceil" | "floor" | "bootstrap";
@@ -1189,7 +1193,7 @@ function AdvancedSettingsSection(props: AdvancedSettingsProps) {
               <div>
                 <label
                   htmlFor="seed"
-                  className="block text-sm font-medium text-neutral-700"
+                  className="block text sm font-medium text-neutral-700"
                 >
                   Random Seed
                 </label>
@@ -1218,10 +1222,10 @@ function AdvancedSettingsSection(props: AdvancedSettingsProps) {
                   <input
                     type="number"
                     id="time_bins"
-                    value={timeBins || ""}
+                    value={timeBins ?? ""}
                     onChange={(e) =>
                       setTimeBins(
-                        e.target.value ? Number(e.target.value) : null
+                        e.target.value ? Number(e.target.value) : undefined
                       )
                     }
                     disabled={disabled}
