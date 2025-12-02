@@ -999,7 +999,7 @@ export default function SelectFeaturesPage() {
 
             {trainingStep === "creating" && (
               <div className="text-center">
-                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-neutral-800" />
                 <h3 className="text-lg font-semibold text-neutral-900">
                   Creating predictor…
                 </h3>
