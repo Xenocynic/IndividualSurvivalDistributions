@@ -195,8 +195,8 @@ export default function Landing() {
 
               <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-neutral-300">
                 PSSP fits individualized survival models on historical patient
-                cohorts and produces an individual survival distribution (ISD)&nbsp;— 
-                a full survival curve&nbsp;— for each new patient based on their covariates.
+                cohorts and produces an individual survival distribution (ISD) -
+                a full survival curve - for each new patient based on their covariates.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
