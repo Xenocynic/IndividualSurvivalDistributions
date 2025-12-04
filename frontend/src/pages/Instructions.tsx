@@ -212,8 +212,13 @@ export default function Instructions(): JSX.Element {
           Start with a short tour of the site. It shows how to upload datasets,
           train predictors, and run predictions.
         </p>
-        <div className="mt-3 flex aspect-video w-full max-w-3xl items-center justify-center rounded-lg bg-neutral-900 text-sm text-neutral-100">
-          Embed tutorial video here.
+        <div className="mt-3 w-full max-w-3xl">
+          <iframe
+            src="https://drive.google.com/file/d/1f0mE0fCSqt5YZdOFMuFeU1B3K7O6ANR2/preview"
+            className="aspect-video w-full rounded-lg border border-neutral-200"
+            allow="autoplay"
+            allowFullScreen
+          />
         </div>
       </div>
     </details>
