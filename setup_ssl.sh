@@ -11,7 +11,7 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-DOMAIN="isd.srv.ualberta.ca"
+DOMAIN="myisd.ca"
 
 echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}SSL Certificate Setup for $DOMAIN${NC}"
@@ -49,8 +49,8 @@ if grep -q "DISABLE_SSL_REDIRECT=True" .env; then
 fi
 
 # Update CORS and CSRF to use HTTPS
-sed -i "s|http://isd.srv.ualberta.ca|https://isd.srv.ualberta.ca|g" .env
-sed -i "s|VITE_API_BASE_URL=http://localhost:8000|VITE_API_BASE_URL=https://isd.srv.ualberta.ca|g" .env
+sed -i "s|http://myisd.ca|https://myisd.ca|g" .env
+sed -i "s|VITE_API_BASE_URL=http://localhost:8000|VITE_API_BASE_URL=https://myisd.ca|g" .env
 
 # Restart services
 echo -e "\n${GREEN}Restarting services...${NC}"

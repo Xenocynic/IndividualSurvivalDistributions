@@ -301,7 +301,7 @@ sudo systemctl status nginx --no-pager -l | head -5
 
 echo -e "\n${CYAN}========================================${NC}"
 echo -e "${CYAN}Access your application at:${NC}"
-echo -e "${GREEN}https://isd.srv.ualberta.ca/${NC}"
+echo -e "${GREEN}https://myisd.ca/${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
 echo -e "${YELLOW}Note: SSL/HTTPS is currently disabled${NC}"
