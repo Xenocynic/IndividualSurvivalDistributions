@@ -1,67 +1,38 @@
-# Fall 2025 EZ Survival Project
+# Individual Survival DIstributions
+Created as a part of CMPUT 401 at the University of ALberta. Also termed 'EZ Survival Prediction'. 
 
-DO NOT use this branch. Only meant for merging through PRs.
+## What is ISD?
+This project is a web application for survival prediction and analysis. It permits machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters, evaluate the models using various metrics, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also allow the secure storage, search, and evaluation of datasets and models via its web interface.
+
+Demo video: https://drive.google.com/file/d/1f0mE0fCSqt5YZdOFMuFeU1B3K7O6ANR2/view
+
+## Clients
+This application was developed for the Department of Computing Science at University of Alberta. Our clients were Dr. Russ Greiner and Nasimeh Asgarian (MSc.).
 
 ## Team 
 
-| Name | CCID | Email |
-|-|-|-|
-| Advi Islam | sahi2 | sahi2@ualberta.ca |
-| Alex Ho | amho | amho@ualberta.ca |
-| Excel Ojeifo | eojeifo | eojeifo@ualberta.ca | 
-| Hoang Nguyen | hhn1 | hhn1@ualberta.ca |
-| Selena Chainani | chainani | chainani@ualberta.ca |
-| Shahmeer Rahman | syedsha2 | syedsha2@ualberta.ca |
-| Yaatheshini Ashok Kumar | yaathesh | yaathesh@ualberta.ca | 
-
-## Clients
-Dept. of Computing Science
-
-| Name | Email |
+| Name | Main Designation(s) |
 |-|-|
-| Russ Greiner | rgreiner@ualberta.ca |
-| Nasimeh Asgarian | asgarian@ualberta.ca |
+| Advi Islam | Backend |
+| Alex Ho | Fullstack |
+| Excel Ojeifo | ML | 
+| Hoang Nguyen | Backend |
+| Shahmeer Rahman | Frontend |
+| Yaatheshini Ashok Kumar | Fullstack, Scrum Master | 
+| Selena Chainani | Frontend, Product Owner |
 
-## TA
-| Name | Email |
-|-|-|
-| Amir Salimi | asalimi@ualberta.ca |
+## My Role
+I served as the team's frontend developer and product owner! 
 
-## Instructions
+I designed and implemented the React / TypeScript frontend, connected most user workflows to backend prediction services, and helped integrate features such as dataset upload, predictor creation, predictor privacy controls, saved draft predictors, labelled-data prediction runs, result visualization, and export workflows. 
 
-### Documentation Edits
+As product owner, I assisted with translating client requirements into user stories, prioritized sprint work, coordinated task assignments, and acted as the liaison between the client and development team, leading most meetings.
 
-1. NEVER TOUCH the gh-deploy branch
-2. Edit the md files to edit the documentation, commit changes to git, then run `mkdocs gh-deploy`
-3. Check `https://ualberta-cmput401.github.io/f25project-DeptofComputingScience/`
-
-1. **Clone and setup**
-   ```bash
-   cd isd
-   python -m venv .venv
-   source .venv/bin/activate  # On macOS/Linux
-   pip install -r requirements.txt
-   ```
-
-2. **Run the application**
-   ```bash
-   python manage.py migrate
-   python manage.py runserver 8000
-   ```
-
-3. **Deploy frontend**
-   ```bash
-   cd frontend
-   ```
-   - Create .env.local file containing:
-   ```bash
-   VITE_API_BASE_URL=http://localhost:8000
-   VITE_AUTH_MODE=real
-   ```
-   ```bash
-   npm install
-   npm run dev
-   ```
-   
+## Tech Stack
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+- Backend: Django
+- Machine Learning: Python, MTLR (survival prediction model)
+- DBMS: Supabase, PostgreSQL
+- Deployment: Cybera Cloud (Virtual Machines)
 
 
