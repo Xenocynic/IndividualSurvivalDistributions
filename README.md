@@ -15,11 +15,14 @@ This application was developed for the Department of Computing Science at Univer
 |-|-|
 | Advi Islam | Backend |
 | Alex Ho | Fullstack |
-| Excel Ojeifo | ML | 
+| Excel Ojeifo | ML* | 
 | Hoang Nguyen | Backend |
 | Shahmeer Rahman | Frontend |
 | Yaatheshini Ashok Kumar | Fullstack, Scrum Master | 
 | Selena Chainani | Frontend, Product Owner |
+
+*with special thanks to Dr. Shi-ang Qi for the consult and assistance!
+
 
 ## My Role
 I served as the team's frontend developer and product owner! 
