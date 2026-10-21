@@ -1,5 +1,5 @@
 # Individual Survival DIstributions
-Created as a part of CMPUT 401 at the University of ALberta. Also termed 'EZ Survival Prediction'. 
+Created as a part of CMPUT 401 at the University of Alberta. Also termed 'EZ Survival Prediction'. [Check out the deployed site here!](https://myisd.ca/)
 
 ## What is ISD?
 This project is a web application for survival prediction and analysis. It permits machine learning researchers and other practitioners in the relevant fields upload survival datasets, train survival models with adjustable parameters, evaluate the models using various metrics, and obtain Individual Survival Distributions (ISDs) for new instances. The system will also allow the secure storage, search, and evaluation of datasets and models via its web interface.
